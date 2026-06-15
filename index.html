@@ -201,9 +201,7 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
     </div>
   </div>
   <button class="btn btn-sec" onclick="irConsultas()" style="margin-top:16px">📊 Consultas e relatórios</button>
-  <button class="btn btn-sec" onclick="irResumo()" style="margin-top:10px">🗂️ Resumo por categoria</button>
   <button class="btn btn-sec" onclick="irUltimos()" style="margin-top:10px">📝 Últimos lançamentos</button>
-  <button class="btn btn-sec" onclick="irMarcarPago()" style="margin-top:10px">✔️ Marcar como pago</button>
 </div>
 
 <!-- ===== TELA RESUMO: totais por categoria com filtro de mês ===== -->
@@ -278,6 +276,7 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
     <button class="km-modo-btn" id="cfAtraso" onclick="setConsulta('atraso')">⚠️ Em atraso</button>
     <button class="km-modo-btn" id="cfRecebidos" onclick="setConsulta('recebidos')">✅ Recebidos</button>
     <button class="km-modo-btn" id="cfParcelados" onclick="setConsulta('parcelados')">🧾 Parcelados</button>
+    <button class="km-modo-btn" id="cfResumo" onclick="setConsulta('resumo')">🗂️ Resumo</button>
   </div>
   <div id="consultaTitulo" style="font-size:14px;color:var(--dourado);font-weight:600;margin-bottom:10px"></div>
   <div id="consultaConteudo">
@@ -285,6 +284,7 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
   </div>
   <button class="btn btn-ok hidden" id="btnCopiarConsulta" onclick="copiarConsulta()" style="margin-top:14px">📋 Copiar para o financeiro</button>
   <button class="btn btn-primario hidden" id="btnGerarPdf" onclick="gerarPdf()" style="margin-top:10px">📄 Gerar PDF</button>
+  <button class="btn btn-sec" id="btnMarcarVarios" onclick="irMarcarPago()" style="margin-top:10px">✔️ Marcar vários como pago (por mês)</button>
   <button class="btn btn-sec" onclick="voltarInicio()" style="margin-top:10px">← Voltar</button>
 </div>
 
@@ -447,14 +447,6 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
 </div>
 
 <!-- ===== RODAPÉ: previsibilidade do mês ===== -->
-<div class="rodape" id="rodape">
-  <div>
-    <div class="lbl">Seus reembolsos a receber</div>
-    <div class="val" id="rodapeTotal">R$ 0,00</div>
-  </div>
-  <button class="btn btn-sec" style="width:auto;padding:8px 14px;font-size:13px" onclick="atualizarTotal()">↻</button>
-</div>
-
 <!-- ===== LOADING & TOAST ===== -->
 <div id="loading" class="loading hidden">
   <div class="spinner"></div>
@@ -589,9 +581,9 @@ function mostrarTela(id){
     document.getElementById(t).classList.add('hidden');
   });
   document.getElementById(id).classList.remove('hidden');
-  // rodapé só nas telas operacionais (esconde na seleção e setup)
-  document.getElementById('rodape').style.display =
-    (id==='telaSetup' || id==='telaSelecao') ? 'none' : 'flex';
+  // rodapé removido; guard para compatibilidade
+  const rod = document.getElementById('rodape');
+  if(rod) rod.style.display = (id==='telaSetup' || id==='telaSelecao') ? 'none' : 'flex';
   // botão voltar no cabeçalho: aparece em telas internas, some no início/seleção/setup
   const semVoltar = ['telaSelecao','telaSetup','telaInicio'];
   document.getElementById('hdVoltar').style.display = semVoltar.includes(id) ? 'none' : 'flex';
@@ -961,6 +953,10 @@ function mostrarSucesso(p, r){
    MÓDULO: Previsibilidade (total a receber no rodapé)
 ===================================================================== */
 async function atualizarTotal(){
+  // O rodapé foi removido; o total agora vive nos cartões da tela inicial.
+  // Mantida por compatibilidade: atualiza os cartões se estiver na tela inicial.
+  const el = document.getElementById('rodapeTotal');
+  if(!el){ atualizarCartoes(); return; }
   try{
     const resp = await fetch(CONFIG.WEBHOOK_TOTAL,{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -968,8 +964,7 @@ async function atualizarTotal(){
     });
     const r = await resp.json();
     if(r&&r.total!==undefined){
-      document.getElementById('rodapeTotal').textContent =
-        'R$ '+Number(r.total).toLocaleString('pt-BR',{minimumFractionDigits:2});
+      el.textContent = 'R$ '+Number(r.total).toLocaleString('pt-BR',{minimumFractionDigits:2});
     }
   }catch(e){ /* silencioso */ }
 }
@@ -1318,7 +1313,7 @@ async function irConsultas(){
 
 function setConsulta(filtro){
   consultaFiltro = filtro;
-  ['proximo','aberto','atraso','recebidos','parcelados'].forEach(f=>{
+  ['proximo','aberto','atraso','recebidos','parcelados','resumo'].forEach(f=>{
     const el=document.getElementById('cf'+f.charAt(0).toUpperCase()+f.slice(1));
     if(el) el.classList.toggle('ativo', f===filtro);
   });
@@ -1369,6 +1364,11 @@ function renderConsulta(){
   }else if(consultaFiltro==='parcelados'){
     lista=consultaLista.filter(l=>l.observacoes && /\(\d+\/\d+\)/.test(l.observacoes));
     tit='🧾 Contas parceladas';
+  }else if(consultaFiltro==='resumo'){
+    // resumo por categoria do que está em aberto
+    lista=consultaLista.filter(l=>l.status!=='Pago');
+    renderResumoCategoria(lista);
+    return;
   }
   // ordena por vencimento crescente (mais próximo no topo); recebidos por data de pagamento
   lista.sort((a,b)=>{
@@ -1389,10 +1389,14 @@ function renderConsulta(){
     cont.innerHTML='<p style="color:var(--txt2);text-align:center;padding:20px 0">Nada nesta visão.</p>';
     btnCopiar.classList.add('hidden');
     btnPdf.classList.add('hidden');
+    const bmv0=document.getElementById('btnMarcarVarios'); if(bmv0) bmv0.style.display='none';
     return;
   }
   btnCopiar.classList.remove('hidden');
   btnPdf.classList.remove('hidden');
+  // botão "marcar vários" só nas visões com contas a pagar
+  const bmv=document.getElementById('btnMarcarVarios');
+  if(bmv) bmv.style.display = (['proximo','aberto','atraso','parcelados'].includes(consultaFiltro)) ? 'block' : 'none';
 
   let html='';
   lista.forEach(l=>{
@@ -1418,6 +1422,41 @@ function renderConsulta(){
       ${!pago?`<button class="btn btn-ok" style="width:auto;padding:6px 12px;font-size:12px" onclick='marcarConsulta(${JSON.stringify(l).replace(/'/g,"&#39;")})'>✔️ Recebido</button>`:'<span></span>'}</div>
     </div>`;
   });
+  cont.innerHTML=html;
+}
+
+/* Renderiza o resumo por categoria (modo 'resumo' da Central) */
+function renderResumoCategoria(lista){
+  const cont=document.getElementById('consultaConteudo');
+  const titulo=document.getElementById('consultaTitulo');
+  const fmt=(n)=>Number(String(n).replace(',','.')).toLocaleString('pt-BR',{minimumFractionDigits:2});
+  const porCat={}; let total=0;
+  lista.forEach(l=>{
+    const v=Number(String(l.valor_total).replace(',','.'))||0;
+    total+=v;
+    const c=l.categoria||'Outros';
+    porCat[c]=(porCat[c]||0)+v;
+  });
+  const linhas=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  consultaVisivel=lista; // para o copiar/PDF usarem os mesmos dados
+
+  titulo.textContent=`🗂️ Resumo por categoria (em aberto)  •  R$ ${fmt(total)}`;
+  const btnCopiar=document.getElementById('btnCopiarConsulta');
+  const btnPdf=document.getElementById('btnGerarPdf');
+  if(!linhas.length){
+    cont.innerHTML='<p style="color:var(--txt2);text-align:center;padding:20px 0">Nada em aberto.</p>';
+    btnCopiar.classList.add('hidden'); btnPdf.classList.add('hidden');
+    return;
+  }
+  btnCopiar.classList.remove('hidden');
+  btnPdf.classList.remove('hidden');
+  const bmv2=document.getElementById('btnMarcarVarios');
+  if(bmv2) bmv2.style.display='none'; // resumo não marca
+  let html='<div class="km-resumo">';
+  linhas.forEach(([cat,v])=>{
+    html+=`<div class="row"><span>${cat}</span><span style="color:var(--dourado)">R$ ${fmt(v)}</span></div>`;
+  });
+  html+=`<div class="row total"><span>TOTAL</span><span>R$ ${fmt(total)}</span></div></div>`;
   cont.innerHTML=html;
 }
 
