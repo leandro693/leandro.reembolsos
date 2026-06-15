@@ -174,7 +174,7 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
 <!-- ===== TELA 1: ESCOLHA (Foto ou Manual) ===== -->
 <div id="telaInicio" class="wrap hidden">
   <!-- Cartões de saldo (preenchidos ao abrir) -->
-  <div style="display:flex;gap:10px;margin-bottom:16px">
+  <div style="display:flex;gap:10px;margin-bottom:10px">
     <div onclick="irConsultaCartao('proximo')" style="flex:1;background:linear-gradient(135deg,#DB8438,#c5732e);border-radius:14px;padding:14px;cursor:pointer">
       <div style="font-size:11px;color:rgba(255,255,255,.85)">📅 Próximo vencimento</div>
       <div id="cardProximoData" style="font-size:10px;color:rgba(255,255,255,.7);margin:2px 0"></div>
@@ -184,6 +184,16 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
       <div style="font-size:11px;color:rgba(255,255,255,.85)">📂 Total a receber</div>
       <div style="font-size:10px;color:rgba(255,255,255,.7);margin:2px 0">em aberto</div>
       <div id="cardTotalValor" style="font-size:20px;font-weight:700;color:var(--dourado)">R$ 0,00</div>
+    </div>
+  </div>
+  <!-- Cartão de atraso: só aparece se houver valores vencidos não recebidos -->
+  <div id="cardAtraso" onclick="irConsultaCartao('atraso')" style="display:none;background:linear-gradient(135deg,#b3261e,#8c1d17);border-radius:14px;padding:12px 14px;cursor:pointer;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;color:rgba(255,255,255,.9)">⚠️ Em atraso (vencido e não recebido)</div>
+        <div id="cardAtrasoQtd" style="font-size:10px;color:rgba(255,255,255,.75);margin-top:2px"></div>
+      </div>
+      <div id="cardAtrasoValor" style="font-size:20px;font-weight:700;color:#fff">R$ 0,00</div>
     </div>
   </div>
 
@@ -238,11 +248,16 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
     <input type="number" id="eValor" inputmode="decimal">
   </div>
   <div class="campo">
+    <label>Vencimento</label>
+    <input type="date" id="eVencimento">
+    <button type="button" class="btn btn-sec" onclick="adiarUmMes()" style="margin-top:8px;padding:8px;font-size:13px">📅 Adiar 1 mês</button>
+  </div>
+  <div class="campo">
     <label>Observações</label>
     <textarea id="eObs"></textarea>
   </div>
   <button class="btn btn-ok" onclick="salvarEdicao()">💾 Salvar alterações</button>
-  <button class="btn btn-sec" onclick="irUltimos()" style="margin-top:10px">← Cancelar</button>
+  <button class="btn btn-sec" onclick="voltarContexto()" style="margin-top:10px">← Cancelar</button>
 </div>
 
 <!-- ===== TELA: MARCAR COMO PAGO ===== -->
@@ -597,7 +612,9 @@ function voltarInicio(){ limparForm(); mostrarTela('telaInicio'); }
 
 /* Voltar contextual: da edição volta pra lista; das demais volta ao início */
 function voltarContexto(){
-  if(telaCorrente==='telaEditar'){ irUltimos(); }
+  if(telaCorrente==='telaEditar'){
+    if(edicaoOrigem==='telaConsultas'){ irConsultas(); } else { irUltimos(); }
+  }
   else { voltarInicio(); }
 }
 function irFoto(){
@@ -991,6 +1008,22 @@ async function atualizarCartoes(){
     const totalProx = doProximo.reduce((s,l)=>s+(Number(String(l.valor_total).replace(',','.'))||0),0);
     document.getElementById('cardProximoData').textContent = pv;
     document.getElementById('cardProximoValor').textContent = 'R$ '+fmt(totalProx);
+    // atraso: vencido (antes de hoje) e não recebido
+    const hoje=new Date();
+    const hojeMeiaNoite=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate());
+    const atrasados=lista.filter(l=>{
+      const v=parseBR(l.vencimento);
+      return v && v < hojeMeiaNoite;
+    });
+    const totalAtraso=atrasados.reduce((s,l)=>s+(Number(String(l.valor_total).replace(',','.'))||0),0);
+    const cardAtr=document.getElementById('cardAtraso');
+    if(atrasados.length>0){
+      cardAtr.style.display='block';
+      document.getElementById('cardAtrasoValor').textContent='R$ '+fmt(totalAtraso);
+      document.getElementById('cardAtrasoQtd').textContent=`${atrasados.length} lançamento(s) — toque para resolver`;
+    }else{
+      cardAtr.style.display='none';
+    }
   }catch(e){ /* silencioso */ }
 }
 
@@ -1119,23 +1152,51 @@ function renderUltimos(lista){
   cont.innerHTML = html;
 }
 
-function abrirEdicao(l){
+let edicaoOrigem = 'telaUltimos'; // de onde a edição foi aberta (para voltar certo)
+
+function abrirEdicao(l, origem){
   edicaoAtual = l;
+  edicaoOrigem = origem || 'telaUltimos';
   const sel = document.getElementById('eCategoria');
   sel.innerHTML='';
   CATEGORIAS.forEach(c=>{ const o=document.createElement('option'); o.value=c.key; o.textContent=c.label; sel.appendChild(o); });
   sel.value = l.categoria;
   document.getElementById('eValor').value = String(l.valor_total).replace(',','.');
   document.getElementById('eObs').value = l.observacoes||'';
+  // vencimento: converte DD/MM/AAAA -> AAAA-MM-DD para o input date
+  const p = String(l.vencimento||'').split('/');
+  document.getElementById('eVencimento').value = (p.length===3) ? `${p[2]}-${p[1]}-${p[0]}` : '';
   mostrarTela('telaEditar');
+}
+
+/* Adia o vencimento para o dia 10 do mês seguinte ao vencimento atual */
+function adiarUmMes(){
+  const atual = document.getElementById('eVencimento').value; // AAAA-MM-DD
+  let base;
+  if(atual){ const [a,m,d]=atual.split('-').map(Number); base=new Date(a,m-1,d); }
+  else { base=new Date(); }
+  // vai pro dia 10 do mês seguinte
+  let mes=base.getMonth()+1, ano=base.getFullYear();
+  if(mes>11){ mes=0; ano++; }
+  const novaData=new Date(ano,mes,10);
+  const aaaa=novaData.getFullYear();
+  const mm=String(novaData.getMonth()+1).padStart(2,'0');
+  const novaStr=`${aaaa}-${mm}-10`;
+  const dataBR=`10/${mm}/${aaaa}`;
+  if(!confirm('Adiar o vencimento para '+dataBR+'?')) return;
+  document.getElementById('eVencimento').value=novaStr;
+  toast('Vencimento ajustado para '+dataBR+'. Salve para confirmar.','ok');
 }
 
 async function salvarEdicao(){
   if(!edicaoAtual) return;
+  const vencInput = document.getElementById('eVencimento').value; // AAAA-MM-DD
+  const vencimentoBR = vencInput ? vencInput.split('-').reverse().join('/') : '';
   const payload = {
     id_linha: edicaoAtual.id_linha,
     categoria: document.getElementById('eCategoria').value,
     valor_total: parseFloat((document.getElementById('eValor').value||'0').replace(',','.'))||0,
+    vencimento: vencimentoBR,
     observacoes: document.getElementById('eObs').value.trim()
   };
   carregando(true,'Salvando...');
@@ -1146,7 +1207,10 @@ async function salvarEdicao(){
     if(!resp.ok) throw new Error('status '+resp.status);
     carregando(false);
     toast('Lançamento atualizado!','ok');
-    irUltimos();
+    // volta para a origem (Central ou Últimos)
+    if(edicaoOrigem==='telaConsultas'){ irConsultas(); }
+    else { irUltimos(); }
+    atualizarCartoes();
   }catch(e){ carregando(false); toast('Erro ao salvar: '+e.message,'erro'); }
 }
 
@@ -1418,11 +1482,21 @@ function renderConsulta(){
       <div class="row"><span style="font-weight:600">${l.categoria} ${tag}</span><span style="color:var(--dourado)">R$ ${fmt(l.valor_total)}</span></div>
       <div class="row"><span style="font-size:12px;color:var(--txt2)">${l.fornecedor}</span><span style="font-size:12px;color:var(--txt2)">venc ${l.vencimento}</span></div>
       ${extras}
-      <div class="row"><span style="font-size:11px;color:${pago?'var(--ok)':'var(--aviso)'}">${pago?'✅ Recebido '+(l.data_pagamento||''):'⏳ A receber'}</span>
-      ${!pago?`<button class="btn btn-ok" style="width:auto;padding:6px 12px;font-size:12px" onclick='marcarConsulta(${JSON.stringify(l).replace(/'/g,"&#39;")})'>✔️ Recebido</button>`:'<span></span>'}</div>
+      <div class="row"><span style="font-size:11px;color:${pago?'var(--ok)':'var(--aviso)'}">${pago?'✅ Recebido '+(l.data_pagamento||''):'⏳ A receber'}</span><span></span></div>
+      <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${!pago?`<button class="btn btn-ok" style="flex:1;padding:7px;font-size:12px" onclick='marcarConsulta(${JSON.stringify(l).replace(/'/g,"&#39;")})'>✔️ Recebido</button>`:''}
+        <button class="btn btn-sec" style="flex:1;padding:7px;font-size:12px" onclick='abrirEdicao(${JSON.stringify(l).replace(/'/g,"&#39;")}, "telaConsultas")'>✏️ Editar</button>
+        ${l.comprovante?`<button class="btn btn-sec" style="flex:1;padding:7px;font-size:12px" onclick='verComprovante(${JSON.stringify(l.comprovante).replace(/'/g,"&#39;")})'>📎 Comprovante</button>`:''}
+      </div>
     </div>`;
   });
   cont.innerHTML=html;
+}
+
+/* Abre o comprovante (Drive) em nova aba */
+function verComprovante(url){
+  if(!url){ toast('Sem comprovante neste lançamento','erro'); return; }
+  window.open(url, '_blank');
 }
 
 /* Renderiza o resumo por categoria (modo 'resumo' da Central) */
