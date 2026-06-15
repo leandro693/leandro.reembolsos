@@ -173,6 +173,20 @@ header .user{font-size:12px;color:var(--dourado);background:rgba(255,255,255,.08
 
 <!-- ===== TELA 1: ESCOLHA (Foto ou Manual) ===== -->
 <div id="telaInicio" class="wrap hidden">
+  <!-- Cartões de saldo (preenchidos ao abrir) -->
+  <div style="display:flex;gap:10px;margin-bottom:16px">
+    <div onclick="irConsultaCartao('proximo')" style="flex:1;background:linear-gradient(135deg,#DB8438,#c5732e);border-radius:14px;padding:14px;cursor:pointer">
+      <div style="font-size:11px;color:rgba(255,255,255,.85)">📅 Próximo vencimento</div>
+      <div id="cardProximoData" style="font-size:10px;color:rgba(255,255,255,.7);margin:2px 0"></div>
+      <div id="cardProximoValor" style="font-size:20px;font-weight:700;color:#fff">R$ 0,00</div>
+    </div>
+    <div onclick="irConsultaCartao('aberto')" style="flex:1;background:linear-gradient(135deg,#39393B,#2a2a2c);border-radius:14px;padding:14px;cursor:pointer">
+      <div style="font-size:11px;color:rgba(255,255,255,.85)">📂 Total a receber</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.7);margin:2px 0">em aberto</div>
+      <div id="cardTotalValor" style="font-size:20px;font-weight:700;color:var(--dourado)">R$ 0,00</div>
+    </div>
+  </div>
+
   <p style="color:var(--txt2);font-size:14px;margin-bottom:14px">Como quer lançar o reembolso?</p>
   <div class="escolha">
     <div class="btn-grande" onclick="irFoto()">
@@ -584,6 +598,8 @@ function mostrarTela(id){
   // engrenagem de config: só na tela inicial
   document.getElementById('hdConfig').style.display = (id==='telaInicio') ? 'flex' : 'none';
   telaCorrente = id;
+  // ao abrir a tela inicial, atualiza os cartões de saldo
+  if(id==='telaInicio' && usuario){ atualizarCartoes(); }
 }
 function voltarInicio(){ limparForm(); mostrarTela('telaInicio'); }
 
@@ -917,8 +933,15 @@ function mostrarSucesso(p, r){
   let linhaParcelas = '';
   if(p.parcelado && p.num_parcelas){
     const tot = (p.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    // verifica se todas as parcelas têm o mesmo valor (sem diferença de centavos)
+    let todasIguais = true;
+    if(p.parcelas && p.parcelas.length){
+      const primeira = p.parcelas[0].valor;
+      todasIguais = p.parcelas.every(x => x.valor === primeira);
+    }
+    const prefixo = todasIguais ? '' : 'aprox. ';
     linhaParcelas =
-      `<div class="row"><span style="color:var(--txt2)">Parcelamento</span><span>${p.num_parcelas}x de ~R$ ${v}</span></div>`+
+      `<div class="row"><span style="color:var(--txt2)">Parcelamento</span><span>${p.num_parcelas}x de ${prefixo}R$ ${v}</span></div>`+
       `<div class="row"><span style="color:var(--txt2)">Total da compra</span><span style="color:var(--dourado);font-weight:700">R$ ${tot}</span></div>`;
   }
   document.getElementById('sucessoDet').innerHTML =
@@ -949,6 +972,36 @@ async function atualizarTotal(){
         'R$ '+Number(r.total).toLocaleString('pt-BR',{minimumFractionDigits:2});
     }
   }catch(e){ /* silencioso */ }
+}
+
+/* =====================================================================
+   MÓDULO: Cartões da tela inicial (saldo próximo vencimento + total)
+   Busca todos os lançamentos uma vez e calcula os dois saldos.
+===================================================================== */
+async function atualizarCartoes(){
+  try{
+    const resp = await fetch(CONFIG.WEBHOOK_LISTAR,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({usuario:usuario.nome, limite:1000})
+    });
+    const r = await lerJson(resp);
+    const lista = (r.lancamentos||[]).filter(l=>l.status!=='Pago' && l.id_linha);
+    const fmt=(n)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2});
+    // total a receber (tudo em aberto)
+    const total = lista.reduce((s,l)=>s+(Number(String(l.valor_total).replace(',','.'))||0),0);
+    document.getElementById('cardTotalValor').textContent = 'R$ '+fmt(total);
+    // próximo vencimento (o dia 10 mais próximo que tenha lançamento)
+    const pv = proximoVencimento();
+    const doProximo = lista.filter(l=>l.vencimento===pv);
+    const totalProx = doProximo.reduce((s,l)=>s+(Number(String(l.valor_total).replace(',','.'))||0),0);
+    document.getElementById('cardProximoData').textContent = pv;
+    document.getElementById('cardProximoValor').textContent = 'R$ '+fmt(totalProx);
+  }catch(e){ /* silencioso */ }
+}
+
+/* Abre a Central de Consultas já no filtro do cartão clicado */
+function irConsultaCartao(filtro){
+  irConsultas().then(()=>{ if(filtro) setConsulta(filtro); });
 }
 
 /* =====================================================================
@@ -1317,6 +1370,14 @@ function renderConsulta(){
     lista=consultaLista.filter(l=>l.observacoes && /\(\d+\/\d+\)/.test(l.observacoes));
     tit='🧾 Contas parceladas';
   }
+  // ordena por vencimento crescente (mais próximo no topo); recebidos por data de pagamento
+  lista.sort((a,b)=>{
+    const da = parseBR(a.vencimento), db = parseBR(b.vencimento);
+    if(!da && !db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return da - db;
+  });
   consultaVisivel=lista;
 
   const total=lista.reduce((s,l)=>s+Number(String(l.valor_total).replace(',','.')),0);
