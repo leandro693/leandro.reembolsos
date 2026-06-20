@@ -483,6 +483,7 @@ const CONFIG = {
   WEBHOOK_LISTAR: 'https://n8n-n8n.qehiv2.easypanel.host/webhook/reembolso-listar',
   WEBHOOK_EDITAR: 'https://n8n-n8n.qehiv2.easypanel.host/webhook/reembolso-editar',
   WEBHOOK_MARCAR: 'https://n8n-n8n.qehiv2.easypanel.host/webhook/reembolso-marcar-pago',
+  WEBHOOK_EXCLUIR: 'https://n8n-n8n.qehiv2.easypanel.host/webhook/reembolso-excluir',
   VALOR_KM: 1.00,   // R$ por km (definido com Leandro)
 };
 
@@ -1487,6 +1488,7 @@ function renderConsulta(){
         ${!pago?`<button class="btn btn-ok" style="flex:1;padding:7px;font-size:12px" onclick='marcarConsulta(${JSON.stringify(l).replace(/'/g,"&#39;")})'>✔️ Recebido</button>`:''}
         <button class="btn btn-sec" style="flex:1;padding:7px;font-size:12px" onclick='abrirEdicao(${JSON.stringify(l).replace(/'/g,"&#39;")}, "telaConsultas")'>✏️ Editar</button>
         ${l.comprovante?`<button class="btn btn-sec" style="flex:1;padding:7px;font-size:12px" onclick='verComprovante(${JSON.stringify(l.comprovante).replace(/'/g,"&#39;")})'>📎 Comprovante</button>`:''}
+        <button class="btn btn-sec" style="flex:1;padding:7px;font-size:12px;color:#ff6b6b" onclick='excluirLancamento(${JSON.stringify(l).replace(/'/g,"&#39;")})'>🗑️ Excluir</button>
       </div>
     </div>`;
   });
@@ -1497,6 +1499,33 @@ function renderConsulta(){
 function verComprovante(url){
   if(!url){ toast('Sem comprovante neste lançamento','erro'); return; }
   window.open(url, '_blank');
+}
+
+/* Exclui um lançamento (com confirmação dupla). Parcelado: pergunta se apaga todas. */
+async function excluirLancamento(l){
+  const temParcela = l.observacoes && /\(\d+\/\d+\)/.test(l.observacoes);
+  let modo = 'individual';
+  if(temParcela){
+    // pergunta se apaga todas as parcelas da compra
+    const todas = confirm('Este lançamento é parcelado.\n\nOK = excluir TODAS as parcelas desta compra.\nCancelar = excluir só esta parcela.');
+    modo = todas ? 'compra' : 'individual';
+  }
+  const aviso = (modo==='compra')
+    ? 'Tem certeza que deseja excluir TODAS as parcelas desta compra? Esta ação não pode ser desfeita.'
+    : 'Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita.';
+  if(!confirm(aviso)) return;
+  carregando(true,'Excluindo...');
+  try{
+    const resp = await fetch(CONFIG.WEBHOOK_EXCLUIR,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({usuario:usuario.nome, modo, id_linha:l.id_linha, id_compra:l.id_compra})
+    });
+    const r = await lerJson(resp);
+    carregando(false);
+    toast((r.excluidos||0)+' lançamento(s) excluído(s)','ok');
+    irConsultas();
+    atualizarCartoes();
+  }catch(e){ carregando(false); toast('Erro ao excluir: '+e.message,'erro'); }
 }
 
 /* Renderiza o resumo por categoria (modo 'resumo' da Central) */
