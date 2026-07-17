@@ -8,7 +8,7 @@
 // ============================================================================
 
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const MODELO = "gemini-2.0-flash";
+const MODELO = "gemini-2.5-flash";
 
 // Categorias válidas (iguais às do app). A IA deve escolher exatamente uma.
 const CATEGORIAS = [
