@@ -93,6 +93,9 @@ header.top{
   padding:max(10px,env(safe-area-inset-top)) 16px 10px;
   display:flex;align-items:center;gap:10px;height:auto;min-height:58px;
 }
+header.top .markbadge{width:34px;height:34px;border-radius:9999px;background:#F5F4F2;flex:none;
+  display:flex;align-items:center;justify-content:center}
+header.top .markbadge img{width:25px;height:25px;object-fit:contain;display:block}
 header.top .brand{display:flex;flex-direction:column;line-height:1;flex:1;min-width:0}
 header.top .brand .mk{font-weight:200;letter-spacing:.24em;font-size:12px;color:var(--text-strong)}
 header.top .brand .pd{font-weight:500;letter-spacing:.22em;font-size:12.5px;color:var(--accent);text-transform:uppercase;margin-top:3px}
@@ -230,7 +233,10 @@ nav.bottom button.fab span{color:var(--accent)}
 /* ---- Login ---- */
 .auth{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:32px 22px;max-width:420px;margin:0 auto}
-.auth .logo{width:66px;height:66px;margin-bottom:18px}
+.auth .logo-badge{width:96px;height:96px;border-radius:9999px;background:#F5F4F2;
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+  box-shadow:0 2px 10px rgba(57,57,59,.12)}
+.auth .logo-badge img{width:70px;height:70px;object-fit:contain;display:block}
 .auth .mk{font-weight:200;letter-spacing:.26em;font-size:15px;color:var(--text-strong)}
 .auth .pd{font-weight:500;letter-spacing:.28em;font-size:13px;color:var(--accent);text-transform:uppercase;margin:5px 0 26px}
 .auth .box{width:100%}
@@ -282,10 +288,7 @@ nav.bottom button.fab span{color:var(--accent)}
 
 <!-- ===================== TELA: LOGIN ===================== -->
 <div id="scLogin" class="auth hidden">
-  <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <circle cx="50" cy="50" r="30" stroke="#DB8438" stroke-width="7"/>
-    <circle cx="50" cy="50" r="15" stroke="#39393B" stroke-width="7"/>
-  </svg>
+  <div class="logo-badge"><img src="icons/symbol.png" alt="Maradel"></div>
   <div class="mk">MARADEL</div>
   <div class="pd">Reembolsos</div>
   <form class="box" id="loginForm" autocomplete="on">
@@ -307,6 +310,7 @@ nav.bottom button.fab span{color:var(--accent)}
 <div id="app" class="hidden">
   <header class="top">
     <button class="iconbtn back" id="btnBack" onclick="voltar()" title="Voltar"><i data-lucide="arrow-left" class="i-md"></i></button>
+    <div class="markbadge"><img src="icons/symbol.png" alt="Maradel"></div>
     <div class="brand"><span class="mk">MARADEL</span><span class="pd">Reembolsos</span></div>
     <button class="iconbtn" onclick="toggleTema()" title="Tema" id="btnTema"><i data-lucide="sun-moon" class="i-md"></i></button>
     <div class="who" onclick="irAjustes()"><span class="av" id="uAv">?</span><span id="uNome">-</span></div>
