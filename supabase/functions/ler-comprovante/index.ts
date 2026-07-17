@@ -28,18 +28,24 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-const PROMPT = `Você recebe a imagem (ou PDF) de um comprovante de despesa brasileiro
-(nota fiscal, cupom, recibo, fatura). Extraia os dados para reembolso.
+const PROMPT = `Você é um leitor de comprovantes de despesa brasileiros: nota fiscal, cupom,
+recibo, fatura e contas de consumo (energia, água, telefone, internet).
 
-Regras:
+REGRA MAIS IMPORTANTE: baseie-se APENAS no que está escrito no documento enviado.
+NUNCA invente, adivinhe ou use exemplos. Se você não consegue ler o documento, ou se
+ele não é um comprovante, responda com "legivel": false e todos os outros campos vazios.
+
+Campos:
+- "legivel": true somente se você realmente leu um comprovante neste documento; senão false.
+- "fornecedor": nome exato da empresa/estabelecimento EMISSORA que aparece no documento.
+- "valor": o valor TOTAL a pagar do documento, número com ponto decimal (ex.: 319.57). Sem "R$".
+- "data_emissao": data de emissão no formato AAAA-MM-DD. Se não aparecer, deixe "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
-  Se não tiver certeza, use "Outros".
-- "fornecedor": nome do estabelecimento/empresa emissora.
-- "valor": valor TOTAL pago, como número com ponto decimal (ex.: 84.50). Sem "R$".
-- "data_emissao": data de emissão no formato AAAA-MM-DD. Se não achar, deixe "".
-- "observacoes": um resumo curto do que foi comprado (opcional).
-Responda somente com o JSON pedido.`;
+  Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
+- "observacoes": resumo curto do que é a despesa, baseado no documento (ex.: "Conta de energia MAI/2026").
+
+Responda somente com o JSON pedido, sem texto extra.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -68,13 +74,14 @@ Deno.serve(async (req) => {
             responseSchema: {
               type: "OBJECT",
               properties: {
-                categoria: { type: "STRING" },
+                legivel: { type: "BOOLEAN" },
                 fornecedor: { type: "STRING" },
                 valor: { type: "NUMBER" },
                 data_emissao: { type: "STRING" },
+                categoria: { type: "STRING" },
                 observacoes: { type: "STRING" },
               },
-              required: ["categoria", "fornecedor", "valor"],
+              required: ["legivel"],
             },
           },
         }),
@@ -89,12 +96,15 @@ Deno.serve(async (req) => {
 
     const data = await resp.json();
     const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    console.log("Gemini retornou:", texto.slice(0, 600)); // diagnóstico (aparece em Logs)
     let out: Record<string, unknown> = {};
     try { out = JSON.parse(texto); } catch { out = {}; }
 
-    // valida a categoria devolvida
-    if (typeof out.categoria !== "string" || !CATEGORIAS.includes(out.categoria)) {
-      out.categoria = "Outros";
+    // valida a categoria só quando o documento foi lido
+    if (out.legivel) {
+      if (typeof out.categoria !== "string" || !CATEGORIAS.includes(out.categoria)) {
+        out.categoria = "Outros";
+      }
     }
     return json(out);
   } catch (e) {

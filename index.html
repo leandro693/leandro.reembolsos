@@ -883,6 +883,10 @@ async function analisarFoto(){
     });
     carregando(false);
     if(error || !data || data.erro) throw (error || new Error(data && data.erro));
+    if(data.legivel===false || (!data.fornecedor && !data.valor)){
+      toast('Não consegui ler este comprovante com segurança. Preencha manual.','erro');
+      return;
+    }
     aplicarIA(data);
     toast('Campos preenchidos pela IA. Confira e ajuste.','ok');
   }catch(e){
