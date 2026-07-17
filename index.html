@@ -364,11 +364,17 @@ nav.bottom button.fab span{color:var(--accent)}
       <h2 class="pagetitle" id="formTitulo">Novo lançamento</h2>
       <p class="pagesub">Campos com * são obrigatórios.</p>
 
+      <div class="note ok hidden" id="revisaoBox"><i data-lucide="sparkles" class="i-md"></i>
+        <div>A IA preencheu os campos a partir do comprovante. Confira, ajuste se precisar e lance.</div></div>
+
       <img id="fotoPreview" class="preview-img hidden" alt="Comprovante">
       <div class="field" id="boxFotoBtn">
-        <input type="file" id="inputFoto" accept="image/*" capture="environment" class="hidden" onchange="aoEscolherFoto(event)">
+        <input type="file" id="inputFoto" accept="image/*,application/pdf" class="hidden" onchange="aoEscolherFoto(event)">
         <button type="button" class="btn btn-sec" onclick="document.getElementById('inputFoto').click()">
           <i data-lucide="camera" class="i-md"></i> <span id="lblFoto">Anexar comprovante (opcional)</span>
+        </button>
+        <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
+          <i data-lucide="sparkles" class="i-md"></i> Ler comprovante com IA
         </button>
       </div>
 
@@ -794,6 +800,7 @@ function limparForm(){
   el('fPedagio').value='0'; el('fEstac').value='0'; el('fNumParc').value='2';
   el('boxKm').classList.add('hidden'); el('boxBenef').classList.add('hidden'); el('boxValor').classList.remove('hidden');
   el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent='Anexar comprovante (opcional)';
+  el('btnAnalisar').classList.add('hidden'); el('revisaoBox').classList.add('hidden');
   fotoFile=null; setKmModo('trecho'); setParcelado(false);
 }
 function aoMudarCategoria(){
@@ -852,8 +859,55 @@ function atualizarVenc(){
 }
 function aoEscolherFoto(ev){
   const f=ev.target.files[0]; if(!f) return; fotoFile=f;
-  const img=el('fotoPreview'); img.src=URL.createObjectURL(f); img.classList.remove('hidden');
-  el('lblFoto').textContent='Trocar comprovante';
+  const img=el('fotoPreview');
+  if(f.type==='application/pdf'){ img.classList.add('hidden'); el('lblFoto').textContent='PDF anexado. Trocar?'; }
+  else{ img.src=URL.createObjectURL(f); img.classList.remove('hidden'); el('lblFoto').textContent='Trocar comprovante'; }
+  el('btnAnalisar').classList.remove('hidden');
+  icons();
+}
+
+/* Converte arquivo em base64 (sem o prefixo data:) para enviar à IA */
+function fileToBase64(file){
+  return new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
+}
+
+/* Chama a Edge Function do Supabase (Gemini) e preenche o formulário */
+async function analisarFoto(){
+  if(!fotoFile){ toast('Anexe um comprovante primeiro','erro'); return; }
+  carregando(true,'IA lendo o comprovante...');
+  try{
+    const imageBase64 = await fileToBase64(fotoFile);
+    const { data, error } = await sb.functions.invoke('ler-comprovante', {
+      body:{ imageBase64, mimeType:fotoFile.type }
+    });
+    carregando(false);
+    if(error || !data || data.erro) throw (error || new Error(data && data.erro));
+    aplicarIA(data);
+    toast('Campos preenchidos pela IA. Confira e ajuste.','ok');
+  }catch(e){
+    carregando(false);
+    toast('Não consegui ler com a IA agora. Preencha manual.','erro');
+    console.warn('IA:', e);
+  }
+}
+
+/* Aplica o que a IA extraiu nos campos do formulário */
+function aplicarIA(d){
+  el('revisaoBox').classList.remove('hidden');
+  if(d.categoria && CATEGORIAS.includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
+  if(d.fornecedor) el('fFornecedor').value=d.fornecedor;
+  if(d.valor){ const v=Number(String(d.valor).replace(',','.')); if(v>0) el('fValor').value=v; }
+  if(d.data_emissao){
+    const s=String(d.data_emissao).trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(s)) el('fData').value=s.slice(0,10);
+    else if(/^\d{2}\/\d{2}\/\d{4}/.test(s)) el('fData').value=s.slice(0,10).split('/').reverse().join('-');
+    atualizarVenc();
+  }
+  if(d.observacoes) el('fObs').value=d.observacoes;
+  if(parcelado) calcParcelas();
+  window.scrollTo(0,0);
+  icons();
 }
 
 async function uploadComprovante(){

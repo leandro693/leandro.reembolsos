@@ -114,12 +114,42 @@ para os celulares pegarem a versão nova.
 
 ---
 
-## Próximo passo opcional: foto que preenche sozinha (IA)
+## IA que lê o comprovante (Google Gemini)
 
-Hoje a foto é anexada como comprovante. Para a IA ler a nota e preencher os
-campos (como fazia o fluxo antigo), dá para adicionar uma **Edge Function** no
-Supabase que guarda a chave da IA com segurança. Fica para uma fase seguinte;
-o app já está pronto para receber essa função.
+O botão **"Ler comprovante com IA"** manda a foto (ou PDF) para uma **Edge
+Function** no seu Supabase, que chama o **Google Gemini** e devolve categoria,
+fornecedor, valor e data já preenchidos. A chave do Gemini fica em **segredo no
+servidor**, nunca no aplicativo. É o que substitui o antigo fluxo do n8n.
+
+O código da função está em `supabase/functions/ler-comprovante/index.ts`.
+
+### 1. Criar a chave do Gemini (grátis)
+1. Acesse <https://aistudio.google.com/app/apikey> e faça login com uma conta Google.
+2. Clique em **Create API key** e copie a chave (algo como `AIza...`).
+
+### 2. Publicar a função no Supabase
+No painel do Supabase, menu lateral → **Edge Functions**:
+1. Clique em **Deploy a new function** (ou **Create a new function**).
+2. Nome exatamente: **`ler-comprovante`**.
+3. Cole o conteúdo do arquivo `supabase/functions/ler-comprovante/index.ts` no editor.
+4. Clique em **Deploy**.
+
+> Alternativa por terminal (se preferir o CLI):
+> `supabase functions deploy ler-comprovante`
+
+### 3. Guardar a chave do Gemini como segredo
+Ainda em **Edge Functions** → aba **Secrets** (ou **Project Settings → Edge
+Functions → Secrets**):
+1. **Add new secret**.
+2. Nome: `GEMINI_API_KEY` — Valor: a chave `AIza...` do passo 1.
+3. Salve.
+
+Pronto. No app, anexe uma foto e toque em **"Ler comprovante com IA"**: os campos
+são preenchidos e você só confere e lança. Se a função ainda não estiver
+publicada, o app avisa e você preenche manual, sem travar.
+
+> Custo: o Gemini Flash tem cota grátis generosa e é muito barato por imagem.
+> Para trocar o modelo, edite `MODELO` no topo da função.
 
 ---
 
@@ -130,5 +160,6 @@ o app já está pronto para receber essa função.
 | `index.html` | O aplicativo inteiro (interface + lógica). |
 | `manifest.webmanifest` | Configuração do PWA (nome, ícones, cores). |
 | `sw.js` | Service worker: instala e abre o app rápido. |
-| `icons/` | Ícones do app (grafite e terracota, marca Maradel). |
+| `icons/` | Ícones do app (marca Maradel: grafite e terracota). |
 | `supabase-setup.sql` | Script do banco: tabelas, segurança e storage. |
+| `supabase/functions/ler-comprovante/` | Edge Function da IA (Gemini) que lê o comprovante. |
