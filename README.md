@@ -84,14 +84,19 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
 
 ## Usando o app
 
-- **Início:** cartões de saldo (próximo vencimento, a receber, em atraso) e os
-  últimos lançamentos.
-- **Lançar:** manual ou com foto do comprovante. Categorias de quilometragem
-  calculam o valor por km; compras podem ser parceladas (vencimentos no dia 10).
-- **Consultas:** filtros por próximo vencimento, em aberto, em atraso,
-  recebidos, parcelados e resumo por categoria. Dá para **copiar** o resumo para
-  o financeiro (WhatsApp/e-mail) e **gerar PDF** com os dados de PIX.
-- **Marcar como recebidos:** baixa vários lançamentos de uma vez, por mês.
+- **Dashboard:** cartões de saldo (próximo vencimento, a receber, em atraso),
+  gráficos e os lançamentos vencendo em breve.
+- **Lançar:** com foto do comprovante (IA preenche) ou manual. Categorias de
+  quilometragem calculam o valor por km; compras podem ser parceladas
+  (vencimentos no dia 10). O fornecedor tem autocompletar: ao escolher um já
+  cadastrado, o CPF/CNPJ vem preenchido.
+- **Lançamentos:** filtros por status, resumo por categoria, seleção para marcar
+  vários como recebidos, e o menu **Relatórios** (PDF, balancete com comprovantes
+  anexos e exportação em `.xlsx`).
+- **Fornecedores:** cadastro de fornecedores e prestadores (nome, tipo, CPF/CNPJ,
+  contato e endereço). Cresce sozinho a cada lançamento com nota e também pode ser
+  editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos é
+  liberado a todos; **editar e excluir são exclusivos do administrador**.
 - **Ajustes:** tema claro/escuro, contraste, e os dados de PIX que entram no PDF.
 
 ---

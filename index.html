@@ -252,6 +252,9 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .ov-box iframe{width:100%;height:90vh;border:none;border-radius:12px;background:#fff}
 .ov-close{position:absolute;top:10px;right:10px;z-index:2;background:var(--surface);border:1px solid var(--border-strong);
   color:var(--text);width:40px;height:40px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.ov-box.modal-form{max-width:440px;display:block}
+.modal-body{padding:22px 20px 20px}
+.modal-tit{font-size:18px;margin-bottom:16px}
 
 /* ---- Painel/resumo (linhas) ---- */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);overflow:hidden}
@@ -591,7 +594,8 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <!-- Valor padrão -->
       <div id="boxValor">
         <div class="field"><label>Fornecedor / estabelecimento</label>
-          <input type="text" id="fFornecedor" placeholder="Ex.: Tenda Atacado"></div>
+          <input type="text" id="fFornecedor" placeholder="Ex.: Tenda Atacado" list="fornDatalist" autocomplete="off" onchange="autoPreencherForn()">
+          <datalist id="fornDatalist"></datalist></div>
         <div class="row2">
           <div class="field"><label>Nº da nota / cupom</label>
             <input type="text" id="fNumeroNota" placeholder="opcional"></div>
@@ -741,8 +745,11 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
 
     <!-- FORNECEDORES -->
     <section id="scFornecedores" class="screen hidden">
-      <h2 class="pagetitle">Fornecedores</h2>
-      <p class="pagesub">Cadastro que cresce automaticamente a cada lançamento com nota.</p>
+      <div class="page-head">
+        <div><h2 class="pagetitle">Fornecedores</h2>
+          <p class="pagesub">Cadastro dos fornecedores e prestadores usados nos lançamentos.</p></div>
+        <button class="btn sm btn-primary" id="btnNovoForn" onclick="novoFornecedor()"><i data-lucide="plus" class="i-sm"></i> Novo</button>
+      </div>
       <div class="field"><input type="text" id="fornBusca" placeholder="Buscar por nome ou CNPJ" oninput="renderFornecedores()"></div>
       <div id="fornLista"><div class="empty">Carregando...</div></div>
     </section>
@@ -775,6 +782,31 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
     <button class="ov-close" onclick="fecharComprovante()" title="Fechar"><i data-lucide="x" class="i-md"></i></button>
     <img id="ovImg" class="hidden" alt="Comprovante">
     <iframe id="ovFrame" class="hidden" title="Comprovante"></iframe>
+  </div>
+</div>
+
+<!-- Modal de cadastro/edição de fornecedor -->
+<div id="fornModal" class="ov hidden" onclick="fecharFornModal()">
+  <div class="ov-box modal-form" onclick="event.stopPropagation()">
+    <button class="ov-close" onclick="fecharFornModal()" title="Fechar"><i data-lucide="x" class="i-md"></i></button>
+    <div class="modal-body">
+      <h3 class="modal-tit" id="fornModalTit">Novo fornecedor</h3>
+      <input type="hidden" id="mfId">
+      <div class="field"><label>Nome / razão social *</label>
+        <input type="text" id="mfNome" placeholder="Ex.: Tenda Atacado" autocomplete="off"></div>
+      <div class="row2">
+        <div class="field"><label>Tipo</label>
+          <select id="mfTipo"><option value="fornecedor">Fornecedor</option><option value="prestador">Prestador de serviço</option></select></div>
+        <div class="field"><label>CPF / CNPJ</label>
+          <input type="text" id="mfCnpj" placeholder="opcional" inputmode="numeric" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>Contato (telefone, e-mail)</label>
+        <input type="text" id="mfContato" placeholder="opcional" autocomplete="off"></div>
+      <div class="field"><label>Endereço</label>
+        <input type="text" id="mfEndereco" placeholder="opcional" autocomplete="off"></div>
+      <button class="btn btn-primary" onclick="salvarFornecedor()"><i data-lucide="save" class="i-md"></i> Salvar</button>
+      <button class="btn btn-ghost mt10" onclick="fecharFornModal()">Cancelar</button>
+    </div>
   </div>
 </div>
 
@@ -951,6 +983,7 @@ async function carregarLista(){
   if(error){ toast('Erro ao carregar dados','erro'); lista=[]; return; }
   lista = (data||[]).map(l=>({...l, valor_total:Number(l.valor_total)||0,
     km_total:Number(l.km_total)||0, pedagio:Number(l.pedagio)||0, estacionamento:Number(l.estacionamento)||0}));
+  recarregarFornecedores(); // para o autocomplete do formulário (não bloqueia a lista)
 }
 const emAberto = ()=> lista.filter(l=>l.status!=='pago');
 const soma = (arr)=> arr.reduce((s,l)=>s+(Number(l.valor_total)||0),0);
@@ -1037,26 +1070,97 @@ function renderDashCharts(){
 let fornecedores = [];
 async function irFornecedores(){
   tela('scFornecedores');
+  el('btnNovoForn').classList.toggle('hidden', perfil.papel==='financeiro'); // financeiro é só leitura
   el('fornLista').innerHTML = '<div class="empty">Carregando...</div>';
+  await recarregarFornecedores();
+  renderFornecedores();
+}
+async function recarregarFornecedores(){
   try{
     const { data } = await sb.from('fornecedores').select('*').order('nome',{ascending:true});
     fornecedores = data||[];
   }catch(e){ fornecedores=[]; }
-  renderFornecedores();
 }
 function renderFornecedores(){
   const termo = (el('fornBusca').value||'').toLowerCase().trim();
   let arr = fornecedores;
   if(termo) arr = arr.filter(f=>(f.nome||'').toLowerCase().includes(termo) || (f.cnpj||'').includes(termo));
-  if(!arr.length){ el('fornLista').innerHTML = vazio('building-2', fornecedores.length?'Nenhum fornecedor encontrado.':'Ainda sem fornecedores. Eles aparecem aqui ao lançar notas.'); icons(); return; }
-  // total por fornecedor (a partir dos lançamentos carregados)
-  const totalPorForn={}; lista.forEach(l=>{ if(l.fornecedor_id) totalPorForn[l.fornecedor_id]=(totalPorForn[l.fornecedor_id]||0)+Number(l.valor_total); });
-  el('fornLista').innerHTML = arr.map(f=>`<div class="item">
-    <div class="l1"><span class="cat">${esc(f.nome)}</span>${totalPorForn[f.id]?`<span class="val num">${money(totalPorForn[f.id])}</span>`:''}</div>
-    <div class="l2"><span>${f.cnpj?('CNPJ '+esc(f.cnpj)):'sem CNPJ'}</span><span>${esc(f.tipo||'fornecedor')}</span></div>
-    ${f.contato||f.endereco?`<div class="l3"><span>${esc(f.contato||'')}</span><span>${esc(f.endereco||'')}</span></div>`:''}
-  </div>`).join('');
+  if(!arr.length){ el('fornLista').innerHTML = vazio('building-2', fornecedores.length?'Nenhum fornecedor encontrado.':'Nenhum fornecedor cadastrado. Toque em “Novo” ou lance uma nota para começar.'); icons(); return; }
+  // total e quantidade por fornecedor (a partir dos lançamentos carregados)
+  const totalPorForn={}, qtdPorForn={};
+  lista.forEach(l=>{ if(l.fornecedor_id){ totalPorForn[l.fornecedor_id]=(totalPorForn[l.fornecedor_id]||0)+Number(l.valor_total); qtdPorForn[l.fornecedor_id]=(qtdPorForn[l.fornecedor_id]||0)+1; } });
+  const admin = perfil.papel==='admin';
+  el('fornLista').innerHTML = arr.map(f=>{
+    const q=qtdPorForn[f.id]||0;
+    const tipo = f.tipo==='prestador' ? 'Prestador' : 'Fornecedor';
+    const meta = [ f.cnpj?('CPF/CNPJ '+esc(f.cnpj)):'sem CPF/CNPJ', q?`${q} lanç.`:'' ].filter(Boolean).join(' · ');
+    const acts = admin ? `<div class="acts">
+      <button class="btn btn-sec" data-fact="editar" data-id="${f.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>
+      <button class="btn btn-danger" data-fact="excluir" data-id="${f.id}"><i data-lucide="trash-2" class="i-sm"></i></button></div>` : '';
+    return `<div class="item">
+      <div class="l1"><span class="cat">${esc(f.nome)}</span><span class="l1r"><span class="st ${f.tipo==='prestador'?'aberto':'pago'}">${tipo}</span>${totalPorForn[f.id]?`<span class="val num">${money(totalPorForn[f.id])}</span>`:''}</span></div>
+      <div class="l2"><span>${meta}</span><span></span></div>
+      ${f.contato||f.endereco?`<div class="l3"><span>${esc(f.contato||'')}</span><span>${esc(f.endereco||'')}</span></div>`:''}
+      ${acts}
+    </div>`;
+  }).join('');
   icons();
+}
+el('fornLista').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('button[data-fact]'); if(!btn) return;
+  const f = fornecedores.find(x=>String(x.id)===btn.getAttribute('data-id')); if(!f) return;
+  if(btn.getAttribute('data-fact')==='editar') return editarFornecedor(f);
+  if(btn.getAttribute('data-fact')==='excluir') return excluirFornecedor(f);
+});
+
+function abrirFornModal(f){
+  el('fornModalTit').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
+  el('mfId').value      = f?f.id:'';
+  el('mfNome').value    = f?(f.nome||''):'';
+  el('mfTipo').value    = f?(f.tipo||'fornecedor'):'fornecedor';
+  el('mfCnpj').value    = f?(f.cnpj||''):'';
+  el('mfContato').value = f?(f.contato||''):'';
+  el('mfEndereco').value= f?(f.endereco||''):'';
+  el('fornModal').classList.remove('hidden');
+  icons(); setTimeout(()=>el('mfNome').focus(),50);
+}
+function fecharFornModal(){ el('fornModal').classList.add('hidden'); }
+function novoFornecedor(){ abrirFornModal(null); }
+function editarFornecedor(f){ abrirFornModal(f); }
+
+async function salvarFornecedor(){
+  const nome=el('mfNome').value.trim();
+  if(!nome){ toast('Informe o nome do fornecedor','erro'); return; }
+  const payload={ nome, tipo:el('mfTipo').value, cnpj:el('mfCnpj').value.trim(),
+    contato:el('mfContato').value.trim(), endereco:el('mfEndereco').value.trim() };
+  const id=el('mfId').value;
+  carregando(true,'Salvando fornecedor...');
+  try{
+    if(id){
+      const { error } = await sb.from('fornecedores').update(payload).eq('id',id);
+      if(error) throw error;
+    } else {
+      const { error } = await sb.from('fornecedores').insert(payload);
+      if(error) throw error;
+    }
+    await recarregarFornecedores();
+    carregando(false); fecharFornModal(); renderFornecedores();
+    toast(id?'Fornecedor atualizado':'Fornecedor cadastrado');
+  }catch(e){ carregando(false); console.warn(e); toast('Não foi possível salvar. '+(e.message||''),'erro'); }
+}
+
+async function excluirFornecedor(f){
+  const qtd = lista.filter(l=>l.fornecedor_id===f.id).length;
+  const aviso = qtd ? `\n\nOs ${qtd} lançamento(s) ligados a ele continuam, apenas sem vínculo com o cadastro.` : '';
+  if(!confirm(`Excluir o fornecedor “${f.nome}”?${aviso}`)) return;
+  carregando(true,'Excluindo...');
+  try{
+    const { error } = await sb.from('fornecedores').delete().eq('id',f.id);
+    if(error) throw error;
+    await recarregarFornecedores();
+    carregando(false); renderFornecedores();
+    toast('Fornecedor excluído');
+  }catch(e){ carregando(false); console.warn(e); toast('Não foi possível excluir. '+(e.message||''),'erro'); }
 }
 
 /* HTML de um item da lista (com botões de ação) */
@@ -1125,9 +1229,19 @@ function irForm(modo){
   el('fData').value = isoToday(); atualizarVenc();
   tela('scForm','scInicio');
 }
+function preencherDatalistForn(){
+  el('fornDatalist').innerHTML = (fornecedores||[]).map(f=>`<option value="${esc(f.nome)}">`).join('');
+}
+/* Ao escolher um fornecedor já cadastrado, traz o CPF/CNPJ automaticamente. */
+function autoPreencherForn(){
+  const nome=(el('fFornecedor').value||'').trim().toLowerCase();
+  const f=(fornecedores||[]).find(x=>(x.nome||'').trim().toLowerCase()===nome);
+  if(f && f.cnpj && !el('fCnpj').value.trim()) el('fCnpj').value=f.cnpj;
+}
 function limparForm(){
   popular(el('fCategoria'), CATEGORIAS, true);
   popular(el('fBeneficiario'), BENEFICIARIOS, true);
+  preencherDatalistForn();
   ['fFornecedor','fValor','fLocal','fKm','fObs','fNumeroNota','fCnpj'].forEach(id=>el(id).value='');
   el('fPedagio').value='0'; el('fEstac').value='0'; el('fNumParc').value='2';
   el('boxKm').classList.add('hidden'); el('boxBenef').classList.add('hidden'); el('boxValor').classList.remove('hidden');
