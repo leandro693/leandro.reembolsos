@@ -53,8 +53,12 @@ Campos:
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
   Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
-- "observacoes": outras informações ÚTEIS para consulta futura, curtas: número do pedido/mesa,
-  mês de referência/competência, taxa de serviço se houver (ex.: "Mesa 11, serviço R$ 8,39").
+- "observacoes": resumo ÚTIL do que foi a despesa para a empresa, curto. PRIORIZE os
+  principais itens/produtos comprados que aparecem no documento
+  (ex.: "Café, açúcar e copos descartáveis"; "Almoço: 2 pratos e refrigerante";
+  "Conta de energia, competência MAI/2026"). Pode incluir mês de referência/competência.
+  NUNCA inclua dados de pagamento ou de máquina de cartão: PDV, OPR, número do caixa,
+  tipo/bandeira de cartão, número de autorização, NSU, código de transação ou operador.
   Não repita aqui o valor total, a categoria, o número da nota nem o CNPJ.
 
 Responda somente com o JSON pedido, sem texto extra.`;
