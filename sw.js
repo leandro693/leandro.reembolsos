@@ -1,16 +1,11 @@
 /* Service worker do Reembolsos Maradel.
-   Estratégia: cacheia o "app shell" (a casca da interface) para instalar e abrir
-   rápido. Os dados vêm sempre da nuvem (Supabase) e nunca são cacheados aqui.
-   Ao publicar uma nova versão do app, troque o número em CACHE para forçar update. */
-const CACHE = 'reembolsos-maradel-v1';
-const SHELL = [
-  './',
-  './index.html',
-  './manifest.webmanifest',
-  './icons/icon.svg',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
-];
+   Estratégia:
+   - O HTML/JS do app (documento e navegação) usa REDE PRIMEIRO, caindo no cache
+     só quando estiver offline. Assim novas versões aparecem sem forçar atualização.
+   - Os demais arquivos locais (ícones, manifest) usam cache primeiro (rápido).
+   - Dados (Supabase) e bibliotecas de CDN passam direto pela rede, sem cache aqui. */
+const CACHE = 'reembolsos-maradel-v2';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -25,8 +20,23 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  // Só tratamos GET de mesma origem. Chamadas ao Supabase/CDN passam direto pela rede.
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+
+  const ehDocumento = req.mode === 'navigate' || req.destination === 'document' ||
+    /\.html$/.test(new URL(req.url).pathname) || new URL(req.url).pathname.endsWith('/');
+
+  if (ehDocumento) {
+    // Rede primeiro: sempre pega a versão nova; offline cai no cache.
+    e.respondWith(
+      fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+        return res;
+      }).catch(() => caches.match(req).then((h) => h || caches.match('./index.html')))
+    );
+    return;
+  }
+  // Demais arquivos locais: cache primeiro.
   e.respondWith(
     caches.match(req).then((hit) => hit || fetch(req).then((res) => {
       const copy = res.clone();

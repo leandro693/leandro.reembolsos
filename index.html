@@ -23,6 +23,8 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<!-- PDF.js: converte comprovante em PDF para imagem, para anexar no balancete -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <style>
 /* ============================================================================
@@ -1519,17 +1521,23 @@ const TER=[219,132,56], GRA=[57,57,59];
 
 /* Desenha o resumo (cabeçalho + por categoria + detalhamento + PIX) no doc atual. */
 function desenharResumo(doc){
-  doc.setFillColor(...GRA); doc.rect(0,0,210,26,'F');
+  doc.setFillColor(...GRA); doc.rect(0,0,210,30,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('Relatório de Reembolsos',14,12);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-  doc.text(`${perfil.nome||''}  ·  ${PDF_TITULOS[consultaFiltro]}`,14,19);
-  doc.setFontSize(8); doc.text(`Gerado em ${brDate(isoToday())}`,196,19,{align:'right'});
+  doc.text('Relatório de Reembolsos',14,13);
+  // Solicitante em destaque (terracota)
+  const solicitante = perfil.pix_nome || perfil.nome || '';
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(230,230,230);
+  doc.text('Solicitante:',14,21); const wLbl=doc.getTextWidth('Solicitante: ');
+  doc.setFont('helvetica','bold'); doc.setTextColor(...TER); doc.text(solicitante,14.5+wLbl,21);
+  // Próximo pagamento previsto
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(225,225,225);
+  doc.text(`Próximo pagamento previsto para ${brDate(proxVencIso())}`,14,27);
+  doc.setFontSize(8); doc.setTextColor(200,200,200); doc.text(`Gerado em ${brDate(isoToday())}`,196,13,{align:'right'});
 
   const linhas=agruparCategoria(consultaVisivel); const total=soma(consultaVisivel);
   doc.setTextColor(...GRA); doc.setFont('helvetica','bold'); doc.setFontSize(11);
-  doc.text('Resumo por categoria',14,36);
-  doc.autoTable({ startY:39, head:[['Categoria','Total']], body:linhas.map(([c,v])=>[c,money(v)]),
+  doc.text('Resumo por categoria',14,40);
+  doc.autoTable({ startY:43, head:[['Categoria','Total']], body:linhas.map(([c,v])=>[c,money(v)]),
     foot:[['TOTAL GERAL',money(total)]], theme:'grid',
     headStyles:{fillColor:GRA,textColor:255,fontStyle:'bold'}, footStyles:{fillColor:TER,textColor:255,fontStyle:'bold'},
     columnStyles:{1:{halign:'right'}}, styles:{fontSize:9,cellPadding:2}, margin:{left:14,right:14} });
@@ -1568,15 +1576,29 @@ function gerarPdf(){
   toast('PDF gerado','ok');
 }
 
-/* Baixa a imagem do comprovante e devolve dataURL + dimensões (para embutir no PDF). */
-function carregarImagem(url){
-  return new Promise(async (res,rej)=>{
-    try{
-      const resp=await fetch(url); const blob=await resp.blob();
-      const dataUrl=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
-      const img=new Image(); img.onload=()=>res({dataUrl,w:img.naturalWidth,h:img.naturalHeight}); img.onerror=rej; img.src=dataUrl;
-    }catch(e){ rej(e); }
-  });
+/* Blob -> dataURL */
+function blobParaDataUrl(blob){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); }); }
+/* Dimensões de uma imagem a partir do dataURL */
+function dimImagem(dataUrl){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight}); img.onerror=rej; img.src=dataUrl; }); }
+/* Renderiza cada página de um PDF (arrayBuffer) em imagem JPEG */
+async function pdfParaImagens(arrayBuffer){
+  const pdfjs=window.pdfjsLib; if(!pdfjs) throw new Error('pdfjs indisponível');
+  const docPdf=await pdfjs.getDocument({data:arrayBuffer}).promise;
+  const out=[];
+  for(let n=1;n<=docPdf.numPages;n++){
+    const page=await docPdf.getPage(n);
+    const vp=page.getViewport({scale:2});
+    const canvas=document.createElement('canvas'); canvas.width=vp.width; canvas.height=vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+    out.push({dataUrl:canvas.toDataURL('image/jpeg',0.85), w:canvas.width, h:canvas.height});
+  }
+  return out;
+}
+/* Coloca uma imagem centralizada, ajustada à página, a partir de topY */
+function addImagemAjustada(doc, im, topY){
+  const maxW=182, maxH=297-topY-14;
+  let dw=maxW, dh=dw*im.h/im.w; if(dh>maxH){ dh=maxH; dw=dh*im.w/im.h; }
+  doc.addImage(im.dataUrl,(210-dw)/2,topY,dw,dh);
 }
 
 /* Adiciona uma página descrevendo a despesa + o comprovante embaixo (modelo balancete). */
@@ -1585,7 +1607,7 @@ async function addPaginaComprovante(doc, l){
   doc.setFillColor(...GRA); doc.rect(0,0,210,18,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
   doc.text('Comprovante de despesa',14,11.5);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(`${perfil.nome||''}`,196,11.5,{align:'right'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(`${perfil.pix_nome||perfil.nome||''}`,196,11.5,{align:'right'});
 
   const desc=[
     ['Categoria', l.categoria||'-'],
@@ -1606,20 +1628,24 @@ async function addPaginaComprovante(doc, l){
   try{
     const { data } = await sb.storage.from('comprovantes').createSignedUrl(l.comprovante, 300);
     if(!data||!data.signedUrl) throw new Error('sem url');
+    const resp=await fetch(data.signedUrl);
     if(/\.pdf$/i.test(l.comprovante)){
-      doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(120,120,120);
-      doc.text('Comprovante original em PDF (arquivo anexado à parte).',14,imgY+6);
-      return 'pdf';
+      const buf=await resp.arrayBuffer();
+      const pages=await pdfParaImagens(buf);
+      if(!pages.length) throw new Error('pdf vazio');
+      addImagemAjustada(doc, pages[0], imgY);
+      for(let k=1;k<pages.length;k++){ doc.addPage(); addImagemAjustada(doc, pages[k], 14); }
+      return 'img';
     }
-    const {dataUrl,w,h}=await carregarImagem(data.signedUrl);
-    const maxW=182, maxH=297-imgY-14;
-    let dw=maxW, dh=dw*h/w; if(dh>maxH){ dh=maxH; dw=dh*w/h; }
-    doc.addImage(dataUrl,(210-dw)/2,imgY,dw,dh);
+    const blob=await resp.blob();
+    const dataUrl=await blobParaDataUrl(blob);
+    const dim=await dimImagem(dataUrl);
+    addImagemAjustada(doc, {dataUrl,w:dim.w,h:dim.h}, imgY);
     return 'img';
   }catch(e){
     console.warn('comprovante',e);
     doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(180,80,80);
-    doc.text('Não foi possível carregar a imagem do comprovante.',14,imgY+6);
+    doc.text('Não foi possível anexar o comprovante deste lançamento.',14,imgY+6);
     return 'fail';
   }
 }
@@ -1632,15 +1658,15 @@ async function gerarBalancete(){
   if(!comAnexo.length && !confirm('Nenhum lançamento desta lista tem comprovante anexado. Gerar só o resumo?')) return;
   const { jsPDF }=window.jspdf; const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   desenharResumo(doc);
-  let img=0,pdf=0;
+  let img=0,falha=0;
   for(let i=0;i<comAnexo.length;i++){
     carregando(true,`Montando balancete (${i+1}/${comAnexo.length})...`);
     const r=await addPaginaComprovante(doc, comAnexo[i]);
-    if(r==='img') img++; else if(r==='pdf') pdf++;
+    if(r==='img') img++; else falha++;
   }
   carregando(false);
-  doc.save(`Balancete_Reembolsos_${(perfil.nome||'').replace(/ /g,'_')}.pdf`);
-  toast(`Balancete gerado: ${img} comprovante(s) anexado(s)${pdf?`, ${pdf} em PDF`:''}.`,'ok');
+  doc.save(`Balancete_Reembolsos_${(perfil.pix_nome||perfil.nome||'').replace(/ /g,'_')}.pdf`);
+  toast(`Balancete gerado: ${img} comprovante(s) anexado(s)${falha?`, ${falha} não carregado(s)`:''}.`,'ok');
 }
 
 /* ============================================================================
@@ -1665,6 +1691,9 @@ window.addEventListener('resize', ()=>{
     else if(telaAtual==='scInicio') renderInicio();
   }, 200);
 });
+
+/* PDF.js worker (para converter comprovante PDF em imagem no balancete) */
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
 
 /* Service worker (PWA) */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{})); }
