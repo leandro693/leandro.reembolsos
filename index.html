@@ -412,6 +412,12 @@ nav.bottom button.fab span{color:var(--accent)}
       <div id="boxValor">
         <div class="field"><label>Fornecedor / estabelecimento</label>
           <input type="text" id="fFornecedor" placeholder="Ex.: Tenda Atacado"></div>
+        <div class="row2">
+          <div class="field"><label>Nº da nota / cupom</label>
+            <input type="text" id="fNumeroNota" placeholder="opcional"></div>
+          <div class="field"><label>CNPJ do fornecedor</label>
+            <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric"></div>
+        </div>
         <div class="field">
           <label>Forma de pagamento</label>
           <div class="seg">
@@ -679,8 +685,11 @@ async function garantirPerfil(){
     await sb.from('perfis').update({nome:nomeMeta}).eq('user_id', user.id);
     data.nome = nomeMeta;
   }
-  perfil = Object.assign({nome:'',pix_tipo:'CPF',pix_chave:'',pix_nome:'',pix_banco:''}, data);
+  perfil = Object.assign({nome:'',papel:'operador',pix_tipo:'CPF',pix_chave:'',pix_nome:'',pix_banco:''}, data);
 }
+/* true quando o usuário pode ver os lançamentos de todos (financeiro ou admin) */
+function veTudo(){ return perfil.papel==='admin' || perfil.papel==='financeiro'; }
+function rotuloPapel(){ return {admin:'Administrador',financeiro:'Financeiro',operador:'Operador'}[perfil.papel]||'Operador'; }
 
 el('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -752,18 +761,25 @@ function itemHtml(l){
       (l.pedagio>0?`<span>Pedágio ${money(l.pedagio)}</span>`:'')+
       (l.estacionamento>0?`<span>Estac. ${money(l.estacionamento)}</span>`:'')+`</div>`;
   }
+  const podeAgir = perfil.papel!=='financeiro'; // financeiro é somente leitura
   const acts=[];
-  if(!pago) acts.push(`<button class="btn btn-sec" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i> Receber</button>`);
-  if(pago)  acts.push(`<button class="btn btn-sec" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i> Estornar</button>`);
-  acts.push(`<button class="btn btn-sec" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>`);
-  if(l.comprovante) acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
-  if(!pago) acts.push(`<button class="btn btn-danger" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`);
+  if(podeAgir){
+    if(l.comprovante) acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
+    if(!pago) acts.push(`<button class="btn btn-sec" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i> Receber</button>`);
+    if(pago)  acts.push(`<button class="btn btn-sec" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i> Estornar</button>`);
+    acts.push(`<button class="btn btn-sec" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>`);
+    if(!pago) acts.push(`<button class="btn btn-danger" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`);
+  } else if(l.comprovante){
+    acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Ver nota</button>`);
+  }
+  const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
+  const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
   return `<div class="item">
     <div class="l1"><span class="cat">${esc(l.categoria)}${tag}</span><span class="val num">${money(l.valor_total)}</span></div>
-    <div class="l2"><span>${esc(l.fornecedor||'')}</span><span>venc ${brDate(l.vencimento)}</span></div>
-    ${extras}
+    <div class="l2"><span>${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
+    ${extras}${autor}
     <div class="l2" style="margin-top:6px">${st}<span></span></div>
-    <div class="acts">${acts.join('')}</div>
+    ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
   </div>`;
 }
 
@@ -799,7 +815,7 @@ function irForm(modo){
 function limparForm(){
   popular(el('fCategoria'), CATEGORIAS, true);
   popular(el('fBeneficiario'), BENEFICIARIOS, true);
-  ['fFornecedor','fValor','fLocal','fKm','fObs'].forEach(id=>el(id).value='');
+  ['fFornecedor','fValor','fLocal','fKm','fObs','fNumeroNota','fCnpj'].forEach(id=>el(id).value='');
   el('fPedagio').value='0'; el('fEstac').value='0'; el('fNumParc').value='2';
   el('boxKm').classList.add('hidden'); el('boxBenef').classList.add('hidden'); el('boxValor').classList.remove('hidden');
   el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent='Anexar comprovante (opcional)';
@@ -903,6 +919,8 @@ function aplicarIA(d){
   el('revisaoBox').classList.remove('hidden');
   if(d.categoria && CATEGORIAS.includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
   if(d.fornecedor) el('fFornecedor').value=d.fornecedor;
+  if(d.numero_nota) el('fNumeroNota').value=d.numero_nota;
+  if(d.cnpj) el('fCnpj').value=d.cnpj;
   if(d.valor){ const v=Number(String(d.valor).replace(',','.')); if(v>0) el('fValor').value=v; }
   if(d.data_emissao){
     const s=String(d.data_emissao).trim();
@@ -927,6 +945,21 @@ async function uploadComprovante(){
   }catch(e){ console.warn(e); return ''; }
 }
 
+/* Acha um fornecedor pelo CNPJ (ou nome) ou cria um novo. Devolve o id. */
+async function acharOuCriarFornecedor(nome, cnpj){
+  try{
+    const soDigitos = (cnpj||'').replace(/\D/g,'');
+    let q = sb.from('fornecedores').select('id').limit(1);
+    q = soDigitos ? q.eq('cnpj', cnpj) : q.ilike('nome', nome);
+    const { data } = await q;
+    if(data && data.length) return data[0].id;
+    const { data:novo, error } = await sb.from('fornecedores')
+      .insert({ nome, cnpj:cnpj||'' }).select('id').single();
+    if(error){ console.warn(error); return null; }
+    return novo.id;
+  }catch(e){ console.warn(e); return null; }
+}
+
 async function lancar(){
   const cat=el('fCategoria').value;
   if(!cat){ toast('Escolha a categoria','erro'); return; }
@@ -935,11 +968,13 @@ async function lancar(){
   if(!dataEmissao){ toast('Informe a data de emissão','erro'); return; }
   if(ehEdu && !el('fBeneficiario').value){ toast('Informe o beneficiário','erro'); return; }
 
+  const numeroNota=el('fNumeroNota').value.trim(), cnpj=el('fCnpj').value.trim();
   const base={ user_id:user.id, usuario:perfil.nome||'', categoria:cat, data_emissao:dataEmissao,
     beneficiario: ehEdu?el('fBeneficiario').value:'', observacoes:el('fObs').value.trim(),
-    status:'aberto', km_total:0, valor_km:0, pedagio:0, estacionamento:0 };
+    status:'aberto', km_total:0, valor_km:0, pedagio:0, estacionamento:0,
+    numero_nota:ehKm?'':numeroNota, cnpj:ehKm?'':cnpj };
 
-  let rows=[];
+  let rows=[], fornecedorNome='';
   if(ehKm){
     const c=calcKm();
     if(c.kmTot<=0){ toast('Informe a quilometragem','erro'); return; }
@@ -949,7 +984,7 @@ async function lancar(){
   } else {
     const valor=num('fValor');
     if(valor<=0){ toast('Informe o valor','erro'); return; }
-    const fornecedor=el('fFornecedor').value.trim()||cat;
+    const fornecedor=el('fFornecedor').value.trim()||cat; fornecedorNome=fornecedor;
     if(parcelado){
       const n=parseInt(el('fNumParc').value)||0;
       if(n<2){ toast('Informe ao menos 2 parcelas','erro'); return; }
@@ -964,6 +999,11 @@ async function lancar(){
 
   carregando(true,'Lançando reembolso...');
   try{
+    // vincula/cria o fornecedor (cadastro cresce com o uso; você já confirmou os dados)
+    if(fornecedorNome){
+      const fid = await acharOuCriarFornecedor(fornecedorNome, cnpj);
+      if(fid) rows.forEach(r=>r.fornecedor_id=fid);
+    }
     const comp = await uploadComprovante();
     if(comp) rows[0].comprovante = comp;
     const { error } = await sb.from('lancamentos').insert(rows);
@@ -1163,7 +1203,7 @@ async function marcarTodos(){
    AJUSTES / PIX
    ========================================================================== */
 function prepararAjustes(){
-  el('ajustesUser').textContent = (perfil.nome||'') + (user?.email?(' · '+user.email):'');
+  el('ajustesUser').textContent = (perfil.nome||'') + ' · ' + rotuloPapel() + (user?.email?(' · '+user.email):'');
   el('cfgPixTipo').value=perfil.pix_tipo||'CPF';
   el('cfgPixChave').value=perfil.pix_chave||'';
   el('cfgPixNome').value=perfil.pix_nome||perfil.nome||'';

@@ -162,4 +162,18 @@ publicada, o app avisa e você preenche manual, sem travar.
 | `sw.js` | Service worker: instala e abre o app rápido. |
 | `icons/` | Ícones do app (marca Maradel: grafite e terracota). |
 | `supabase-setup.sql` | Script do banco: tabelas, segurança e storage. |
+| `supabase-v2-fundacao.sql` | v2: perfis de acesso, fornecedores e campos de nota. Rode depois do setup. |
 | `supabase/functions/ler-comprovante/` | Edge Function da IA (Gemini) que lê o comprovante. |
+
+### v2 Fase 1 (perfis e fornecedores)
+
+Rode o `supabase-v2-fundacao.sql` no SQL Editor (depois do `supabase-setup.sql`).
+Ele cria os papéis de acesso (admin, operador, financeiro), o cadastro de
+fornecedores e os campos de nota no lançamento. Papéis:
+
+- **admin** (Leandro): vê tudo e gerencia cadastros.
+- **operador** (Márcio, Adelson): lança e vê apenas os próprios.
+- **financeiro** (Eliciane): vê todos os reembolsos, somente leitura.
+
+O script já define Leandro como admin. Ao criar os outros usuários, ajuste os
+papéis com os comandos comentados no final do arquivo.

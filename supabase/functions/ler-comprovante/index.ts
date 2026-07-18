@@ -48,13 +48,14 @@ Campos:
 - "valor": o valor TOTAL a pagar do documento (o "TOTAL", já com taxa de serviço se houver),
   número com ponto decimal (ex.: 92.29). Sem "R$".
 - "data_emissao": data no formato AAAA-MM-DD. Se não aparecer, deixe "".
+- "numero_nota": número da nota fiscal, cupom ou recibo (só o número). Se não houver, "".
+- "cnpj": CNPJ do emitente, só dígitos ou no formato 00.000.000/0000-00. Se não houver, "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
   Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
-- "observacoes": informações ÚTEIS do documento para consulta futura, de forma curta.
-  Inclua, quando existirem: número da nota fiscal ou do cupom, número do pedido/mesa,
-  mês de referência/competência, e a taxa de serviço se houver (ex.: "Cupom 48484, mesa 11, serviço R$ 8,39").
-  Não repita o valor total nem a categoria aqui.
+- "observacoes": outras informações ÚTEIS para consulta futura, curtas: número do pedido/mesa,
+  mês de referência/competência, taxa de serviço se houver (ex.: "Mesa 11, serviço R$ 8,39").
+  Não repita aqui o valor total, a categoria, o número da nota nem o CNPJ.
 
 Responda somente com o JSON pedido, sem texto extra.`;
 
@@ -89,6 +90,8 @@ Deno.serve(async (req) => {
                 fornecedor: { type: "STRING" },
                 valor: { type: "NUMBER" },
                 data_emissao: { type: "STRING" },
+                numero_nota: { type: "STRING" },
+                cnpj: { type: "STRING" },
                 categoria: { type: "STRING" },
                 observacoes: { type: "STRING" },
               },
