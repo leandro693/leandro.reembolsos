@@ -47,14 +47,18 @@ NUNCA escreva que o documento é "para simples conferência" ou coisa parecida.
 
 Campos:
 - "legivel": true se dá para ler uma despesa (ver Regra 2); senão false.
-- "fornecedor": nome da empresa/estabelecimento ou da PESSOA que recebeu o pagamento
-  (em recibo de maquininha, é o nome do vendedor, ex.: "Arlete Henrique Alves").
+- "fornecedor": nome da empresa/estabelecimento ou da PESSOA que recebeu o pagamento.
+  ATENÇÃO: em recibo de maquininha, a marca da máquina (PagBank, PagSeguro, Cielo, Rede,
+  Stone, SumUp, GetNet, Mercado Pago) NÃO é o fornecedor. O fornecedor é o NOME que aparece
+  no corpo do recibo, normalmente abaixo do número do cartão e perto do CPF/CNPJ
+  (ex.: "ARLETE HENRIQUE ALVES"). Use esse nome, não a marca da maquininha.
 - "valor": o valor TOTAL do documento (o "TOTAL" ou o valor da compra, já com taxa de
   serviço se houver), número com ponto decimal (ex.: 65.00). Sem "R$".
 - "data_emissao": data no formato AAAA-MM-DD. Aceite formatos como "18/JUL/2026" e converta.
 - "numero_nota": número da nota, cupom, recibo ou da autorização/CV da maquininha. Se não houver, "".
 - "cnpj": documento do emitente/vendedor. Pode ser CNPJ (00.000.000/0000-00) OU CPF
-  (000.000.000-00), o que aparecer no comprovante. Se não houver, "".
+  (000.000.000-00), o que aparecer no comprovante. Em recibo de maquininha, pegue o CPF
+  que aparece perto do nome (ex.: "CPF: 269.418.018-32"). Se não houver, "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
   Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
