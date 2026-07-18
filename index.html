@@ -218,6 +218,12 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 
 /* Cabeçalho de página com ações à direita */
 .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.ph-title{flex:1 1 220px;min-width:0}
+.head-actions{display:flex;gap:8px;flex:1 1 300px;max-width:440px}
+.head-actions .menu-wrap{flex:1}
+.head-actions .btn-compact{width:100%;justify-content:center}
+.head-actions .menu-wrap:first-child .menu{left:0;right:auto}
+.head-actions .menu-wrap:last-child .menu{right:0;left:auto}
 /* Botão compacto e menu suspenso */
 .btn-compact{background:var(--surface);border:1px solid var(--border-strong);color:var(--text-2);border-radius:8px;
   padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
@@ -227,7 +233,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border-strong);
   border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:6px;min-width:230px;max-width:calc(100vw - 32px);z-index:38}
 /* No celular a barra de ações vem para a esquerda: abre o menu alinhado à esquerda (para dentro da tela) */
-@media(max-width:979px){ .page-head{flex-direction:column} .menu-wrap{align-self:flex-start} .menu{left:0;right:auto} }
+@media(max-width:979px){ .page-head{flex-direction:column} .menu-wrap{align-self:flex-start} .menu{left:0;right:auto} .head-actions{max-width:none;width:100%} }
 .menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:var(--text);
   font-size:13px;padding:9px 10px;border-radius:7px;cursor:pointer;text-align:left}
 .menu button:hover{background:var(--surface-2)}
@@ -642,35 +648,8 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
     <!-- CONSULTAS -->
     <section id="scConsultas" class="screen hidden">
       <div class="page-head">
-        <div><h2 class="pagetitle">Lançamentos</h2><p class="pagesub" id="consultaResumo">-</p></div>
-        <div class="menu-wrap">
-          <button class="btn-compact" onclick="toggleMenu('menuRelatorios',event)"><i data-lucide="file-down" class="i-sm"></i> Relatórios <i data-lucide="chevron-down" class="i-sm"></i></button>
-          <div class="menu hidden" id="menuRelatorios">
-            <button onclick="fecharMenus();copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
-            <button onclick="fecharMenus();gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> PDF (resumo)</button>
-            <button onclick="fecharMenus();gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Balancete (com comprovantes)</button>
-            <button onclick="fecharMenus();exportarXlsx()"><i data-lucide="sheet" class="i-sm"></i> Planilha (.xlsx)</button>
-          </div>
-        </div>
-      </div>
-      <div class="filtros">
-        <span class="filtros-lbl">Status</span>
-        <div class="chips" id="consultaChips">
-          <button class="chip c-accent on" data-f="proximo" onclick="setConsulta('proximo')">Próx. venc.</button>
-          <button class="chip c-warn" data-f="aberto" onclick="setConsulta('aberto')">Em aberto</button>
-          <button class="chip c-err" data-f="atraso" onclick="setConsulta('atraso')">Em atraso</button>
-          <button class="chip c-ok" data-f="recebidos" onclick="setConsulta('recebidos')">Recebidos</button>
-          <button class="chip c-neutral" data-f="parcelados" onclick="setConsulta('parcelados')">Parcelados</button>
-          <button class="chip c-neutral" data-f="resumo" onclick="setConsulta('resumo')">Resumo</button>
-        </div>
-      </div>
-      <div class="filtros filtros2">
-        <div class="f2-grp" id="grpPessoa">
-          <span class="filtros-lbl">Pessoa</span>
-          <select id="filtroPessoa" class="ctl-sm" onchange="setPessoa(this.value)"><option value="">Todas as pessoas</option></select>
-        </div>
-        <div class="f2-grp">
-          <span class="filtros-lbl">Período</span>
+        <div class="ph-title"><h2 class="pagetitle">Lançamentos</h2><p class="pagesub" id="consultaResumo">-</p></div>
+        <div class="head-actions">
           <div class="menu-wrap">
             <button class="btn-compact" id="btnData" onclick="toggleMenu('menuData',event)"><i data-lucide="calendar" class="i-sm"></i> <span id="btnDataLbl">Todo período</span> <i data-lucide="chevron-down" class="i-sm"></i></button>
             <div class="menu hidden" id="menuData">
@@ -687,6 +666,32 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
               <button onclick="fecharMenus();setPeriodoPreset('ano')">Este ano</button>
             </div>
           </div>
+          <div class="menu-wrap">
+            <button class="btn-compact" onclick="toggleMenu('menuRelatorios',event)"><i data-lucide="file-down" class="i-sm"></i> Relatórios <i data-lucide="chevron-down" class="i-sm"></i></button>
+            <div class="menu hidden" id="menuRelatorios">
+              <button onclick="fecharMenus();copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
+              <button onclick="fecharMenus();gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> PDF (resumo)</button>
+              <button onclick="fecharMenus();gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Balancete (com comprovantes)</button>
+              <button onclick="fecharMenus();exportarXlsx()"><i data-lucide="sheet" class="i-sm"></i> Planilha (.xlsx)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="filtros">
+        <span class="filtros-lbl">Status</span>
+        <div class="chips" id="consultaChips">
+          <button class="chip c-accent on" data-f="proximo" onclick="setConsulta('proximo')">Próx. venc.</button>
+          <button class="chip c-warn" data-f="aberto" onclick="setConsulta('aberto')">Em aberto</button>
+          <button class="chip c-err" data-f="atraso" onclick="setConsulta('atraso')">Em atraso</button>
+          <button class="chip c-ok" data-f="recebidos" onclick="setConsulta('recebidos')">Recebidos</button>
+          <button class="chip c-neutral" data-f="parcelados" onclick="setConsulta('parcelados')">Parcelados</button>
+          <button class="chip c-neutral" data-f="resumo" onclick="setConsulta('resumo')">Resumo</button>
+        </div>
+      </div>
+      <div class="filtros filtros2" id="filtros2">
+        <div class="f2-grp" id="grpPessoa">
+          <span class="filtros-lbl">Pessoa</span>
+          <select id="filtroPessoa" class="ctl-sm" onchange="setPessoa(this.value)"><option value="">Todas as pessoas</option></select>
         </div>
       </div>
       <div class="marcar-bar hidden" id="marcarBar">
@@ -1649,7 +1654,7 @@ function prepararFiltrosExtra(){
   el('btnDataLbl').textContent = PERIODO_LBL[periodoPreset]||'Todo período';
   el('btnData').classList.toggle('on-filter', periodoPreset!=='tudo');
 }
-function atualizarVisibPessoa(){ el('grpPessoa').classList.toggle('hidden', !(veTudo() && escopoVer==='todos')); }
+function atualizarVisibPessoa(){ el('filtros2').classList.toggle('hidden', !(veTudo() && escopoVer==='todos')); }
 function popularPessoas(){
   const sel=el('filtroPessoa'); if(!sel) return;
   const nomes=[...new Set(lista.map(l=>l.usuario).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
