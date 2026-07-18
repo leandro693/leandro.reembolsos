@@ -186,11 +186,12 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ---- Chips de filtro ---- */
-.filtros{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.filtros-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{background:var(--surface);border:1.5px solid var(--border-strong);border-radius:9999px;padding:5px 11px;
-  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s;color:var(--text-3)}
+.filtros{margin-bottom:14px}
+.filtros-lbl{display:block;margin-bottom:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+@media(min-width:720px){ .chips{grid-template-columns:repeat(6,1fr)} }
+.chip{background:var(--surface);border:1.5px solid var(--border-strong);border-radius:9999px;padding:6px 10px;text-align:center;
+  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:.15s;color:var(--text-3)}
 .chip::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px;background:currentColor}
 .chip.c-accent{color:var(--accent)} .chip.c-warn{color:var(--warn-fg)} .chip.c-err{color:var(--money-out)}
 .chip.c-ok{color:var(--money-in)} .chip.c-neutral{color:var(--text-2)}
@@ -262,6 +263,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .item .cat{font-weight:600;color:var(--text-strong);font-size:14px;min-width:0;flex:1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .val{color:var(--text-strong);font-size:14.5px;flex:none;white-space:nowrap}
+.item .l1r{display:flex;align-items:center;gap:8px;flex:none;white-space:nowrap}
 .item .l2{display:flex;justify-content:space-between;gap:10px;margin-top:3px}
 .item .l2 span{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .l2 span:first-child{min-width:0;flex:1} .item .l2 span:last-child{flex:none}
@@ -297,7 +299,8 @@ nav.bottom button.on{color:var(--accent)}
 nav.bottom button.fab{color:#fff}
 nav.bottom button.fab .fabic{width:44px;height:44px;border-radius:9999px;background:var(--accent);
   display:flex;align-items:center;justify-content:center;margin-top:-14px;box-shadow:0 3px 10px rgba(219,132,56,.4)}
-nav.bottom button.fab span{color:var(--accent)}
+nav.bottom button.fab .fabplus{color:#fff;font-size:32px;font-weight:300;line-height:1;margin-top:-3px}
+nav.bottom button.fab>span:last-child{color:var(--accent)}
 
 /* ---- Login ---- */
 .auth{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -362,7 +365,7 @@ nav.bottom button.fab span{color:var(--accent)}
 .kpi .k-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600;
   display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .k-lbl [data-lucide]{flex:none}
-.kpi .k-val{font-size:22px;font-weight:600;margin:6px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-val{font-size:clamp(15px,4.4vw,21px);font-weight:600;margin:6px 0 2px;white-space:nowrap;letter-spacing:-.02em}
 .kpi .k-sub{font-size:11px;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---- Gráficos do Dashboard ---- */
@@ -586,7 +589,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         <div class="row2">
           <div class="field"><label>Nº da nota / cupom</label>
             <input type="text" id="fNumeroNota" placeholder="opcional"></div>
-          <div class="field"><label>CNPJ do fornecedor</label>
+          <div class="field"><label>CPF / CNPJ do fornecedor</label>
             <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric"></div>
         </div>
         <div class="field">
@@ -658,7 +661,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="field"><label>Fornecedor / estabelecimento</label><input type="text" id="eFornecedor"></div>
       <div class="row2">
         <div class="field"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
-        <div class="field"><label>CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric"></div>
+        <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric"></div>
       </div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="eValor" inputmode="decimal"></div>
       <div class="row2">
@@ -751,7 +754,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
   <nav class="bottom">
     <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
     <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançam.</span></button>
-    <button class="fab" onclick="irForm('foto')"><span class="fabic"><i data-lucide="plus" class="i-lg"></i></span><span>Lançar</span></button>
+    <button class="fab" onclick="irForm('foto')"><span class="fabic"><span class="fabplus">+</span></span><span>Lançar</span></button>
     <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornec.</span></button>
     <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
   </nav>
@@ -971,10 +974,10 @@ function renderKpis(){
   const mesAtual=isoToday().slice(0,7);
   const recebidoMes=soma(lista.filter(l=>l.status==='pago' && String(l.data_pagamento||'').slice(0,7)===mesAtual));
   const kpis=[
-    {lbl:'A receber',        ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--accent)',    act:"irConsultas('aberto')"},
-    {lbl:'Próximo vencimento',ic:'calendar-clock', val:money(proxVal),       sub:brDate(pv),                  cor:'var(--accent)',    act:"irConsultas('proximo')"},
-    {lbl:'Em atraso',        ic:'alert-triangle', val:money(soma(at)),      sub:at.length+' vencido(s)',     cor:'var(--money-out)', act:"irConsultas('atraso')"},
-    {lbl:'Recebido no mês',  ic:'check-check',    val:money(recebidoMes),   sub:mesLabel(mesAtual),          cor:'var(--money-in)',  act:"irConsultas('recebidos')"},
+    {lbl:'A receber',      ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--accent)',    act:"irConsultas('aberto')"},
+    {lbl:'Próximo venc.',  ic:'calendar-clock', val:money(proxVal),       sub:brDate(pv),                  cor:'var(--accent)',    act:"irConsultas('proximo')"},
+    {lbl:'Em atraso',      ic:'alert-triangle', val:money(soma(at)),      sub:at.length+' vencido(s)',     cor:'var(--money-out)', act:"irConsultas('atraso')"},
+    {lbl:'Recebido mês',   ic:'check-check',    val:money(recebidoMes),   sub:mesLabel(mesAtual),          cor:'var(--money-in)',  act:"irConsultas('recebidos')"},
   ];
   el('dashKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-top-color:${k.cor}" onclick="${k.act}">
     <div class="k-lbl"><i data-lucide="${k.ic}" class="i-sm"></i> ${k.lbl}</div>
@@ -1080,10 +1083,9 @@ function itemHtml(l){
   const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
   return `<div class="item">
-    <div class="l1"><span class="cat">${esc(l.categoria)}${tag}</span><span class="val num">${money(l.valor_total)}</span></div>
+    <div class="l1"><span class="cat">${esc(l.categoria)}${tag}</span><span class="l1r">${st}<span class="val num">${money(l.valor_total)}</span></span></div>
     <div class="l2"><span>${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
     ${extras}${autor}
-    <div class="l2" style="margin-top:6px">${st}<span></span></div>
     ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
   </div>`;
 }

@@ -37,19 +37,24 @@ adivinhe ou use exemplos. Se um campo não estiver visível, deixe vazio (0 no v
 REGRA 2: seja BEM FLEXÍVEL. Vale QUALQUER papel que mostre uma despesa com um valor,
 mesmo informal: nota fiscal, cupom fiscal, cupom de conferência, comanda, pré-conta,
 recibo, fatura, boleto, ticket, papel de padaria, contas de consumo (energia, água,
-telefone, internet). Para todos esses, "legivel": true.
+telefone, internet) E TAMBÉM comprovantes de pagamento de maquininha de cartão
+(PagBank, PagSeguro, Cielo, Rede, Stone, SumUp, GetNet, Mercado Pago): esses mostram
+"COMPRA CRÉDITO/DÉBITO", valor, data e o nome/CPF do recebedor. Para TODOS esses,
+"legivel": true.
 Use "legivel": false SOMENTE quando a imagem estiver ilegível, em branco, muito cortada,
 ou claramente não for um documento de despesa (ex.: uma paisagem, uma selfie).
 NUNCA escreva que o documento é "para simples conferência" ou coisa parecida.
 
 Campos:
 - "legivel": true se dá para ler uma despesa (ver Regra 2); senão false.
-- "fornecedor": nome exato da empresa/estabelecimento que aparece no documento.
-- "valor": o valor TOTAL a pagar do documento (o "TOTAL", já com taxa de serviço se houver),
-  número com ponto decimal (ex.: 92.29). Sem "R$".
-- "data_emissao": data no formato AAAA-MM-DD. Se não aparecer, deixe "".
-- "numero_nota": número da nota fiscal, cupom ou recibo (só o número). Se não houver, "".
-- "cnpj": CNPJ do emitente, só dígitos ou no formato 00.000.000/0000-00. Se não houver, "".
+- "fornecedor": nome da empresa/estabelecimento ou da PESSOA que recebeu o pagamento
+  (em recibo de maquininha, é o nome do vendedor, ex.: "Arlete Henrique Alves").
+- "valor": o valor TOTAL do documento (o "TOTAL" ou o valor da compra, já com taxa de
+  serviço se houver), número com ponto decimal (ex.: 65.00). Sem "R$".
+- "data_emissao": data no formato AAAA-MM-DD. Aceite formatos como "18/JUL/2026" e converta.
+- "numero_nota": número da nota, cupom, recibo ou da autorização/CV da maquininha. Se não houver, "".
+- "cnpj": documento do emitente/vendedor. Pode ser CNPJ (00.000.000/0000-00) OU CPF
+  (000.000.000-00), o que aparecer no comprovante. Se não houver, "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
   Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
