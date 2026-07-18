@@ -11,15 +11,15 @@
 
 insert into public.perfis (user_id, nome, papel)
 select u.id,
-       coalesce(nullif(u.raw_user_meta_data->>'nome',''), initcap(split_part(u.email,'@',1))),
+       coalesce(nullif(u.raw_user_meta_data->>'nome',''), v.nome),
        v.papel
 from auth.users u
 join (values
-  ('leandro@maradelcontabil.com',  'admin'),
-  ('marcio@maradelcontabil.com',   'operador'),
-  ('adelson@maradelcontabil.com',  'operador'),
-  ('eliciane@maradelcontabil.com', 'financeiro')
-) as v(email, papel) on lower(u.email) = lower(v.email)
+  ('leandro@maradelcontabil.com',        'Leandro',    'admin'),
+  ('marcio.saraiva@maradel.com.br',      'Márcio',     'operador'),
+  ('adelson@maradel.com.br',             'Adelson',    'operador'),
+  ('financeiro.contabil@maradel.com.br', 'Financeiro', 'financeiro')
+) as v(email, nome, papel) on lower(u.email) = lower(v.email)
 on conflict (user_id) do update set papel = excluded.papel;
 
 -- Conferência: lista os papéis já aplicados.
