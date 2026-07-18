@@ -74,8 +74,9 @@ html,body{height:100%}
 body{
   background:var(--bg-page); color:var(--text);
   font-family:'Raleway',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:400;
-  min-height:100vh; -webkit-font-smoothing:antialiased;
+  min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden;
 }
+main{overflow-x:hidden}
 h1,h2,h3,h4{color:var(--text-strong);font-weight:600;letter-spacing:-.01em}
 .num,.code{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .hidden{display:none!important}
@@ -246,23 +247,26 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
   color:var(--text);width:40px;height:40px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 
 /* ---- Painel/resumo (linhas) ---- */
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);overflow:hidden}
 .panel .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;gap:10px}
-.panel .row span:first-child{color:var(--text-2);font-size:13.5px}
-.panel .row .num{font-size:13.5px;color:var(--text)}
+.panel .row span:first-child{color:var(--text-2);font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel .row .num{font-size:13.5px;color:var(--text);flex:none;white-space:nowrap}
 .panel .row.total{border-top:1px solid var(--border);margin-top:8px;padding-top:9px;font-weight:600}
 .panel .row.total span:first-child{color:var(--text-strong)}
 .panel .row.total .num{color:var(--accent);font-size:15px;font-weight:600}
 
 /* ---- Item de lançamento (lista) ---- */
 .item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 13px;
-  margin-bottom:10px;box-shadow:var(--shadow)}
+  margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
 .item .l1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.item .cat{font-weight:600;color:var(--text-strong);font-size:14px}
-.item .val{color:var(--text-strong);font-size:14.5px}
+.item .cat{font-weight:600;color:var(--text-strong);font-size:14px;min-width:0;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .val{color:var(--text-strong);font-size:14.5px;flex:none;white-space:nowrap}
 .item .l2{display:flex;justify-content:space-between;gap:10px;margin-top:3px}
-.item .l2 span{font-size:12px;color:var(--text-3)}
+.item .l2 span{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .l2 span:first-child{min-width:0;flex:1} .item .l2 span:last-child{flex:none}
 .item .l3{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-4);margin-top:3px}
+.item .l3 span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
 .item .acts .btn{flex:1;min-width:84px;padding:8px;font-size:12px}
 .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-3);
@@ -353,21 +357,22 @@ nav.bottom button.fab span{color:var(--accent)}
 /* ---- Indicadores (KPIs) do Dashboard ---- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;
-  padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;min-width:0}
+  padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;min-width:0;overflow:hidden}
 .kpi:hover{transform:translateY(-2px)}
 .kpi .k-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600;
   display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kpi .k-val{font-size:22px;font-weight:600;margin:6px 0 2px;white-space:nowrap}
-.kpi .k-sub{font-size:11px;color:var(--text-4)}
+.kpi .k-lbl [data-lucide]{flex:none}
+.kpi .k-val{font-size:22px;font-weight:600;margin:6px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-sub{font-size:11px;color:var(--text-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---- Gráficos do Dashboard ---- */
 .dashgrid{display:grid;gap:12px}
-.chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
 .chart h3{font-size:13px;color:var(--text-2);margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:7px}
 .bar{margin-bottom:12px}
 .bar .top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px}
-.bar .lbl{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-strong);font-weight:600;white-space:nowrap}
+.bar .lbl{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-strong);font-weight:600;white-space:nowrap;flex:none}
 .bar .line{height:6px;background:var(--track);border-radius:9999px;overflow:hidden}
 .bar .line>span{display:block;height:100%;background:var(--accent);border-radius:9999px;transition:width .3s}
 
