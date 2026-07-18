@@ -122,6 +122,9 @@ header.top .who .av{width:26px;height:26px;border-radius:50%;background:var(--si
 main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .pagetitle{font-size:19px;margin-bottom:2px}
 .pagesub{color:var(--text-3);font-size:13px;margin-bottom:16px}
+#consultaResumo{color:var(--text-2);font-size:14px}
+#consultaResumo .cr-tit{color:var(--text-strong);font-weight:600}
+#consultaResumo .cr-val{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
 
 /* ---- Cards de resumo ---- */
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
@@ -976,8 +979,8 @@ function renderKpis(){
   const mesAtual=isoToday().slice(0,7);
   const recebidoMes=soma(lista.filter(l=>l.status==='pago' && String(l.data_pagamento||'').slice(0,7)===mesAtual));
   const kpis=[
-    {lbl:'A receber',      ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--accent)',    act:"irConsultas('aberto')"},
     {lbl:'Próximo venc.',  ic:'calendar-clock', val:money(proxVal),       sub:brDate(pv),                  cor:'var(--accent)',    act:"irConsultas('proximo')"},
+    {lbl:'A receber',      ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--info-fg)',   act:"irConsultas('aberto')"},
     {lbl:'Em atraso',      ic:'alert-triangle', val:money(soma(at)),      sub:at.length+' vencido(s)',     cor:'var(--money-out)', act:"irConsultas('atraso')"},
     {lbl:'Recebido mês',   ic:'check-check',    val:money(recebidoMes),   sub:mesLabel(mesAtual),          cor:'var(--money-in)',  act:"irConsultas('recebidos')"},
   ];
@@ -1488,7 +1491,7 @@ function renderConsulta(){
   else if(f==='resumo'){ return renderResumoCategoria(); }
   arr=[...arr].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
   consultaVisivel=arr;
-  el('consultaResumo').textContent = `${tit} · ${arr.length} item(ns) · ${money(soma(arr))}`;
+  el('consultaResumo').innerHTML = `<span class="cr-tit">${esc(tit)}</span> · ${arr.length} item(ns) · <span class="cr-val">${money(soma(arr))}</span>`;
   if(!arr.length){ el('consultaLista').innerHTML=vazio('inbox','Nada nesta visão.'); atualizarMarcarBar(); icons(); return; }
   // No computador: tabela (uma linha por lançamento). No celular: cartões.
   el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr, podeSelecionar()) : arr.map(itemHtml).join('');
@@ -1586,7 +1589,7 @@ function agruparCategoria(arr){
 function renderResumoCategoria(){
   const arr=emAberto(); consultaVisivel=arr; selConsulta.clear(); atualizarMarcarBar();
   const linhas=agruparCategoria(arr); const total=soma(arr);
-  el('consultaResumo').textContent = `Resumo por categoria (em aberto) · ${money(total)}`;
+  el('consultaResumo').innerHTML = `<span class="cr-tit">Resumo por categoria (em aberto)</span> · <span class="cr-val">${money(total)}</span>`;
   if(!linhas.length){ el('consultaLista').innerHTML=vazio('pie-chart','Nada em aberto.'); icons(); return; }
   let html='<div class="panel">'+linhas.map(([c,v])=>`<div class="row"><span>${esc(c)}</span><span class="num">${money(v)}</span></div>`).join('')+
     `<div class="row total"><span>Total</span><span class="num">${money(total)}</span></div></div>`;
