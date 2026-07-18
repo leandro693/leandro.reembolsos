@@ -90,17 +90,18 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
   quilometragem calculam o valor por km; compras podem ser parceladas
   (vencimentos no dia 10). O fornecedor tem autocompletar: ao escolher um já
   cadastrado, o CPF/CNPJ vem preenchido.
-- **Lançamentos:** filtros por status, por **período** (mês de vencimento) e,
-  para quem vê todos, por **pessoa**. O administrador tem o seletor **Só os meus
-  / De todos** para focar no próprio trabalho sem ver os reembolsos dos diretores.
-  Tem ainda resumo por categoria, seleção para marcar vários como recebidos e o
-  menu **Relatórios** (PDF, balancete com comprovantes anexos e exportação
-  em `.xlsx`) — que respeita os filtros ativos.
+- **Lançamentos:** filtros por status; botão **Data** com períodos prontos (este
+  mês, mês passado, últimos 3 meses, este ano, todo período) e, para quem vê
+  todos, filtro por **pessoa**. Tem ainda resumo por categoria, seleção para
+  marcar vários como recebidos e o menu **Relatórios** (PDF, balancete com
+  comprovantes anexos e exportação em `.xlsx`), que respeita os filtros ativos.
 - **Fornecedores:** cadastro de fornecedores e prestadores (nome, tipo, CPF/CNPJ,
   contato e endereço). Cresce sozinho a cada lançamento com nota e também pode ser
   editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos é
   liberado a todos; **editar e excluir são exclusivos do administrador**.
-- **Ajustes:** tema claro/escuro, contraste, e os dados de PIX que entram no PDF.
+- **Ajustes:** tema claro/escuro, contraste, os dados de PIX que entram no PDF e,
+  para admin/financeiro, a **Visualização** (ver os reembolsos de todos ou só os
+  seus). A escolha fica salva e vale para o Dashboard e os Lançamentos.
 
 ---
 

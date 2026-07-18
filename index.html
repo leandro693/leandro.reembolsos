@@ -192,14 +192,13 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 /* ---- Chips de filtro ---- */
 .filtros{margin-bottom:14px}
 .filtros-lbl{display:block;margin-bottom:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
-.filtros2{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end}
+.filtros2{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end}
 .filtros2 .filtros-lbl{margin-bottom:6px}
 .f2-grp{min-width:0}
-.seg-sm button{padding:8px 12px;font-size:13px;white-space:nowrap}
 .ctl-sm{border:1px solid var(--border-strong);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);font-family:inherit;height:38px}
-.per-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.per-row .ate{font-size:12px;color:var(--text-3)}
-@media(max-width:560px){ .f2-grp{flex:1 1 100%} .seg-sm,.per-row #perDe,.per-row #perAte{width:auto} .ctl-sm{flex:1} }
+#btnData{height:38px}
+.btn-compact.on-filter{border-color:var(--accent);color:var(--accent);font-weight:600}
+@media(max-width:560px){ .f2-grp{flex:1 1 100%} .f2-grp .ctl-sm,.f2-grp .menu-wrap,.f2-grp #btnData{width:100%} }
 .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 @media(min-width:720px){ .chips{grid-template-columns:repeat(6,1fr)} }
 .chip{background:var(--surface);border:1.5px solid var(--border-strong);border-radius:9999px;padding:6px 10px;text-align:center;
@@ -664,24 +663,21 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         </div>
       </div>
       <div class="filtros filtros2">
-        <div class="f2-grp" id="grpEscopo">
-          <span class="filtros-lbl">Ver</span>
-          <div class="seg seg-sm" id="escopoSeg">
-            <button id="escMeus" onclick="setEscopo('meus')">Só os meus</button>
-            <button id="escTodos" class="on" onclick="setEscopo('todos')">De todos</button>
-          </div>
-        </div>
         <div class="f2-grp" id="grpPessoa">
           <span class="filtros-lbl">Pessoa</span>
           <select id="filtroPessoa" class="ctl-sm" onchange="setPessoa(this.value)"><option value="">Todas as pessoas</option></select>
         </div>
         <div class="f2-grp">
-          <span class="filtros-lbl">Período (vencimento)</span>
-          <div class="per-row">
-            <input type="month" id="perDe" class="ctl-sm" onchange="setPeriodo()">
-            <span class="ate">até</span>
-            <input type="month" id="perAte" class="ctl-sm" onchange="setPeriodo()">
-            <button class="btn-compact" id="btnLimparFiltros" onclick="limparFiltrosExtra()"><i data-lucide="x" class="i-sm"></i> Limpar</button>
+          <span class="filtros-lbl">Período</span>
+          <div class="menu-wrap">
+            <button class="btn-compact" id="btnData" onclick="toggleMenu('menuData',event)"><i data-lucide="calendar" class="i-sm"></i> <span id="btnDataLbl">Todo período</span> <i data-lucide="chevron-down" class="i-sm"></i></button>
+            <div class="menu hidden" id="menuData">
+              <button onclick="fecharMenus();setPeriodoPreset('tudo')">Todo período</button>
+              <button onclick="fecharMenus();setPeriodoPreset('mes')">Este mês</button>
+              <button onclick="fecharMenus();setPeriodoPreset('mespassado')">Mês passado</button>
+              <button onclick="fecharMenus();setPeriodoPreset('3meses')">Últimos 3 meses</button>
+              <button onclick="fecharMenus();setPeriodoPreset('ano')">Este ano</button>
+            </div>
           </div>
         </div>
       </div>
@@ -755,6 +751,16 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         <div class="optcard" id="dcReforcado" onclick="setDensidade('reforcado')">
           <i data-lucide="check-circle-2" class="i-sm ck"></i>
           <div class="t">Reforçado</div><div class="s">Mais separação</div>
+        </div>
+      </div>
+
+      <div class="divider hidden" id="secVisualDiv"></div>
+      <div id="secVisual" class="hidden">
+        <div class="seclbl">Visualização</div>
+        <p class="pagesub" style="margin-top:-4px">Escolha ver todos os reembolsos ou focar só nos seus.</p>
+        <div class="seg">
+          <button type="button" id="cfgEscMeus" onclick="setEscopo('meus')">Só os meus</button>
+          <button type="button" id="cfgEscTodos" onclick="setEscopo('todos')">De todos</button>
         </div>
       </div>
 
@@ -1619,8 +1625,10 @@ function fecharComprovante(){ el('compOverlay').classList.add('hidden'); const f
    ========================================================================== */
 let consultaFiltro='proximo';
 let consultaVisivel=[];
-let pessoaFiltro='';   // '' = todas
-let perDe='', perAte='';  // 'AAAA-MM'
+let pessoaFiltro='';        // '' = todas
+let perDe='', perAte='';    // 'AAAA-MM'
+let periodoPreset='tudo';
+const PERIODO_LBL={tudo:'Todo período',mes:'Este mês',mespassado:'Mês passado','3meses':'Últimos 3 meses',ano:'Este ano'};
 async function irConsultas(filtro){
   tela('scConsultas'); el('consultaLista').innerHTML='<div class="empty">Carregando...</div>';
   await carregarLista();
@@ -1628,15 +1636,10 @@ async function irConsultas(filtro){
   setConsulta(filtro||'proximo');
 }
 function prepararFiltrosExtra(){
-  el('grpEscopo').classList.toggle('hidden', !veTudo());
-  atualizarSegEscopo();
   popularPessoas();
-  el('perDe').value=perDe; el('perAte').value=perAte;
   atualizarVisibPessoa();
-}
-function atualizarSegEscopo(){
-  el('escMeus').classList.toggle('on', escopoVer==='meus');
-  el('escTodos').classList.toggle('on', escopoVer==='todos');
+  el('btnDataLbl').textContent = PERIODO_LBL[periodoPreset]||'Todo período';
+  el('btnData').classList.toggle('on-filter', periodoPreset!=='tudo');
 }
 function atualizarVisibPessoa(){ el('grpPessoa').classList.toggle('hidden', !(veTudo() && escopoVer==='todos')); }
 function popularPessoas(){
@@ -1644,19 +1647,34 @@ function popularPessoas(){
   const nomes=[...new Set(lista.map(l=>l.usuario).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   sel.innerHTML='<option value="">Todas as pessoas</option>'+nomes.map(n=>`<option value="${esc(n)}"${n===pessoaFiltro?' selected':''}>${esc(n)}</option>`).join('');
 }
+/* soma/subtrai meses de um 'AAAA-MM' */
+function mesRel(ym, delta){ let [y,m]=ym.split('-').map(Number); m+=delta; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;} return `${y}-${String(m).padStart(2,'0')}`; }
+function setPeriodoPreset(p){
+  periodoPreset=p;
+  const ym=isoToday().slice(0,7);
+  if(p==='mes'){ perDe=ym; perAte=ym; }
+  else if(p==='mespassado'){ const pm=mesRel(ym,-1); perDe=pm; perAte=pm; }
+  else if(p==='3meses'){ perDe=mesRel(ym,-2); perAte=ym; }
+  else if(p==='ano'){ const y=ym.slice(0,4); perDe=`${y}-01`; perAte=`${y}-12`; }
+  else { perDe=''; perAte=''; }
+  el('btnDataLbl').textContent=PERIODO_LBL[p]||'Todo período';
+  el('btnData').classList.toggle('on-filter', p!=='tudo');
+  renderConsulta();
+}
+/* Escopo Meus/Todos: mora nos Ajustes; afeta Dashboard e Lançamentos. */
+function marcarEscopo(){
+  el('cfgEscMeus')?.classList.toggle('on', escopoVer==='meus');
+  el('cfgEscTodos')?.classList.toggle('on', escopoVer==='todos');
+}
 function setEscopo(v){
   escopoVer=v; localStorage.setItem('mrd_escopo', v);
   if(v==='meus') pessoaFiltro='';
-  atualizarSegEscopo(); atualizarVisibPessoa(); popularPessoas();
-  renderConsulta();
+  marcarEscopo(); atualizarVisibPessoa(); popularPessoas();
+  if(el('filtroPessoa')) el('filtroPessoa').value=pessoaFiltro;
+  if(!el('scConsultas').classList.contains('hidden')) renderConsulta();
+  if(!el('scInicio').classList.contains('hidden')) renderInicio();
 }
 function setPessoa(v){ pessoaFiltro=v; renderConsulta(); }
-function setPeriodo(){ perDe=el('perDe').value||''; perAte=el('perAte').value||''; renderConsulta(); }
-function limparFiltrosExtra(){
-  pessoaFiltro=''; perDe=''; perAte='';
-  el('perDe').value=''; el('perAte').value=''; el('filtroPessoa').value='';
-  renderConsulta();
-}
 let selConsulta = new Set();
 function setConsulta(f){
   consultaFiltro=f; selConsulta.clear();
@@ -1863,6 +1881,10 @@ async function marcarTodos(){
    ========================================================================== */
 function prepararAjustes(){
   el('ajustesUser').textContent = (perfil.nome||'') + ' · ' + rotuloPapel() + (user?.email?(' · '+user.email):'');
+  const most=veTudo();
+  el('secVisual').classList.toggle('hidden', !most);
+  el('secVisualDiv').classList.toggle('hidden', !most);
+  marcarEscopo();
   el('cfgPixTipo').value=perfil.pix_tipo||'CPF';
   el('cfgPixChave').value=perfil.pix_chave||'';
   el('cfgPixNome').value=perfil.pix_nome||perfil.nome||'';
