@@ -1,0 +1,69 @@
+name: Create Team Users
+
+# Cria os logins da equipe no Supabase (Auth) já confirmados e aplica os papéis.
+# Usa o token de gestão (SUPABASE_ACCESS_TOKEN) para obter a service_role key e
+# a senha inicial vem do segredo TEAM_INITIAL_PASSWORD (nunca fica no repositório
+# nem nos logs). Dispare em Actions > "Create Team Users" > Run workflow.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ claude/app-opinion-u93e9u, main ]
+    paths:
+      - '.github/workflows/create-users.yml'
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      TEAM_INITIAL_PASSWORD: ${{ secrets.TEAM_INITIAL_PASSWORD }}
+      PROJECT_ID: fwoupyqojfxpipvidvsx
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Criar usuários e aplicar papéis
+        run: |
+          set -euo pipefail
+          if [ -z "${TEAM_INITIAL_PASSWORD:-}" ]; then
+            echo "Segredo TEAM_INITIAL_PASSWORD ainda não definido. Nada a fazer por enquanto."
+            exit 0
+          fi
+
+          echo "Obtendo a chave de administração (service_role)..."
+          SR=$(curl -sS "https://api.supabase.com/v1/projects/$PROJECT_ID/api-keys?reveal=true" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            | jq -r '.[] | select(.name=="service_role") | .api_key')
+          if [ -z "$SR" ] || [ "$SR" = "null" ]; then echo "Não obtive a service_role key."; exit 1; fi
+          echo "::add-mask::$SR"
+
+          BASE="https://$PROJECT_ID.supabase.co"
+          criar () {
+            local email="$1" nome="$2" body code
+            body=$(jq -n --arg e "$email" --arg p "$TEAM_INITIAL_PASSWORD" --arg n "$nome" \
+              '{email:$e, password:$p, email_confirm:true, user_metadata:{nome:$n}}')
+            code=$(curl -sS -X POST "$BASE/auth/v1/admin/users" \
+              -H "apikey: $SR" -H "Authorization: Bearer $SR" -H "Content-Type: application/json" \
+              --data "$body" -o resp.json -w "%{http_code}")
+            if [ "$code" = "200" ] || [ "$code" = "201" ]; then echo "OK          $email"
+            elif grep -qiE "registered|exists" resp.json; then echo "JÁ EXISTIA   $email"
+            else echo "FALHA        $email (HTTP $code)"; cat resp.json; echo; exit 1; fi
+          }
+
+          echo "Criando usuários..."
+          criar "marcio.saraiva@maradel.com.br"      "Márcio"
+          criar "adelson@maradel.com.br"             "Adelson"
+          criar "financeiro.contabil@maradel.com.br" "Financeiro"
+
+          echo "Aplicando papéis..."
+          jq -Rs '{query: .}' supabase-usuarios.sql > payload.json
+          code=$(curl -sS -X POST \
+            "https://api.supabase.com/v1/projects/$PROJECT_ID/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data @payload.json -o roles.json -w "%{http_code}")
+          echo "Papéis aplicados (HTTP $code):"
+          cat roles.json; echo
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then echo "Falha ao aplicar papéis."; exit 1; fi
+          echo "Concluído."
