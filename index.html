@@ -97,9 +97,9 @@ header.top{
   padding:max(10px,env(safe-area-inset-top)) 16px 10px;
   display:flex;align-items:center;gap:10px;height:auto;min-height:58px;
 }
-header.top .markbadge{width:34px;height:34px;border-radius:9999px;background:#F5F4F2;flex:none;
+header.top .markbadge{width:38px;height:38px;background:transparent;flex:none;
   display:flex;align-items:center;justify-content:center}
-header.top .markbadge img{width:25px;height:25px;object-fit:contain;display:block}
+header.top .markbadge img{width:38px;height:38px;object-fit:contain;display:block}
 header.top .brand{display:flex;flex-direction:column;line-height:1;flex:1;min-width:0}
 header.top .brand .mk{font-weight:200;letter-spacing:.24em;font-size:12px;color:var(--text-strong)}
 header.top .brand .pd{font-weight:500;letter-spacing:.22em;font-size:12.5px;color:var(--accent);text-transform:uppercase;margin-top:3px}
@@ -225,6 +225,26 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .marcar-bar .mb-date input{border:1px solid var(--border-strong);border-radius:7px;padding:6px 8px;font-size:13px}
 .chk{width:17px;height:17px;cursor:pointer;accent-color:var(--accent)}
 
+/* Área de anexo: arraste e solte (PC) / botões (celular) */
+.only-desktop{display:none} .only-mobile{display:block}
+.dropzone{border:2px dashed var(--border-strong);border-radius:12px;padding:26px 16px;text-align:center;cursor:pointer;
+  transition:.15s;background:var(--surface-2)}
+.dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-subtle)}
+.dropzone [data-lucide]{color:var(--accent)}
+.dropzone .dz-title{font-weight:600;color:var(--text-2);margin-top:8px;font-size:14px}
+.dropzone .dz-sub{font-size:11px;color:var(--text-4);margin-top:2px}
+.attach-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dz-file{font-size:12.5px;color:var(--ok-fg);font-weight:600;margin-top:10px;text-align:center}
+@media(min-width:980px){ .only-desktop{display:block} .only-mobile{display:none!important} }
+
+/* Overlay para ver o comprovante em tela cheia */
+.ov{position:fixed;inset:0;background:rgba(20,18,18,.84);z-index:120;display:flex;align-items:center;justify-content:center;padding:14px}
+.ov-box{position:relative;max-width:900px;width:100%;max-height:94vh;background:var(--surface);border-radius:12px;overflow:auto;display:flex}
+.ov-box img{width:100%;height:auto;object-fit:contain;margin:auto;border-radius:12px}
+.ov-box iframe{width:100%;height:90vh;border:none;border-radius:12px;background:#fff}
+.ov-close{position:absolute;top:10px;right:10px;z-index:2;background:var(--surface);border:1px solid var(--border-strong);
+  color:var(--text);width:40px;height:40px;border-radius:9999px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+
 /* ---- Painel/resumo (linhas) ---- */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
 .panel .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;gap:10px}
@@ -278,10 +298,9 @@ nav.bottom button.fab span{color:var(--accent)}
 /* ---- Login ---- */
 .auth{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
   padding:32px 22px;max-width:420px;margin:0 auto}
-.auth .logo-badge{width:96px;height:96px;border-radius:9999px;background:#F5F4F2;
-  display:flex;align-items:center;justify-content:center;margin-bottom:18px;
-  box-shadow:0 2px 10px rgba(57,57,59,.12)}
-.auth .logo-badge img{width:70px;height:70px;object-fit:contain;display:block}
+.auth .logo-badge{width:104px;height:104px;background:transparent;
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.auth .logo-badge img{width:104px;height:104px;object-fit:contain;display:block}
 .auth .mk{font-weight:200;letter-spacing:.26em;font-size:15px;color:var(--text-strong)}
 .auth .pd{font-weight:500;letter-spacing:.28em;font-size:13px;color:var(--accent);text-transform:uppercase;margin:5px 0 26px}
 .auth .box{width:100%}
@@ -503,12 +522,23 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="note ok hidden" id="revisaoBox"><i data-lucide="sparkles" class="i-md"></i>
         <div>A IA preencheu os campos a partir do comprovante. Confira, ajuste se precisar e lance.</div></div>
 
-      <img id="fotoPreview" class="preview-img hidden" alt="Comprovante">
       <div class="field" id="boxFotoBtn">
+        <input type="file" id="inputFotoCam" accept="image/*" capture="environment" class="hidden" onchange="aoEscolherFoto(event)">
         <input type="file" id="inputFoto" accept="image/*,application/pdf" class="hidden" onchange="aoEscolherFoto(event)">
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('inputFoto').click()">
-          <i data-lucide="camera" class="i-md"></i> <span id="lblFoto">Anexar foto ou PDF do comprovante</span>
-        </button>
+        <!-- Computador: arraste e solte -->
+        <div class="dropzone only-desktop" id="dropzone" onclick="document.getElementById('inputFoto').click()"
+             ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+          <i data-lucide="upload-cloud" class="i-lg"></i>
+          <div class="dz-title">Arraste o comprovante aqui, ou clique para selecionar</div>
+          <div class="dz-sub">Foto ou PDF</div>
+        </div>
+        <!-- Celular: tirar foto ou anexar arquivo -->
+        <div class="attach-btns only-mobile">
+          <button type="button" class="btn btn-primary" onclick="document.getElementById('inputFotoCam').click()"><i data-lucide="camera" class="i-md"></i> Tirar foto</button>
+          <button type="button" class="btn btn-sec" onclick="document.getElementById('inputFoto').click()"><i data-lucide="paperclip" class="i-md"></i> Anexar arquivo</button>
+        </div>
+        <img id="fotoPreview" class="preview-img hidden" alt="Comprovante" style="margin-top:12px">
+        <div id="lblFoto" class="dz-file hidden"></div>
         <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
           <i data-lucide="sparkles" class="i-md"></i> Ler comprovante com IA
         </button>
@@ -716,7 +746,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
   <nav class="bottom">
     <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
     <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançam.</span></button>
-    <button class="fab" onclick="irForm('manual')"><span class="fabic"><i data-lucide="plus" class="i-lg"></i></span><span>Lançar</span></button>
+    <button class="fab" onclick="irForm('foto')"><span class="fabic"><i data-lucide="plus" class="i-lg"></i></span><span>Lançar</span></button>
     <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornec.</span></button>
     <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
   </nav>
@@ -724,6 +754,15 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
 
 <!-- LOADING & TOAST -->
 <div id="loading" class="loading hidden"><div class="spinner"></div><p id="loadingMsg">Processando...</p></div>
+
+<!-- Overlay do comprovante (tela cheia) -->
+<div id="compOverlay" class="ov hidden" onclick="fecharComprovante()">
+  <div class="ov-box" onclick="event.stopPropagation()">
+    <button class="ov-close" onclick="fecharComprovante()" title="Fechar"><i data-lucide="x" class="i-md"></i></button>
+    <img id="ovImg" class="hidden" alt="Comprovante">
+    <iframe id="ovFrame" class="hidden" title="Comprovante"></iframe>
+  </div>
+</div>
 
 <script>
 /* ============================================================================
@@ -1068,7 +1107,7 @@ function popular(sel, arr, comVazio){
 }
 function irForm(modo){
   modoForm=modo; limparForm();
-  el('formTitulo').textContent = modo==='foto' ? 'Lançar com comprovante' : 'Novo lançamento';
+  el('formTitulo').textContent = 'Novo lançamento';
   el('boxFotoBtn').classList.remove('hidden');
   el('fData').value = isoToday(); atualizarVenc();
   tela('scForm','scInicio');
@@ -1079,7 +1118,8 @@ function limparForm(){
   ['fFornecedor','fValor','fLocal','fKm','fObs','fNumeroNota','fCnpj'].forEach(id=>el(id).value='');
   el('fPedagio').value='0'; el('fEstac').value='0'; el('fNumParc').value='2';
   el('boxKm').classList.add('hidden'); el('boxBenef').classList.add('hidden'); el('boxValor').classList.remove('hidden');
-  el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent='Anexar comprovante (opcional)';
+  el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent=''; el('lblFoto').classList.add('hidden');
+  el('dropzone').classList.remove('over');
   el('btnAnalisar').classList.add('hidden'); el('revisaoBox').classList.add('hidden');
   fotoFile=null; fecharViewer(); setKmModo('trecho'); setParcelado(false);
 }
@@ -1136,15 +1176,19 @@ function atualizarVenc(){
   el('fVenc').value = isoPagamento(0);
   if(parcelado) calcParcelas();
 }
-function aoEscolherFoto(ev){
-  const f=ev.target.files[0]; if(!f) return; fotoFile=f;
-  const img=el('fotoPreview'); const url=URL.createObjectURL(f);
-  if(f.type==='application/pdf'){ img.classList.add('hidden'); el('lblFoto').textContent='PDF anexado. Trocar?'; }
-  else{ img.src=url; img.classList.remove('hidden'); el('lblFoto').textContent='Trocar comprovante'; }
+function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
+function handleFile(f){
+  fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
+  const lbl=el('lblFoto'); lbl.classList.remove('hidden');
+  if(f.type==='application/pdf'){ img.classList.add('hidden'); lbl.textContent='PDF anexado: '+f.name; }
+  else{ img.src=url; img.classList.remove('hidden'); lbl.textContent='Comprovante anexado. Toque em anexar para trocar.'; }
   el('btnAnalisar').classList.remove('hidden');
   abrirViewer(url, f.type);   // no computador, mostra grande à direita
   icons();
 }
+function dzOver(e){ e.preventDefault(); el('dropzone').classList.add('over'); }
+function dzLeave(e){ e.preventDefault(); el('dropzone').classList.remove('over'); }
+function dzDrop(e){ e.preventDefault(); el('dropzone').classList.remove('over'); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); }
 
 /* Visualizador do documento no lado direito (telas largas). */
 function abrirViewer(url, mime){
@@ -1397,11 +1441,16 @@ async function salvarEdicao(){
 }
 
 async function verComprovante(l){
-  if(!l.comprovante){ toast('Sem comprovante','erro'); return; }
-  const { data, error } = await sb.storage.from('comprovantes').createSignedUrl(l.comprovante, 120);
+  const path = typeof l==='string' ? l : (l&&l.comprovante);
+  if(!path){ toast('Sem comprovante','erro'); return; }
+  const { data, error } = await sb.storage.from('comprovantes').createSignedUrl(path, 300);
   if(error||!data){ toast('Não foi possível abrir a nota','erro'); return; }
-  window.open(data.signedUrl,'_blank');
+  const img=el('ovImg'), fr=el('ovFrame');
+  if(/\.pdf$/i.test(path)){ fr.src=data.signedUrl; fr.classList.remove('hidden'); img.classList.add('hidden'); }
+  else{ img.src=data.signedUrl; img.classList.remove('hidden'); fr.classList.add('hidden'); fr.removeAttribute('src'); }
+  el('compOverlay').classList.remove('hidden'); icons();
 }
+function fecharComprovante(){ el('compOverlay').classList.add('hidden'); const fr=el('ovFrame'); fr.removeAttribute('src'); el('ovImg').removeAttribute('src'); }
 
 /* ============================================================================
    CONSULTAS
@@ -1727,12 +1776,12 @@ async function addPaginaComprovante(doc, l){
   const pi = mParc?mParc[1]:l.parcela_num, pn = mParc?mParc[2]:l.parcela_total;
   let startY=24;
   if(pi && pn){
-    doc.setFillColor(...TER); doc.roundedRect(14,22,182,16,2,2,'F');
-    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(17);
-    doc.text(`PARCELA ${pi} de ${pn}`,20,32.5);
-    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-    doc.text('Compra parcelada. O mesmo comprovante se repete a cada mês. Não é pagamento em duplicidade.',66,32.5,{maxWidth:126});
-    startY=44;
+    doc.setFillColor(...TER); doc.roundedRect(14,22,182,21,2,2,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text(`PARCELA ${pi} DE ${pn}`,20,31.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('Compra parcelada: o mesmo comprovante se repete a cada mês. Não é pagamento em duplicidade.',20,38,{maxWidth:170});
+    startY=49;
   }
 
   const desc=[
