@@ -285,6 +285,52 @@ nav.bottom button.fab span{color:var(--accent)}
   .docviewer .dvbody iframe{width:100%;height:100%;border:none;border-radius:8px;background:#fff}
   body.has-viewer #fotoPreview{display:none}   /* miniatura some quando há viewer grande */
 }
+
+/* ---- Gráficos do Dashboard ---- */
+.dashgrid{display:grid;gap:12px}
+.chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.chart h3{font-size:13px;color:var(--text-2);margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:7px}
+.bar{display:grid;grid-template-columns:104px 1fr 84px;gap:9px;align-items:center;margin-bottom:9px}
+.bar .lbl{color:var(--text-2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .track{background:var(--track);border-radius:6px;height:15px;overflow:hidden}
+.bar .fill{background:var(--accent);height:100%;border-radius:6px;min-width:2px;transition:width .3s}
+.bar .fill.g{background:var(--text-2)}
+.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12px;text-align:right;color:var(--text)}
+
+/* ---- Menu lateral (computador) ---- */
+.sidebar{display:none}
+@media(min-width:980px){
+  .sidebar{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:224px;
+    background:var(--sidebar);color:#fff;padding:16px 12px;z-index:60}
+  .sidebar .sb-logo{display:flex;align-items:center;gap:10px;padding:6px 6px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:10px}
+  .sidebar .markbadge{width:36px;height:36px;border-radius:9999px;background:#F5F4F2;display:flex;align-items:center;justify-content:center;flex:none}
+  .sidebar .markbadge img{width:26px;height:26px;object-fit:contain;display:block}
+  .sidebar .brand{display:flex;flex-direction:column;line-height:1;min-width:0}
+  .sidebar .brand .mk{color:#fff;font-weight:200;letter-spacing:.22em;font-size:11px}
+  .sidebar .brand .pd{color:var(--accent);font-weight:500;letter-spacing:.2em;font-size:11px;text-transform:uppercase;margin-top:3px}
+  .sb-nav{display:flex;flex-direction:column;gap:4px}
+  .sb-nav button{display:flex;align-items:center;gap:11px;padding:11px 12px;border:none;background:transparent;
+    color:rgba(255,255,255,.74);font-size:14px;font-weight:600;border-radius:8px;cursor:pointer;text-align:left;width:100%;transition:.15s}
+  .sb-nav button:hover{background:rgba(255,255,255,.08);color:#fff}
+  .sb-nav button.on{background:var(--accent);color:#fff}
+  .sb-nav .sb-add{background:var(--accent-subtle);color:var(--accent);margin:6px 0}
+  .sb-nav .sb-add:hover{background:var(--accent);color:#fff}
+  .sb-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}
+  .sb-mini{display:flex;align-items:center;gap:11px;background:transparent;border:none;color:rgba(255,255,255,.74);
+    font-size:13px;font-weight:600;padding:9px 12px;border-radius:8px;cursor:pointer}
+  .sb-mini:hover{background:rgba(255,255,255,.08);color:#fff}
+  .sb-user{display:flex;align-items:center;gap:10px;padding:8px 12px}
+  .sb-user .av{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex:none}
+  .sb-user .nm{color:#fff;font-size:13px;font-weight:600;line-height:1.2}
+  .sb-user .pp{color:rgba(255,255,255,.6);font-size:11px}
+  /* No computador: some o topbar e o menu inferior; conteúdo ao lado da sidebar */
+  header.top{display:none}
+  nav.bottom{display:none}
+  main{margin-left:248px;margin-right:24px;max-width:900px;padding:24px 8px 40px}
+  body.has-viewer main{margin-left:248px;margin-right:calc(40% + 40px)}
+  .docviewer{top:24px;height:calc(100vh - 48px)}
+  .dashgrid{grid-template-columns:1fr 1fr}
+}
 </style>
 </head>
 <body>
@@ -325,6 +371,25 @@ nav.bottom button.fab span{color:var(--accent)}
 
 <!-- ===================== APP (telas internas) ===================== -->
 <div id="app" class="hidden">
+  <!-- ===== Menu lateral (computador) ===== -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="markbadge"><img src="icons/symbol.png" alt="Maradel"></div>
+      <div class="brand"><span class="mk">MARADEL</span><span class="pd">Reembolsos</span></div>
+    </div>
+    <nav class="sb-nav">
+      <button data-nav="scInicio" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
+      <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="search" class="i-md"></i><span>Consultas</span></button>
+      <button data-nav="scForm" onclick="irForm('manual')" class="sb-add"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
+      <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
+      <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
+    </nav>
+    <div class="sb-foot">
+      <button class="sb-mini" onclick="toggleTema()" title="Tema"><i data-lucide="sun-moon" class="i-md"></i><span>Tema</span></button>
+      <div class="sb-user"><span class="av" id="uAvSb">?</span><div><div class="nm" id="uNomeSb">-</div><div class="pp" id="uPapelSb"></div></div></div>
+    </div>
+  </aside>
+
   <header class="top">
     <button class="iconbtn back" id="btnBack" onclick="voltar()" title="Voltar"><i data-lucide="arrow-left" class="i-md"></i></button>
     <div class="markbadge"><img src="icons/symbol.png" alt="Maradel"></div>
@@ -334,8 +399,10 @@ nav.bottom button.fab span{color:var(--accent)}
   </header>
 
   <main>
-    <!-- INÍCIO -->
+    <!-- DASHBOARD -->
     <section id="scInicio" class="screen hidden">
+      <h2 class="pagetitle">Dashboard</h2>
+      <p class="pagesub" id="dashSub">Visão geral dos seus reembolsos.</p>
       <div class="cards">
         <div class="card money" onclick="irConsultas('proximo')">
           <div class="lbl"><i data-lucide="calendar-clock" class="i-sm"></i> Próximo venc.</div>
@@ -356,7 +423,9 @@ nav.bottom button.fab span{color:var(--accent)}
         <div class="val" id="cAtrasoVal" style="color:var(--money-out)">R$ 0,00</div>
       </div>
 
-      <h2 class="pagetitle">Lançar reembolso</h2>
+      <div id="dashCharts"></div>
+
+      <h2 class="pagetitle" style="margin-top:22px">Lançar reembolso</h2>
       <p class="pagesub">Registre uma despesa para receber da empresa.</p>
       <div class="choose">
         <div class="opt" onclick="irForm('manual')">
@@ -553,6 +622,14 @@ nav.bottom button.fab span{color:var(--accent)}
       <button class="btn btn-danger" onclick="sair()"><i data-lucide="log-out" class="i-md"></i> Sair da conta</button>
       <div class="foot" style="text-align:center;color:var(--text-4);font-size:11px;margin-top:16px">Maradel Assessoria e Consultoria Contábil</div>
     </section>
+
+    <!-- FORNECEDORES -->
+    <section id="scFornecedores" class="screen hidden">
+      <h2 class="pagetitle">Fornecedores</h2>
+      <p class="pagesub">Cadastro que cresce automaticamente a cada lançamento com nota.</p>
+      <div class="field"><input type="text" id="fornBusca" placeholder="Buscar por nome ou CNPJ" oninput="renderFornecedores()"></div>
+      <div id="fornLista"><div class="empty">Carregando...</div></div>
+    </section>
   </main>
 
   <!-- Visualizador do documento no computador (lado direito), para conferência -->
@@ -565,9 +642,10 @@ nav.bottom button.fab span{color:var(--accent)}
   </aside>
 
   <nav class="bottom">
-    <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="home" class="i-md"></i><span>Início</span></button>
+    <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
     <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="search" class="i-md"></i><span>Consultas</span></button>
     <button class="fab" onclick="irForm('manual')"><span class="fabic"><i data-lucide="plus" class="i-lg"></i></span><span>Lançar</span></button>
+    <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornec.</span></button>
     <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
   </nav>
 </div>
@@ -647,8 +725,8 @@ function toggleTemaLogin(){ toggleTema(); }
 /* ============================================================================
    NAVEGAÇÃO
    ========================================================================== */
-const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes'];
-const PRINCIPAIS=['scInicio','scConsultas','scAjustes'];
+const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores'];
+const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
   el(id).classList.remove('hidden');
@@ -656,7 +734,8 @@ function tela(id, origem){
   if(origem) stackAnterior=origem;
   if(id!=='scForm' && id!=='scEditar') fecharViewer();  // viewer vale no lançamento e na edição
   el('btnBack').style.display = PRINCIPAIS.includes(id) ? 'none' : 'flex';
-  document.querySelectorAll('nav.bottom button[data-nav]').forEach(b=>{
+  // sincroniza item ativo no menu inferior E na sidebar
+  document.querySelectorAll('[data-nav]').forEach(b=>{
     b.classList.toggle('on', b.getAttribute('data-nav')===id);
   });
   window.scrollTo(0,0);
@@ -693,8 +772,10 @@ async function entrar(session){
   el('scLogin').classList.add('hidden');
   el('app').classList.remove('hidden');
   const nome = perfil.nome || (user.email||'').split('@')[0];
-  el('uNome').textContent = nome;
-  el('uAv').textContent = (nome[0]||'?').toUpperCase();
+  const inicial = (nome[0]||'?').toUpperCase();
+  el('uNome').textContent = nome; el('uAv').textContent = inicial;
+  el('uNomeSb').textContent = nome; el('uAvSb').textContent = inicial;
+  el('uPapelSb').textContent = rotuloPapel();
   tela('scInicio');
   await carregarLista();
   renderInicio();
@@ -764,6 +845,9 @@ function renderInicio(){
     el('cAtrasoVal').textContent = money(soma(at));
     el('cAtrasoQtd').textContent = at.length+' lançamento(s), toque para resolver';
   } else box.classList.add('hidden');
+  if(veTudo()) el('dashSub').textContent = 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').';
+
+  renderDashCharts();
 
   const ult = [...lista].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||'')).slice(0,4);
   el('inicioUltimos').innerHTML = ult.length ? ult.map(itemHtml).join('') : vazio('receipt','Nenhum lançamento ainda.');
@@ -771,6 +855,69 @@ function renderInicio(){
   icons();
 }
 function vazio(ic,txt){ return `<div class="empty"><div class="ic"><i data-lucide="${ic}" class="i-md"></i></div>${esc(txt)}</div>`; }
+
+/* ============================================================================
+   DASHBOARD — gráficos (barras em SVG/HTML, sem libs externas)
+   ========================================================================== */
+function barras(itens, cls){
+  const max = Math.max(...itens.map(i=>i.valor), 1);
+  return itens.map(i=>{
+    const pct = Math.round((i.valor/max)*100);
+    return `<div class="bar"><span class="lbl" title="${esc(i.rotulo)}">${esc(i.rotulo)}</span>`+
+      `<span class="track"><span class="fill ${cls||''}" style="width:${pct}%"></span></span>`+
+      `<span class="v">${money(i.valor)}</span></div>`;
+  }).join('');
+}
+function renderDashCharts(){
+  const cont = el('dashCharts');
+  const abertos = emAberto();
+  if(!abertos.length && !lista.length){ cont.innerHTML=''; return; }
+
+  // Por categoria (em aberto)
+  const porCat={}; abertos.forEach(l=>{ porCat[l.categoria]=(porCat[l.categoria]||0)+Number(l.valor_total); });
+  const cats = Object.entries(porCat).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([c,v])=>({rotulo:c,valor:v}));
+
+  // Por mês de vencimento (em aberto), próximos meses
+  const porMes={}; abertos.forEach(l=>{ if(!l.vencimento) return; const k=String(l.vencimento).slice(0,7); porMes[k]=(porMes[k]||0)+Number(l.valor_total); });
+  const meses = Object.entries(porMes).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,6)
+    .map(([k,v])=>{ const [a,m]=k.split('-'); return {rotulo:`${m}/${a}`, valor:v}; });
+
+  let html='<div class="dashgrid">';
+  html += `<div class="chart"><h3><i data-lucide="pie-chart" class="i-sm"></i> A receber por categoria</h3>`+
+    (cats.length?barras(cats):'<div class="empty" style="padding:16px">Nada em aberto.</div>')+`</div>`;
+  html += `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> A receber por mês</h3>`+
+    (meses.length?barras(meses,'g'):'<div class="empty" style="padding:16px">Nada em aberto.</div>')+`</div>`;
+  html += '</div>';
+  cont.innerHTML = html;
+}
+
+/* ============================================================================
+   FORNECEDORES (lista/consulta; cadastro completo na próxima fase)
+   ========================================================================== */
+let fornecedores = [];
+async function irFornecedores(){
+  tela('scFornecedores');
+  el('fornLista').innerHTML = '<div class="empty">Carregando...</div>';
+  try{
+    const { data } = await sb.from('fornecedores').select('*').order('nome',{ascending:true});
+    fornecedores = data||[];
+  }catch(e){ fornecedores=[]; }
+  renderFornecedores();
+}
+function renderFornecedores(){
+  const termo = (el('fornBusca').value||'').toLowerCase().trim();
+  let arr = fornecedores;
+  if(termo) arr = arr.filter(f=>(f.nome||'').toLowerCase().includes(termo) || (f.cnpj||'').includes(termo));
+  if(!arr.length){ el('fornLista').innerHTML = vazio('building-2', fornecedores.length?'Nenhum fornecedor encontrado.':'Ainda sem fornecedores. Eles aparecem aqui ao lançar notas.'); icons(); return; }
+  // total por fornecedor (a partir dos lançamentos carregados)
+  const totalPorForn={}; lista.forEach(l=>{ if(l.fornecedor_id) totalPorForn[l.fornecedor_id]=(totalPorForn[l.fornecedor_id]||0)+Number(l.valor_total); });
+  el('fornLista').innerHTML = arr.map(f=>`<div class="item">
+    <div class="l1"><span class="cat">${esc(f.nome)}</span>${totalPorForn[f.id]?`<span class="val num">${money(totalPorForn[f.id])}</span>`:''}</div>
+    <div class="l2"><span>${f.cnpj?('CNPJ '+esc(f.cnpj)):'sem CNPJ'}</span><span>${esc(f.tipo||'fornecedor')}</span></div>
+    ${f.contato||f.endereco?`<div class="l3"><span>${esc(f.contato||'')}</span><span>${esc(f.endereco||'')}</span></div>`:''}
+  </div>`).join('');
+  icons();
+}
 
 /* HTML de um item da lista (com botões de ação) */
 function itemHtml(l){
