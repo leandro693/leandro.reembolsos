@@ -292,6 +292,16 @@ nav.bottom button.fab span{color:var(--accent)}
   body.has-viewer #fotoPreview{display:none}   /* miniatura some quando há viewer grande */
 }
 
+/* ---- Indicadores (KPIs) do Dashboard ---- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;
+  padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;min-width:0}
+.kpi:hover{transform:translateY(-2px)}
+.kpi .k-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600;
+  display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-val{font-size:22px;font-weight:600;margin:6px 0 2px;white-space:nowrap}
+.kpi .k-sub{font-size:11px;color:var(--text-4)}
+
 /* ---- Gráficos do Dashboard ---- */
 .dashgrid{display:grid;gap:12px}
 .chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
@@ -308,6 +318,7 @@ nav.bottom button.fab span{color:var(--accent)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl thead th{background:var(--surface-2);text-align:left;padding:11px 12px;font-size:10.5px;text-transform:uppercase;
   letter-spacing:.06em;color:var(--text-3);font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl thead th,.tbl tbody td{white-space:nowrap}
 .tbl thead th.num,.tbl td.num{text-align:right}
 .tbl td.num,.tbl td.code{white-space:nowrap}
 .tbl td.num{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px}
@@ -338,11 +349,7 @@ nav.bottom button.fab span{color:var(--accent)}
   .sb-nav button{display:flex;align-items:center;gap:11px;padding:11px 12px;border:none;background:transparent;
     color:rgba(255,255,255,.74);font-size:14px;font-weight:600;border-radius:8px;cursor:pointer;text-align:left;width:100%;transition:.15s}
   .sb-nav button:hover{background:rgba(255,255,255,.08);color:#fff}
-  .sb-nav button.on{background:rgba(219,132,56,.16);color:#fff;box-shadow:inset 3px 0 0 var(--accent)}
-  /* CTA "Novo lançamento": contornado (não parece selecionado), vira sólido no hover/ativo */
-  .sb-nav .sb-add{background:transparent;color:var(--accent);border:1.5px solid var(--accent);margin:6px 0;font-weight:700}
-  .sb-nav .sb-add:hover{background:var(--accent);color:#fff}
-  .sb-nav .sb-add.on{background:var(--accent);color:#fff;box-shadow:none}
+  .sb-nav button.on{background:var(--accent);color:#fff}
   .sb-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}
   .sb-mini{display:flex;align-items:center;gap:11px;background:transparent;border:none;color:rgba(255,255,255,.74);
     font-size:13px;font-weight:600;padding:9px 12px;border-radius:8px;cursor:pointer}
@@ -354,10 +361,10 @@ nav.bottom button.fab span{color:var(--accent)}
   /* No computador: some o topbar e o menu inferior; conteúdo ao lado da sidebar */
   header.top{display:none}
   nav.bottom{display:none}
-  main{margin-left:248px;margin-right:24px;max-width:900px;padding:24px 8px 40px}
+  main{margin-left:248px;margin-right:24px;max-width:none;padding:24px 24px 48px}
   body.has-viewer main{margin-left:248px;margin-right:calc(40% + 40px)}
   .docviewer{top:24px;height:calc(100vh - 48px)}
-  .dashgrid{grid-template-columns:1fr 1fr}
+  .dashgrid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 }
 </style>
 </head>
@@ -407,7 +414,7 @@ nav.bottom button.fab span{color:var(--accent)}
     </div>
     <nav class="sb-nav">
       <button data-nav="scInicio" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
-      <button data-nav="scForm" onclick="irForm('foto')" class="sb-add"><i data-lucide="camera" class="i-md"></i><span>Novo lançamento</span></button>
+      <button data-nav="scForm" onclick="irForm('foto')"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
       <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="search" class="i-md"></i><span>Consultas</span></button>
       <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
@@ -431,45 +438,12 @@ nav.bottom button.fab span{color:var(--accent)}
     <section id="scInicio" class="screen hidden">
       <h2 class="pagetitle">Dashboard</h2>
       <p class="pagesub" id="dashSub">Visão geral dos seus reembolsos.</p>
-      <div class="cards">
-        <div class="card money" onclick="irConsultas('proximo')">
-          <div class="lbl"><i data-lucide="calendar-clock" class="i-sm"></i> Próximo venc.</div>
-          <div class="sub" id="cProxData">-</div>
-          <div class="val" id="cProxVal">R$ 0,00</div>
-        </div>
-        <div class="card money top-graf" onclick="irConsultas('aberto')">
-          <div class="lbl"><i data-lucide="wallet" class="i-sm"></i> A receber</div>
-          <div class="sub">total em aberto</div>
-          <div class="val" id="cAbertoVal">R$ 0,00</div>
-        </div>
-      </div>
-      <div class="card money top-err wide hidden" id="cAtraso" onclick="irConsultas('atraso')" style="margin-bottom:14px">
-        <div>
-          <div class="lbl" style="color:var(--money-out)"><i data-lucide="alert-triangle" class="i-sm"></i> Em atraso</div>
-          <div class="sub" id="cAtrasoQtd"></div>
-        </div>
-        <div class="val" id="cAtrasoVal" style="color:var(--money-out)">R$ 0,00</div>
-      </div>
-
+      <div class="kpis" id="dashKpis"></div>
       <div id="dashCharts"></div>
 
-      <h2 class="pagetitle" style="margin-top:22px">Lançar reembolso</h2>
-      <p class="pagesub">Registre uma despesa para receber da empresa.</p>
-      <div class="choose">
-        <div class="opt opt-primary" onclick="irForm('foto')">
-          <span class="badge-rec">Recomendado</span>
-          <div class="ic"><i data-lucide="camera" class="i-md"></i></div>
-          <div class="t">Com foto do comprovante</div><div class="s">A IA lê a nota e preenche pra você</div>
-        </div>
-        <div class="opt" onclick="irForm('manual')">
-          <div class="ic"><i data-lucide="pencil-line" class="i-md"></i></div>
-          <div class="t">Manual</div><div class="s">Você digita os dados</div>
-        </div>
-      </div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px">
-        <h2 class="pagetitle" style="margin:0">Últimos lançamentos</h2>
-        <button class="btn btn-ghost sm" onclick="irConsultas('aberto')">Ver todos</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px">
+        <h3 class="seclbl" style="margin:0">Vencendo em breve</h3>
+        <button class="btn btn-ghost sm" onclick="irConsultas('proximo')">Ver consultas</button>
       </div>
       <div id="inicioUltimos"><div class="empty">Carregando...</div></div>
     </section>
@@ -870,27 +844,38 @@ const soma = (arr)=> arr.reduce((s,l)=>s+(Number(l.valor_total)||0),0);
 function atrasados(){ const hoje=isoToday(); return emAberto().filter(l=>l.vencimento && l.vencimento<hoje); }
 
 /* ============================================================================
-   INÍCIO — cards + últimos
+   DASHBOARD — indicadores (KPIs), gráficos e "vencendo em breve"
    ========================================================================== */
+function mesLabel(iso){ const [a,m]=String(iso).split('-'); return `${m}/${a}`; }
 function renderInicio(){
-  const pv = proxVencIso();
-  el('cProxData').textContent = brDate(pv);
-  el('cProxVal').textContent = money(soma(emAberto().filter(l=>l.vencimento===pv)));
-  el('cAbertoVal').textContent = money(soma(emAberto()));
-  const at = atrasados();
-  const box = el('cAtraso');
-  if(at.length){ box.classList.remove('hidden');
-    el('cAtrasoVal').textContent = money(soma(at));
-    el('cAtrasoQtd').textContent = at.length+' lançamento(s), toque para resolver';
-  } else box.classList.add('hidden');
-  if(veTudo()) el('dashSub').textContent = 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').';
-
+  el('dashSub').textContent = veTudo()
+    ? 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').'
+    : 'Visão geral dos seus reembolsos.';
+  renderKpis();
   renderDashCharts();
-
-  const ult = [...lista].sort((a,b)=>(b.criado_em||'').localeCompare(a.criado_em||'')).slice(0,4);
-  el('inicioUltimos').innerHTML = ult.length ? ult.map(itemHtml).join('') : vazio('receipt','Nenhum lançamento ainda.');
+  // Vencendo em breve: em aberto, por vencimento crescente
+  const prox = emAberto().filter(l=>l.vencimento).sort((a,b)=>a.vencimento.localeCompare(b.vencimento)).slice(0,6);
+  el('inicioUltimos').innerHTML = prox.length
+    ? (ehDesktop()?tabelaLancamentos(prox):prox.map(itemHtml).join(''))
+    : vazio('check-check','Nada a receber no momento.');
   bindAcoes('inicioUltimos');
   icons();
+}
+function renderKpis(){
+  const abertos=emAberto(), at=atrasados(), pv=proxVencIso();
+  const proxVal=soma(abertos.filter(l=>l.vencimento===pv));
+  const mesAtual=isoToday().slice(0,7);
+  const recebidoMes=soma(lista.filter(l=>l.status==='pago' && String(l.data_pagamento||'').slice(0,7)===mesAtual));
+  const kpis=[
+    {lbl:'A receber',        ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--accent)',    act:"irConsultas('aberto')"},
+    {lbl:'Próximo vencimento',ic:'calendar-clock', val:money(proxVal),       sub:brDate(pv),                  cor:'var(--accent)',    act:"irConsultas('proximo')"},
+    {lbl:'Em atraso',        ic:'alert-triangle', val:money(soma(at)),      sub:at.length+' vencido(s)',     cor:'var(--money-out)', act:"irConsultas('atraso')"},
+    {lbl:'Recebido no mês',  ic:'check-check',    val:money(recebidoMes),   sub:mesLabel(mesAtual),          cor:'var(--money-in)',  act:"irConsultas('recebidos')"},
+  ];
+  el('dashKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-top-color:${k.cor}" onclick="${k.act}">
+    <div class="k-lbl"><i data-lucide="${k.ic}" class="i-sm"></i> ${k.lbl}</div>
+    <div class="k-val num" style="color:${k.cor}">${k.val}</div>
+    <div class="k-sub">${esc(k.sub)}</div></div>`).join('');
 }
 function vazio(ic,txt){ return `<div class="empty"><div class="ic"><i data-lucide="${ic}" class="i-md"></i></div>${esc(txt)}</div>`; }
 
@@ -918,13 +903,17 @@ function renderDashCharts(){
   // Por mês de vencimento (em aberto), próximos meses
   const porMes={}; abertos.forEach(l=>{ if(!l.vencimento) return; const k=String(l.vencimento).slice(0,7); porMes[k]=(porMes[k]||0)+Number(l.valor_total); });
   const meses = Object.entries(porMes).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,6)
-    .map(([k,v])=>{ const [a,m]=k.split('-'); return {rotulo:`${m}/${a}`, valor:v}; });
+    .map(([k,v])=>({rotulo:mesLabel(k), valor:v}));
 
+  // Top fornecedores (em aberto)
+  const porForn={}; abertos.forEach(l=>{ const f=l.fornecedor||'(sem fornecedor)'; porForn[f]=(porForn[f]||0)+Number(l.valor_total); });
+  const forns = Object.entries(porForn).sort((a,b)=>b[1]-a[1]).slice(0,7).map(([c,v])=>({rotulo:c,valor:v}));
+
+  const vazioMsg='<div class="empty" style="padding:16px">Nada em aberto.</div>';
   let html='<div class="dashgrid">';
-  html += `<div class="chart"><h3><i data-lucide="pie-chart" class="i-sm"></i> A receber por categoria</h3>`+
-    (cats.length?barras(cats):'<div class="empty" style="padding:16px">Nada em aberto.</div>')+`</div>`;
-  html += `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> A receber por mês</h3>`+
-    (meses.length?barras(meses,'g'):'<div class="empty" style="padding:16px">Nada em aberto.</div>')+`</div>`;
+  html += `<div class="chart"><h3><i data-lucide="pie-chart" class="i-sm"></i> A receber por categoria</h3>`+(cats.length?barras(cats):vazioMsg)+`</div>`;
+  html += `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> A receber por mês</h3>`+(meses.length?barras(meses,'g'):vazioMsg)+`</div>`;
+  html += `<div class="chart"><h3><i data-lucide="building-2" class="i-sm"></i> Top fornecedores</h3>`+(forns.length?barras(forns):vazioMsg)+`</div>`;
   html += '</div>';
   cont.innerHTML = html;
 }
