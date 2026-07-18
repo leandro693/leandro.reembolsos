@@ -432,7 +432,7 @@ nav.bottom button.fab span{color:var(--accent)}
       <div class="row2">
         <div class="field"><label>Data de emissão *</label><input type="date" id="fData" onchange="atualizarVenc()"></div>
         <div class="field"><label>Vencimento</label><input type="date" id="fVenc">
-          <div class="hint">Sugerido: dia 10 do mês seguinte.</div></div>
+          <div class="hint">Sugerido: próximo dia 10 disponível para pagamento.</div></div>
       </div>
       <div class="field"><label>Observações</label><textarea id="fObs" placeholder="Detalhes do gasto"></textarea></div>
 
@@ -584,6 +584,9 @@ function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split(
 function isoToday(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function isoVenc10(baseIso, add){ const d=new Date(baseIso+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+add,10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function proxVencIso(){ const h=new Date(); let a=h.getFullYear(),m=h.getMonth(); if(h.getDate()>10){m++; if(m>11){m=0;a++;}} const z=n=>String(n).padStart(2,'0'); return `${a}-${z(m+1)}-10`; }
+/* Dia 10 de pagamento a partir do próximo disponível (hoje), somando 'add' meses.
+   Reembolso é pago no dia 10; se o dia 10 do mês já passou, vai para o próximo. */
+function isoPagamento(add){ const b=proxVencIso(); const d=new Date(b+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+(add||0),10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function num(id){ return parseFloat((el(id).value||'0').replace(',','.'))||0; }
 function el(id){ return document.getElementById(id); }
 function icons(){ if(window.lucide) lucide.createIcons(); }
@@ -847,14 +850,13 @@ function calcParcelas(){
   let html=`<div class="row"><span>Valor total</span><span class="num">${money(total)}</span></div>`+
     `<div class="row total"><span>${n}x ${iguais?'de':'(última ajustada)'}</span><span class="num">${money(vals[0])}</span></div>`+
     `<div class="row"><span style="font-size:12px;color:var(--text-4)">Vencimentos</span><span></span></div>`;
-  const base=el('fData').value;
-  for(let i=1;i<=n;i++){ const v=base?brDate(isoVenc10(base,i)):'-';
+  for(let i=1;i<=n;i++){ const v=brDate(isoPagamento(i-1));
     html+=`<div class="row"><span style="font-size:12px">(${i}/${n}) <span class="num">${money(vals[i-1])}</span></span><span class="code" style="font-size:12px">${v}</span></div>`; }
   box.innerHTML=html;
 }
 function atualizarVenc(){
-  const b=el('fData').value; if(!b) return;
-  el('fVenc').value = isoVenc10(b,1);
+  // Vencimento sugerido = próximo dia 10 disponível para pagamento (a partir de hoje).
+  el('fVenc').value = isoPagamento(0);
   if(parcelado) calcParcelas();
 }
 function aoEscolherFoto(ev){
@@ -952,7 +954,7 @@ async function lancar(){
       const n=parseInt(el('fNumParc').value)||0;
       if(n<2){ toast('Informe ao menos 2 parcelas','erro'); return; }
       const vals=valoresParcelas(valor,n); const idc=crypto.randomUUID();
-      rows=vals.map((v,i)=>({...base, fornecedor, valor_total:v, vencimento:isoVenc10(dataEmissao,i+1),
+      rows=vals.map((v,i)=>({...base, fornecedor, valor_total:v, vencimento:isoPagamento(i),
         id_compra:idc, parcela_num:i+1, parcela_total:n,
         observacoes:(base.observacoes?base.observacoes+' ':'')+`(${i+1}/${n})`}));
     } else {

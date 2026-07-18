@@ -34,22 +34,27 @@ recibo, fatura e contas de consumo (energia, água, telefone, internet).
 REGRA 1: baseie-se APENAS no que está escrito no documento enviado. NUNCA invente,
 adivinhe ou use exemplos. Se um campo não estiver visível, deixe vazio (0 no valor).
 
-REGRA 2: vale QUALQUER documento que mostre uma despesa com um valor total, mesmo
-que informal. São válidos: nota fiscal, cupom fiscal, cupom para simples conferência,
-comanda, pré-conta, recibo, fatura, boleto e contas de consumo (energia, água,
+REGRA 2: seja BEM FLEXÍVEL. Vale QUALQUER papel que mostre uma despesa com um valor,
+mesmo informal: nota fiscal, cupom fiscal, cupom de conferência, comanda, pré-conta,
+recibo, fatura, boleto, ticket, papel de padaria, contas de consumo (energia, água,
 telefone, internet). Para todos esses, "legivel": true.
 Use "legivel": false SOMENTE quando a imagem estiver ilegível, em branco, muito cortada,
 ou claramente não for um documento de despesa (ex.: uma paisagem, uma selfie).
+NUNCA escreva que o documento é "para simples conferência" ou coisa parecida.
 
 Campos:
-- "legivel": true se dá para ler um documento de despesa (ver Regra 2); senão false.
+- "legivel": true se dá para ler uma despesa (ver Regra 2); senão false.
 - "fornecedor": nome exato da empresa/estabelecimento que aparece no documento.
-- "valor": o valor TOTAL a pagar do documento, número com ponto decimal (ex.: 319.57). Sem "R$".
-- "data_emissao": data de emissão no formato AAAA-MM-DD. Se não aparecer, deixe "".
+- "valor": o valor TOTAL a pagar do documento (o "TOTAL", já com taxa de serviço se houver),
+  número com ponto decimal (ex.: 92.29). Sem "R$".
+- "data_emissao": data no formato AAAA-MM-DD. Se não aparecer, deixe "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
   Conta de luz, água, telefone, internet ou aluguel, quando não houver item específico, use "Outros".
-- "observacoes": resumo curto do que é a despesa, baseado no documento (ex.: "Conta de energia MAI/2026").
+- "observacoes": informações ÚTEIS do documento para consulta futura, de forma curta.
+  Inclua, quando existirem: número da nota fiscal ou do cupom, número do pedido/mesa,
+  mês de referência/competência, e a taxa de serviço se houver (ex.: "Cupom 48484, mesa 11, serviço R$ 8,39").
+  Não repita o valor total nem a categoria aqui.
 
 Responda somente com o JSON pedido, sem texto extra.`;
 
