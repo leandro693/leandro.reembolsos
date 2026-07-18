@@ -11,6 +11,11 @@ on:
         description: Arquivo .sql a executar
         required: true
         default: supabase-v3-fornecedor.sql
+  push:
+    branches: [ claude/app-opinion-u93e9u, main ]
+    paths:
+      - 'supabase-v3-fornecedor.sql'
+      - '.github/workflows/run-sql-migration.yml'
 
 jobs:
   migrate:
@@ -18,7 +23,7 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_ID: fwoupyqojfxpipvidvsx
-      SQL_FILE: ${{ github.event.inputs.file }}
+      SQL_FILE: ${{ github.event.inputs.file || 'supabase-v3-fornecedor.sql' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
