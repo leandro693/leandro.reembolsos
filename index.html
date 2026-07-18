@@ -615,7 +615,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
           <div class="field"><label>Nº da nota / cupom</label>
             <input type="text" id="fNumeroNota" placeholder="opcional"></div>
           <div class="field"><label>CPF / CNPJ</label>
-            <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric"></div>
+            <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
         </div>
         <div class="field">
           <label>Forma de pagamento</label>
@@ -710,7 +710,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="field"><label>Fornecedor / estabelecimento</label><input type="text" id="eFornecedor"></div>
       <div class="row2">
         <div class="field"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
-        <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric"></div>
+        <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
       </div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="eValor" inputmode="decimal"></div>
       <div class="row2">
@@ -843,14 +843,14 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <input type="hidden" id="mfId">
       <div class="field"><label>Nome / razão social *</label>
         <input type="text" id="mfNome" placeholder="Ex.: Tenda Atacado" autocomplete="off"></div>
+      <div class="field"><label>CPF / CNPJ</label>
+        <input type="text" id="mfCnpj" placeholder="opcional" inputmode="numeric" autocomplete="off" oninput="this.value=fmtCpfCnpj(this.value)"></div>
       <div class="row2">
-        <div class="field"><label>Tipo</label>
-          <select id="mfTipo"><option value="fornecedor">Fornecedor</option><option value="prestador">Prestador de serviço</option></select></div>
-        <div class="field"><label>CPF / CNPJ</label>
-          <input type="text" id="mfCnpj" placeholder="opcional" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label>Telefone</label>
+          <input type="tel" id="mfTelefone" placeholder="opcional" inputmode="tel" autocomplete="off" oninput="this.value=fmtTelefone(this.value)"></div>
+        <div class="field"><label>E-mail</label>
+          <input type="email" id="mfEmail" placeholder="opcional" autocomplete="off"></div>
       </div>
-      <div class="field"><label>Contato (telefone, e-mail)</label>
-        <input type="text" id="mfContato" placeholder="opcional" autocomplete="off"></div>
       <div class="field"><label>Cidade / região</label>
         <input type="text" id="mfEndereco" placeholder="Ex.: Belo Horizonte" autocomplete="off"></div>
       <button class="btn btn-primary" onclick="salvarFornecedor()"><i data-lucide="save" class="i-md"></i> Salvar</button>
@@ -896,6 +896,21 @@ const BENEFICIARIOS = ['Sócio - Leandro','Sócio - Márcio','Sócio - Adelson',
 /* ===== Helpers de formato ===== */
 function money(n){ n=Number(n)||0; const s=Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return 'R$ '+s; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* Máscara de CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00) conforme os dígitos. */
+function fmtCpfCnpj(v){
+  const d=String(v||'').replace(/\D/g,'').slice(0,14);
+  if(d.length<=11){
+    return d.replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3-$4');
+  }
+  return d.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3')
+    .replace(/^(\d{2})\.(\d{3})\.(\d{3})(\d)/,'$1.$2.$3/$4').replace(/^(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/,'$1.$2.$3/$4-$5');
+}
+/* Máscara de telefone: (00) 0000-0000 ou (00) 00000-0000. */
+function fmtTelefone(v){
+  const d=String(v||'').replace(/\D/g,'').slice(0,11);
+  if(d.length<=10) return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2');
+  return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
+}
 function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
 function isoToday(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function isoVenc10(baseIso, add){ const d=new Date(baseIso+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+add,10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
@@ -1146,15 +1161,16 @@ function renderFornecedores(){
   const admin = perfil.papel==='admin';
   el('fornLista').innerHTML = arr.map(f=>{
     const q=qtdPorForn[f.id]||0;
-    const tipo = f.tipo==='prestador' ? 'Prestador' : 'Fornecedor';
     const meta = [ f.cnpj?('CPF/CNPJ '+esc(f.cnpj)):'sem CPF/CNPJ', q?`${q} lanç.`:'' ].filter(Boolean).join(' · ');
+    const contatos = [f.telefone, f.email].filter(Boolean).map(esc).join(' · ');
+    const cidade = f.endereco?`<i data-lucide="map-pin" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(f.endereco)}`:'';
     const acts = admin ? `<div class="acts">
       <button class="btn btn-sec" data-fact="editar" data-id="${f.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>
       <button class="btn btn-danger" data-fact="excluir" data-id="${f.id}"><i data-lucide="trash-2" class="i-sm"></i></button></div>` : '';
     return `<div class="item">
-      <div class="l1"><span class="cat">${esc(f.nome)}</span><span class="l1r"><span class="st ${f.tipo==='prestador'?'aberto':'pago'}">${tipo}</span>${totalPorForn[f.id]?`<span class="val num">${money(totalPorForn[f.id])}</span>`:''}</span></div>
+      <div class="l1"><span class="cat">${esc(f.nome)}</span>${totalPorForn[f.id]?`<span class="val num">${money(totalPorForn[f.id])}</span>`:''}</div>
       <div class="l2"><span>${meta}</span><span></span></div>
-      ${f.contato||f.endereco?`<div class="l3"><span>${esc(f.contato||'')}</span><span>${f.endereco?`<i data-lucide="map-pin" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(f.endereco)}`:''}</span></div>`:''}
+      ${contatos||cidade?`<div class="l3"><span>${contatos}</span><span>${cidade}</span></div>`:''}
       ${acts}
     </div>`;
   }).join('');
@@ -1169,12 +1185,12 @@ el('fornLista').addEventListener('click', (ev)=>{
 
 function abrirFornModal(f){
   el('fornModalTit').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
-  el('mfId').value      = f?f.id:'';
-  el('mfNome').value    = f?(f.nome||''):'';
-  el('mfTipo').value    = f?(f.tipo||'fornecedor'):'fornecedor';
-  el('mfCnpj').value    = f?(f.cnpj||''):'';
-  el('mfContato').value = f?(f.contato||''):'';
-  el('mfEndereco').value= f?(f.endereco||''):'';
+  el('mfId').value       = f?f.id:'';
+  el('mfNome').value     = f?(f.nome||''):'';
+  el('mfCnpj').value     = f?(f.cnpj||''):'';
+  el('mfTelefone').value = f?(f.telefone||''):'';
+  el('mfEmail').value    = f?(f.email||''):'';
+  el('mfEndereco').value = f?(f.endereco||''):'';
   el('fornModal').classList.remove('hidden');
   icons(); setTimeout(()=>el('mfNome').focus(),50);
 }
@@ -1185,8 +1201,9 @@ function editarFornecedor(f){ abrirFornModal(f); }
 async function salvarFornecedor(){
   const nome=el('mfNome').value.trim();
   if(!nome){ toast('Informe o nome do fornecedor','erro'); return; }
-  const payload={ nome, tipo:el('mfTipo').value, cnpj:el('mfCnpj').value.trim(),
-    contato:el('mfContato').value.trim(), endereco:el('mfEndereco').value.trim() };
+  const payload={ nome, cnpj:el('mfCnpj').value.trim(),
+    telefone:el('mfTelefone').value.trim(), email:el('mfEmail').value.trim(),
+    endereco:el('mfEndereco').value.trim() };
   const id=el('mfId').value;
   carregando(true,'Salvando fornecedor...');
   try{

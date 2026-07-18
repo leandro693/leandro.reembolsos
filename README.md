@@ -96,10 +96,10 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
   todos, filtro por **pessoa**. Tem ainda resumo por categoria, seleção para
   marcar vários como recebidos e o menu **Relatórios** (PDF, balancete com
   comprovantes anexos e exportação em `.xlsx`), que respeita os filtros ativos.
-- **Fornecedores:** cadastro de fornecedores e prestadores (nome, tipo, CPF/CNPJ,
-  contato e endereço). Cresce sozinho a cada lançamento com nota e também pode ser
-  editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos é
-  liberado a todos; **editar e excluir são exclusivos do administrador**.
+- **Fornecedores:** cadastro (nome, CPF/CNPJ com máscara automática, telefone,
+  e-mail e cidade/região). Cresce sozinho a cada lançamento com nota e também pode
+  ser editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos
+  é liberado a todos; **editar e excluir são exclusivos do administrador**.
 - **Ajustes:** tema claro/escuro, contraste, os dados de PIX que entram no PDF e,
   para admin/financeiro, a **Visualização** (ver os reembolsos de todos ou só os
   seus). A escolha fica salva e vale para o Dashboard e os Lançamentos.
@@ -173,6 +173,7 @@ publicada, o app avisa e você preenche manual, sem travar.
 | `icons/` | Ícones do app (marca Maradel: grafite e terracota). |
 | `supabase-setup.sql` | Script do banco: tabelas, segurança e storage. |
 | `supabase-v2-fundacao.sql` | v2: perfis de acesso, fornecedores e campos de nota. Rode depois do setup. |
+| `supabase-v3-fornecedor.sql` | v3: telefone e e-mail separados no fornecedor. Rode depois do v2. |
 | `supabase/functions/ler-comprovante/` | Edge Function da IA (Gemini) que lê o comprovante. |
 
 ### v2 Fase 1 (perfis e fornecedores)
