@@ -341,9 +341,9 @@ nav.bottom button.fab span{color:var(--accent)}
 @media(min-width:980px){
   .sidebar{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:224px;
     background:var(--sidebar);color:#fff;padding:16px 12px;z-index:60}
-  .sidebar .sb-logo{display:flex;align-items:center;gap:10px;padding:6px 6px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:10px}
-  .sidebar .markbadge{width:36px;height:36px;border-radius:9999px;background:#F5F4F2;display:flex;align-items:center;justify-content:center;flex:none}
-  .sidebar .markbadge img{width:26px;height:26px;object-fit:contain;display:block}
+  .sidebar .sb-logo{display:flex;align-items:center;gap:11px;padding:4px 6px 16px;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:10px}
+  .sidebar .markbadge{width:54px;height:54px;border-radius:0;background:transparent;display:flex;align-items:center;justify-content:center;flex:none}
+  .sidebar .markbadge img{width:54px;height:54px;object-fit:contain;display:block}
   .sidebar .brand{display:flex;flex-direction:column;line-height:1;min-width:0}
   .sidebar .brand .mk{color:#fff;font-weight:200;letter-spacing:.22em;font-size:11px}
   .sidebar .brand .pd{color:var(--accent);font-weight:500;letter-spacing:.2em;font-size:11px;text-transform:uppercase;margin-top:3px}
@@ -1169,7 +1169,7 @@ async function possivelDuplicata(dataEmissao, valor, numeroNota){
   if(!dataEmissao) return null;
   try{
     const { data } = await sb.from('lancamentos')
-      .select('id,fornecedor,numero_nota,valor_total,parcela_total')
+      .select('*')
       .eq('user_id', user.id).eq('data_emissao', dataEmissao);
     if(!data || !data.length) return null;
     if(numeroNota) return data.find(x=>String(x.numero_nota||'').trim()===String(numeroNota).trim()) || null;
@@ -1229,13 +1229,18 @@ async function lancar(){
     }
   }
 
-  // Evita documento em duplicidade (data + nº da nota, ou data + valor quando não há nota)
+  // Documento em duplicidade: não inclui; sugere abrir o lançamento anterior para editar.
   if(!ehKm){
     const dup = await possivelDuplicata(dataEmissao, num('fValor'), numeroNota);
     if(dup){
       const ref = numeroNota ? ('nota nº '+numeroNota) : ('valor '+money(num('fValor')));
-      if(!confirm(`Atenção: já existe um lançamento com esta data de emissão e ${ref}`+
-        (dup.fornecedor?` (${dup.fornecedor})`:'')+`. Pode ser duplicado. Lançar mesmo assim?`)) return;
+      if(confirm(`Já existe um lançamento com esta data e ${ref}`+(dup.fornecedor?` (${dup.fornecedor})`:'')+
+        `.\n\nPara evitar duplicidade, este novo lançamento NÃO será incluído.\n\nDeseja abrir o lançamento anterior para editar?`)){
+        abrirEdicao(dup, 'scConsultas');
+      } else {
+        toast('Lançamento não incluído (possível duplicidade).','erro');
+      }
+      return;
     }
   }
 
@@ -1247,7 +1252,7 @@ async function lancar(){
       if(fid) rows.forEach(r=>r.fornecedor_id=fid);
     }
     const comp = await uploadComprovante();
-    if(comp) rows[0].comprovante = comp;
+    if(comp) rows.forEach(r=>r.comprovante=comp);  // parcelado: mesmo comprovante em todas as parcelas
     const { error } = await sb.from('lancamentos').insert(rows);
     if(error) throw error;
     await carregarLista();
@@ -1525,14 +1530,18 @@ function desenharResumo(doc){
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
   doc.text('Relatório de Reembolsos',14,13);
   // Solicitante em destaque (terracota)
-  const solicitante = perfil.pix_nome || perfil.nome || '';
+  const solicitante = perfil.pix_nome || perfil.nome || ((user&&user.email)?user.email.split('@')[0]:'') || 'Solicitante';
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(230,230,230);
+  doc.text('Solicitante:',14,21);
+  doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(...TER);
+  doc.text(solicitante,40,21);
+  // Próximo pagamento previsto (data em terracota)
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(230,230,230);
-  doc.text('Solicitante:',14,21); const wLbl=doc.getTextWidth('Solicitante: ');
-  doc.setFont('helvetica','bold'); doc.setTextColor(...TER); doc.text(solicitante,14.5+wLbl,21);
-  // Próximo pagamento previsto
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(225,225,225);
-  doc.text(`Próximo pagamento previsto para ${brDate(proxVencIso())}`,14,27);
-  doc.setFontSize(8); doc.setTextColor(200,200,200); doc.text(`Gerado em ${brDate(isoToday())}`,196,13,{align:'right'});
+  const pfx='Próximo pagamento previsto para ';
+  doc.text(pfx,14,27); const wPfx=doc.getTextWidth(pfx);
+  doc.setFont('helvetica','bold'); doc.setTextColor(...TER); doc.text(brDate(proxVencIso()),14+wPfx,27);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(200,200,200);
+  doc.text(`Gerado em ${brDate(isoToday())}`,196,13,{align:'right'});
 
   const linhas=agruparCategoria(consultaVisivel); const total=soma(consultaVisivel);
   doc.setTextColor(...GRA); doc.setFont('helvetica','bold'); doc.setFontSize(11);
@@ -1609,6 +1618,19 @@ async function addPaginaComprovante(doc, l){
   doc.text('Comprovante de despesa',14,11.5);
   doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(`${perfil.pix_nome||perfil.nome||''}`,196,11.5,{align:'right'});
 
+  // Destaque de PARCELA (o mesmo comprovante aparece em todos os meses; não é duplicidade)
+  const mParc=(l.observacoes||'').match(/\((\d+)\/(\d+)\)/);
+  const pi = mParc?mParc[1]:l.parcela_num, pn = mParc?mParc[2]:l.parcela_total;
+  let startY=24;
+  if(pi && pn){
+    doc.setFillColor(...TER); doc.roundedRect(14,22,182,16,2,2,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(17);
+    doc.text(`PARCELA ${pi} de ${pn}`,20,32.5);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    doc.text('Compra parcelada. O mesmo comprovante se repete a cada mês. Não é pagamento em duplicidade.',66,32.5,{maxWidth:126});
+    startY=44;
+  }
+
   const desc=[
     ['Categoria', l.categoria||'-'],
     ['Fornecedor', l.fornecedor||'-'],
@@ -1617,9 +1639,9 @@ async function addPaginaComprovante(doc, l){
     ['Emissão', brDate(l.data_emissao)||'-'],
     ['Vencimento', brDate(l.vencimento)||'-'],
     ['Observações', l.observacoes||'-'],
-    ['Valor', money(l.valor_total)],
+    ['Valor da parcela', money(l.valor_total)],
   ];
-  doc.autoTable({ startY:24, body:desc, theme:'plain',
+  doc.autoTable({ startY, body:desc, theme:'plain',
     columnStyles:{0:{fontStyle:'bold',cellWidth:40,textColor:GRA},1:{textColor:[40,40,40]}},
     styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:14,right:14} });
 
