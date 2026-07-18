@@ -90,8 +90,9 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
   quilometragem calculam o valor por km; compras podem ser parceladas
   (vencimentos no dia 10). O fornecedor tem autocompletar: ao escolher um já
   cadastrado, o CPF/CNPJ vem preenchido.
-- **Lançamentos:** filtros por status; botão **Data** com períodos prontos (este
-  mês, mês passado, últimos 3 meses, este ano, todo período) e, para quem vê
+- **Lançamentos:** filtros por status; botão **Data** com períodos prontos, tanto
+  a receber (próximo mês, próximos 3 e 6 meses) quanto passados (mês passado,
+  últimos 3 meses), além de este mês, este ano e todo período; e, para quem vê
   todos, filtro por **pessoa**. Tem ainda resumo por categoria, seleção para
   marcar vários como recebidos e o menu **Relatórios** (PDF, balancete com
   comprovantes anexos e exportação em `.xlsx`), que respeita os filtros ativos.

@@ -231,6 +231,8 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:var(--text);
   font-size:13px;padding:9px 10px;border-radius:7px;cursor:pointer;text-align:left}
 .menu button:hover{background:var(--surface-2)}
+.menu-sep{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-4);font-weight:700;padding:8px 10px 4px;border-top:1px solid var(--border);margin-top:4px}
+.menu-sep:first-child{border-top:none;margin-top:0}
 
 /* Barra de marcação (seleção por caixa) */
 .marcar-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--accent-subtle);
@@ -674,8 +676,14 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
             <div class="menu hidden" id="menuData">
               <button onclick="fecharMenus();setPeriodoPreset('tudo')">Todo período</button>
               <button onclick="fecharMenus();setPeriodoPreset('mes')">Este mês</button>
+              <div class="menu-sep">A receber (futuro)</div>
+              <button onclick="fecharMenus();setPeriodoPreset('proxmes')">Próximo mês</button>
+              <button onclick="fecharMenus();setPeriodoPreset('prox3meses')">Próximos 3 meses</button>
+              <button onclick="fecharMenus();setPeriodoPreset('prox6meses')">Próximos 6 meses</button>
+              <div class="menu-sep">Já passou</div>
               <button onclick="fecharMenus();setPeriodoPreset('mespassado')">Mês passado</button>
               <button onclick="fecharMenus();setPeriodoPreset('3meses')">Últimos 3 meses</button>
+              <div class="menu-sep">Ano</div>
               <button onclick="fecharMenus();setPeriodoPreset('ano')">Este ano</button>
             </div>
           </div>
@@ -1628,7 +1636,7 @@ let consultaVisivel=[];
 let pessoaFiltro='';        // '' = todas
 let perDe='', perAte='';    // 'AAAA-MM'
 let periodoPreset='tudo';
-const PERIODO_LBL={tudo:'Todo período',mes:'Este mês',mespassado:'Mês passado','3meses':'Últimos 3 meses',ano:'Este ano'};
+const PERIODO_LBL={tudo:'Todo período',mes:'Este mês',proxmes:'Próximo mês',prox3meses:'Próximos 3 meses',prox6meses:'Próximos 6 meses',mespassado:'Mês passado','3meses':'Últimos 3 meses',ano:'Este ano'};
 async function irConsultas(filtro){
   tela('scConsultas'); el('consultaLista').innerHTML='<div class="empty">Carregando...</div>';
   await carregarLista();
@@ -1653,6 +1661,9 @@ function setPeriodoPreset(p){
   periodoPreset=p;
   const ym=isoToday().slice(0,7);
   if(p==='mes'){ perDe=ym; perAte=ym; }
+  else if(p==='proxmes'){ const nm=mesRel(ym,1); perDe=nm; perAte=nm; }
+  else if(p==='prox3meses'){ perDe=ym; perAte=mesRel(ym,2); }
+  else if(p==='prox6meses'){ perDe=ym; perAte=mesRel(ym,5); }
   else if(p==='mespassado'){ const pm=mesRel(ym,-1); perDe=pm; perAte=pm; }
   else if(p==='3meses'){ perDe=mesRel(ym,-2); perAte=ym; }
   else if(p==='ano'){ const y=ym.slice(0,4); perDe=`${y}-01`; perAte=`${y}-12`; }
