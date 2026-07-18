@@ -25,6 +25,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <!-- PDF.js: converte comprovante em PDF para imagem, para anexar no balancete -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- SheetJS: exportar lançamentos em .xlsx -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 /* ============================================================================
@@ -183,10 +185,45 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
 /* ---- Chips de filtro ---- */
-.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
-.chip{background:var(--surface);border:1px solid var(--border-strong);border-radius:9999px;padding:7px 12px;
-  color:var(--text-3);font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;transition:.15s}
-.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.filtros{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.filtros-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{background:var(--surface);border:1.5px solid var(--border-strong);border-radius:9999px;padding:5px 11px;
+  font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s;color:var(--text-3)}
+.chip::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px;background:currentColor}
+.chip.c-accent{color:var(--accent)} .chip.c-warn{color:var(--warn-fg)} .chip.c-err{color:var(--money-out)}
+.chip.c-ok{color:var(--money-in)} .chip.c-neutral{color:var(--text-2)}
+.chip.c-accent{border-color:var(--accent)} .chip.c-warn{border-color:var(--warn-border)} .chip.c-err{border-color:var(--err-border)}
+.chip.c-ok{border-color:var(--ok-border)} .chip.c-neutral{border-color:var(--border-strong)}
+.chip.on{color:#fff}
+.chip.c-accent.on{background:var(--accent);border-color:var(--accent)}
+.chip.c-warn.on{background:var(--warn-fg);border-color:var(--warn-fg)}
+.chip.c-err.on{background:var(--money-out);border-color:var(--money-out)}
+.chip.c-ok.on{background:var(--money-in);border-color:var(--money-in)}
+.chip.c-neutral.on{background:var(--text-2);border-color:var(--text-2)}
+.chip.on::before{background:rgba(255,255,255,.85)}
+
+/* Cabeçalho de página com ações à direita */
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+/* Botão compacto e menu suspenso */
+.btn-compact{background:var(--surface);border:1px solid var(--border-strong);color:var(--text-2);border-radius:8px;
+  padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.btn-compact:hover{background:var(--surface-2)}
+.btn-compact.ok{background:var(--money-in);border-color:var(--money-in);color:#fff}
+.menu-wrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);padding:6px;min-width:230px;z-index:38}
+.menu button{display:flex;align-items:center;gap:9px;width:100%;background:transparent;border:none;color:var(--text);
+  font-size:13px;padding:9px 10px;border-radius:7px;cursor:pointer;text-align:left}
+.menu button:hover{background:var(--surface-2)}
+
+/* Barra de marcação (seleção por caixa) */
+.marcar-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--accent-subtle);
+  border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.marcar-bar #marcarInfo{font-weight:600;color:var(--text-strong);font-size:13px}
+.marcar-bar .mb-date{font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:6px}
+.marcar-bar .mb-date input{border:1px solid var(--border-strong);border-radius:7px;padding:6px 8px;font-size:13px}
+.chk{width:17px;height:17px;cursor:pointer;accent-color:var(--accent)}
 
 /* ---- Painel/resumo (linhas) ---- */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
@@ -335,6 +372,14 @@ nav.bottom button.fab span{color:var(--accent)}
 .ic-btn:hover{background:var(--surface-2);color:var(--text-strong)}
 .ic-btn.danger{border-color:var(--err-border);color:var(--err-fg)}
 .ic-btn.danger:hover{background:var(--err-bg)}
+.tbl td.chk-td{width:34px;text-align:center}
+/* Contraste reforçado: grades vertical + horizontal (estilo Excel) + zebra cinza-clara */
+body[data-density="reforcado"] .tbl thead th,
+body[data-density="reforcado"] .tbl tbody td{border:1px solid var(--border-2)}
+body[data-density="reforcado"] .tbl tbody tr:nth-child(even)>*{background:var(--zebra)}
+body[data-density="reforcado"] .tbl tbody tr:hover>*{background:var(--row-hover-strong)}
+body[data-density="reforcado"] .panel .row{border-bottom:1px solid var(--border-2)}
+body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
 
 /* ---- Menu lateral (computador) ---- */
 .sidebar{display:none}
@@ -417,7 +462,7 @@ nav.bottom button.fab span{color:var(--accent)}
     <nav class="sb-nav">
       <button data-nav="scInicio" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
       <button data-nav="scForm" onclick="irForm('foto')"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
-      <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="search" class="i-md"></i><span>Consultas</span></button>
+      <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
       <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
     </nav>
@@ -445,7 +490,7 @@ nav.bottom button.fab span{color:var(--accent)}
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px">
         <h3 class="seclbl" style="margin:0">Vencendo em breve</h3>
-        <button class="btn btn-ghost sm" onclick="irConsultas('proximo')">Ver consultas</button>
+        <button class="btn btn-ghost sm" onclick="irConsultas('proximo')">Ver todos</button>
       </div>
       <div id="inicioUltimos"><div class="empty">Carregando...</div></div>
     </section>
@@ -539,23 +584,35 @@ nav.bottom button.fab span{color:var(--accent)}
 
     <!-- CONSULTAS -->
     <section id="scConsultas" class="screen hidden">
-      <h2 class="pagetitle">Consultas</h2>
-      <p class="pagesub" id="consultaResumo">-</p>
-      <div class="chips" id="consultaChips">
-        <button class="chip on" data-f="proximo" onclick="setConsulta('proximo')"><i data-lucide="calendar-clock" class="i-sm"></i> Próx. venc.</button>
-        <button class="chip" data-f="aberto" onclick="setConsulta('aberto')"><i data-lucide="wallet" class="i-sm"></i> Em aberto</button>
-        <button class="chip" data-f="atraso" onclick="setConsulta('atraso')"><i data-lucide="alert-triangle" class="i-sm"></i> Em atraso</button>
-        <button class="chip" data-f="recebidos" onclick="setConsulta('recebidos')"><i data-lucide="check-check" class="i-sm"></i> Recebidos</button>
-        <button class="chip" data-f="parcelados" onclick="setConsulta('parcelados')"><i data-lucide="layers" class="i-sm"></i> Parcelados</button>
-        <button class="chip" data-f="resumo" onclick="setConsulta('resumo')"><i data-lucide="pie-chart" class="i-sm"></i> Resumo</button>
+      <div class="page-head">
+        <div><h2 class="pagetitle">Lançamentos</h2><p class="pagesub" id="consultaResumo">-</p></div>
+        <div class="menu-wrap">
+          <button class="btn-compact" onclick="toggleMenu('menuRelatorios',event)"><i data-lucide="file-down" class="i-sm"></i> Relatórios <i data-lucide="chevron-down" class="i-sm"></i></button>
+          <div class="menu hidden" id="menuRelatorios">
+            <button onclick="fecharMenus();copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
+            <button onclick="fecharMenus();gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> PDF (resumo)</button>
+            <button onclick="fecharMenus();gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Balancete (com comprovantes)</button>
+            <button onclick="fecharMenus();exportarXlsx()"><i data-lucide="sheet" class="i-sm"></i> Planilha (.xlsx)</button>
+          </div>
+        </div>
+      </div>
+      <div class="filtros">
+        <span class="filtros-lbl">Status</span>
+        <div class="chips" id="consultaChips">
+          <button class="chip c-accent on" data-f="proximo" onclick="setConsulta('proximo')">Próx. venc.</button>
+          <button class="chip c-warn" data-f="aberto" onclick="setConsulta('aberto')">Em aberto</button>
+          <button class="chip c-err" data-f="atraso" onclick="setConsulta('atraso')">Em atraso</button>
+          <button class="chip c-ok" data-f="recebidos" onclick="setConsulta('recebidos')">Recebidos</button>
+          <button class="chip c-neutral" data-f="parcelados" onclick="setConsulta('parcelados')">Parcelados</button>
+          <button class="chip c-neutral" data-f="resumo" onclick="setConsulta('resumo')">Resumo</button>
+        </div>
+      </div>
+      <div class="marcar-bar hidden" id="marcarBar">
+        <span id="marcarInfo"></span>
+        <label class="mb-date">Recebido em <input type="date" id="marcarData"></label>
+        <button class="btn-compact ok" onclick="marcarSelecionados()"><i data-lucide="check" class="i-sm"></i> Marcar como recebidos</button>
       </div>
       <div id="consultaLista"><div class="empty">Carregando...</div></div>
-      <div id="consultaAcoes" class="hidden">
-        <button class="btn btn-sec mt12" onclick="copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
-        <button class="btn btn-dark mt10" onclick="gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> Gerar PDF (resumo)</button>
-        <button class="btn btn-primary mt10" onclick="gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Gerar balancete (com comprovantes)</button>
-        <button class="btn btn-ghost mt10" id="btnMarcarMes" onclick="irMarcar()"><i data-lucide="calendar-check" class="i-sm"></i> Marcar vários como recebidos</button>
-      </div>
     </section>
 
     <!-- EDITAR -->
@@ -658,7 +715,7 @@ nav.bottom button.fab span{color:var(--accent)}
 
   <nav class="bottom">
     <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
-    <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="search" class="i-md"></i><span>Consultas</span></button>
+    <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançam.</span></button>
     <button class="fab" onclick="irForm('manual')"><span class="fabic"><i data-lucide="plus" class="i-lg"></i></span><span>Lançar</span></button>
     <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornec.</span></button>
     <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
@@ -1356,11 +1413,13 @@ async function irConsultas(filtro){
   await carregarLista();
   setConsulta(filtro||'proximo');
 }
+let selConsulta = new Set();
 function setConsulta(f){
-  consultaFiltro=f;
+  consultaFiltro=f; selConsulta.clear();
   document.querySelectorAll('#consultaChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-f')===f));
   renderConsulta();
 }
+function podeSelecionar(){ return ['proximo','aberto','atraso','parcelados'].includes(consultaFiltro) && perfil.papel!=='financeiro'; }
 function renderConsulta(){
   const f=consultaFiltro, hoje=isoToday(); let arr=[], tit='';
   if(f==='proximo'){ const pv=proxVencIso(); arr=emAberto().filter(l=>l.vencimento===pv); tit='Próximo vencimento '+brDate(pv); }
@@ -1372,19 +1431,17 @@ function renderConsulta(){
   arr=[...arr].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
   consultaVisivel=arr;
   el('consultaResumo').textContent = `${tit} · ${arr.length} item(ns) · ${money(soma(arr))}`;
-  const acoes=el('consultaAcoes');
-  if(!arr.length){ el('consultaLista').innerHTML=vazio('inbox','Nada nesta visão.'); acoes.classList.add('hidden'); icons(); return; }
+  if(!arr.length){ el('consultaLista').innerHTML=vazio('inbox','Nada nesta visão.'); atualizarMarcarBar(); icons(); return; }
   // No computador: tabela (uma linha por lançamento). No celular: cartões.
-  el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr) : arr.map(itemHtml).join('');
+  el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr, podeSelecionar()) : arr.map(itemHtml).join('');
   bindAcoes('consultaLista');
-  acoes.classList.remove('hidden');
-  el('btnMarcarMes').style.display = ['proximo','aberto','atraso','parcelados'].includes(f)?'flex':'none';
+  atualizarMarcarBar();
   icons();
 }
 function ehDesktop(){ return window.matchMedia('(min-width:980px)').matches; }
 
-/* Tabela densa de lançamentos (computador) */
-function tabelaLancamentos(arr){
+/* Tabela densa de lançamentos (computador). comCheck = mostra caixas de seleção. */
+function tabelaLancamentos(arr, comCheck){
   const hoje=isoToday();
   const linhas=arr.map(l=>{
     const pago=l.status==='pago';
@@ -1395,13 +1452,14 @@ function tabelaLancamentos(arr){
     let acts='';
     if(l.comprovante) acts+=`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`;
     if(podeAgir){
-      if(!pago) acts+=`<button class="ic-btn" title="Marcar recebido" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i></button>`;
       if(pago)  acts+=`<button class="ic-btn" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i></button>`;
       acts+=`<button class="ic-btn" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i></button>`;
       if(!pago) acts+=`<button class="ic-btn danger" title="Excluir" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`;
     }
     const autor = veTudo() && l.usuario ? `<div class="sub2">${esc(l.usuario)}</div>` : '';
+    const chk = comCheck ? `<td class="chk-td">${!pago?`<input type="checkbox" class="chk" ${selConsulta.has(String(l.id))?'checked':''} onchange="toggleSel('${l.id}',this.checked)">`:''}</td>` : '';
     return `<tr>
+      ${chk}
       <td class="code">${brDate(l.vencimento)}</td>
       <td>${esc(l.categoria)}${tag?`<span class="tag">${esc(tag.trim())}</span>`:''}${autor}</td>
       <td>${esc(l.fornecedor||'')}</td>
@@ -1411,24 +1469,70 @@ function tabelaLancamentos(arr){
       <td class="acts-td">${acts}</td>
     </tr>`;
   }).join('');
+  const thChk = comCheck ? `<th class="chk-td"><input type="checkbox" class="chk" onchange="toggleSelTodos(this.checked)" title="Selecionar todos"></th>` : '';
   return `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Venc.</th><th>Categoria</th><th>Fornecedor</th><th>Nota</th><th class="num">Valor</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>${thChk}<th>Venc.</th><th>Categoria</th><th>Fornecedor</th><th>Nota</th><th class="num">Valor</th><th>Status</th><th></th></tr></thead>
     <tbody>${linhas}</tbody></table></div>`;
 }
+
+/* Seleção por caixa + marcação em lote */
+function toggleSel(id, checked){ if(checked) selConsulta.add(String(id)); else selConsulta.delete(String(id)); atualizarMarcarBar(); }
+function toggleSelTodos(checked){
+  selConsulta.clear();
+  if(checked) consultaVisivel.filter(l=>l.status!=='pago').forEach(l=>selConsulta.add(String(l.id)));
+  renderConsulta();
+}
+function atualizarMarcarBar(){
+  const bar=el('marcarBar');
+  if(!selConsulta.size){ bar.classList.add('hidden'); return; }
+  const sel=consultaVisivel.filter(l=>selConsulta.has(String(l.id)));
+  el('marcarInfo').textContent = `${sel.length} selecionado(s) · ${money(soma(sel))}`;
+  if(!el('marcarData').value) el('marcarData').value=isoToday();
+  bar.classList.remove('hidden');
+}
+async function marcarSelecionados(){
+  const ids=[...selConsulta]; if(!ids.length) return;
+  const dp=el('marcarData').value||isoToday();
+  if(!confirm(`Marcar ${ids.length} lançamento(s) como recebidos em ${brDate(dp)}?`)) return;
+  carregando(true,'Marcando...');
+  const { error } = await sb.from('lancamentos').update({status:'pago', data_pagamento:dp}).in('id', ids);
+  selConsulta.clear();
+  await after(error, ids.length+' marcado(s) como recebidos');
+}
+/* Menu suspenso (Relatórios) */
+function toggleMenu(id, ev){ if(ev) ev.stopPropagation(); const m=el(id); const abrir=m.classList.contains('hidden'); fecharMenus(); if(abrir) m.classList.remove('hidden'); }
+function fecharMenus(){ document.querySelectorAll('.menu').forEach(m=>m.classList.add('hidden')); }
+document.addEventListener('click', fecharMenus);
+
+/* Exportar a visão atual para planilha .xlsx */
+function exportarXlsx(){
+  if(!window.XLSX){ toast('Biblioteca de planilha não carregou','erro'); return; }
+  if(!consultaVisivel.length){ toast('Nada para exportar','erro'); return; }
+  const rows=consultaVisivel.map(l=>({
+    'Vencimento':brDate(l.vencimento), 'Emissão':brDate(l.data_emissao), 'Categoria':l.categoria||'',
+    'Fornecedor':l.fornecedor||'', 'CNPJ':l.cnpj||'', 'Nº nota':l.numero_nota||'',
+    'Valor':Number(l.valor_total)||0, 'Status':l.status==='pago'?'Recebido':'A receber',
+    'Recebido em':l.data_pagamento?brDate(l.data_pagamento):'', 'Observações':l.observacoes||'', 'Solicitante':l.usuario||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:12},{wch:24},{wch:30},{wch:20},{wch:12},{wch:12},{wch:11},{wch:12},{wch:34},{wch:16}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Lançamentos');
+  XLSX.writeFile(wb, `Lancamentos_${(perfil.pix_nome||perfil.nome||'').replace(/ /g,'_')||'reembolsos'}.xlsx`);
+  toast('Planilha gerada','ok');
+}
+
 function agruparCategoria(arr){
   const m={}; arr.forEach(l=>{ m[l.categoria]=(m[l.categoria]||0)+(Number(l.valor_total)||0); });
   return Object.entries(m).sort((a,b)=>b[1]-a[1]);
 }
 function renderResumoCategoria(){
-  const arr=emAberto(); consultaVisivel=arr;
+  const arr=emAberto(); consultaVisivel=arr; selConsulta.clear(); atualizarMarcarBar();
   const linhas=agruparCategoria(arr); const total=soma(arr);
   el('consultaResumo').textContent = `Resumo por categoria (em aberto) · ${money(total)}`;
-  const acoes=el('consultaAcoes');
-  if(!linhas.length){ el('consultaLista').innerHTML=vazio('pie-chart','Nada em aberto.'); acoes.classList.add('hidden'); icons(); return; }
+  if(!linhas.length){ el('consultaLista').innerHTML=vazio('pie-chart','Nada em aberto.'); icons(); return; }
   let html='<div class="panel">'+linhas.map(([c,v])=>`<div class="row"><span>${esc(c)}</span><span class="num">${money(v)}</span></div>`).join('')+
     `<div class="row total"><span>Total</span><span class="num">${money(total)}</span></div></div>`;
-  el('consultaLista').innerHTML=html;
-  acoes.classList.remove('hidden'); el('btnMarcarMes').style.display='none'; icons();
+  el('consultaLista').innerHTML=html; icons();
 }
 function copiarConsulta(){
   if(!consultaVisivel.length) return;
