@@ -31,13 +31,19 @@ const json = (body: unknown, status = 200) =>
 const PROMPT = `Você é um leitor de comprovantes de despesa brasileiros: nota fiscal, cupom,
 recibo, fatura e contas de consumo (energia, água, telefone, internet).
 
-REGRA MAIS IMPORTANTE: baseie-se APENAS no que está escrito no documento enviado.
-NUNCA invente, adivinhe ou use exemplos. Se você não consegue ler o documento, ou se
-ele não é um comprovante, responda com "legivel": false e todos os outros campos vazios.
+REGRA 1: baseie-se APENAS no que está escrito no documento enviado. NUNCA invente,
+adivinhe ou use exemplos. Se um campo não estiver visível, deixe vazio (0 no valor).
+
+REGRA 2: vale QUALQUER documento que mostre uma despesa com um valor total, mesmo
+que informal. São válidos: nota fiscal, cupom fiscal, cupom para simples conferência,
+comanda, pré-conta, recibo, fatura, boleto e contas de consumo (energia, água,
+telefone, internet). Para todos esses, "legivel": true.
+Use "legivel": false SOMENTE quando a imagem estiver ilegível, em branco, muito cortada,
+ou claramente não for um documento de despesa (ex.: uma paisagem, uma selfie).
 
 Campos:
-- "legivel": true somente se você realmente leu um comprovante neste documento; senão false.
-- "fornecedor": nome exato da empresa/estabelecimento EMISSORA que aparece no documento.
+- "legivel": true se dá para ler um documento de despesa (ver Regra 2); senão false.
+- "fornecedor": nome exato da empresa/estabelecimento que aparece no documento.
 - "valor": o valor TOTAL a pagar do documento, número com ponto decimal (ex.: 319.57). Sem "R$".
 - "data_emissao": data de emissão no formato AAAA-MM-DD. Se não aparecer, deixe "".
 - "categoria": escolha EXATAMENTE uma desta lista, a que melhor descreve o gasto:
