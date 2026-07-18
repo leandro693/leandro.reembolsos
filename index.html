@@ -306,12 +306,12 @@ nav.bottom button.fab span{color:var(--accent)}
 .dashgrid{display:grid;gap:12px}
 .chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
 .chart h3{font-size:13px;color:var(--text-2);margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:7px}
-.bar{display:grid;grid-template-columns:104px 1fr 84px;gap:9px;align-items:center;margin-bottom:9px}
-.bar .lbl{color:var(--text-2);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bar .track{background:var(--track);border-radius:6px;height:15px;overflow:hidden}
-.bar .fill{background:var(--accent);height:100%;border-radius:6px;min-width:2px;transition:width .3s}
-.bar .fill.g{background:var(--text-2)}
-.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12px;text-align:right;color:var(--text)}
+.bar{margin-bottom:12px}
+.bar .top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px}
+.bar .lbl{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-strong);font-weight:600;white-space:nowrap}
+.bar .line{height:6px;background:var(--track);border-radius:9999px;overflow:hidden}
+.bar .line>span{display:block;height:100%;background:var(--accent);border-radius:9999px;transition:width .3s}
 
 /* ---- Tabela densa (computador) ---- */
 .tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow-x:auto;box-shadow:var(--shadow)}
@@ -550,7 +550,8 @@ nav.bottom button.fab span{color:var(--accent)}
       <div id="consultaLista"><div class="empty">Carregando...</div></div>
       <div id="consultaAcoes" class="hidden">
         <button class="btn btn-sec mt12" onclick="copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
-        <button class="btn btn-dark mt10" onclick="gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> Gerar PDF</button>
+        <button class="btn btn-dark mt10" onclick="gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> Gerar PDF (resumo)</button>
+        <button class="btn btn-primary mt10" onclick="gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Gerar balancete (com comprovantes)</button>
         <button class="btn btn-ghost mt10" id="btnMarcarMes" onclick="irMarcar()"><i data-lucide="calendar-check" class="i-sm"></i> Marcar vários como recebidos</button>
       </div>
     </section>
@@ -882,13 +883,13 @@ function vazio(ic,txt){ return `<div class="empty"><div class="ic"><i data-lucid
 /* ============================================================================
    DASHBOARD — gráficos (barras em SVG/HTML, sem libs externas)
    ========================================================================== */
-function barras(itens, cls){
+function barras(itens){
   const max = Math.max(...itens.map(i=>i.valor), 1);
   return itens.map(i=>{
-    const pct = Math.round((i.valor/max)*100);
-    return `<div class="bar"><span class="lbl" title="${esc(i.rotulo)}">${esc(i.rotulo)}</span>`+
-      `<span class="track"><span class="fill ${cls||''}" style="width:${pct}%"></span></span>`+
-      `<span class="v">${money(i.valor)}</span></div>`;
+    const pct = Math.max(3, Math.round((i.valor/max)*100));
+    return `<div class="bar">`+
+      `<div class="top"><span class="lbl" title="${esc(i.rotulo)}">${esc(i.rotulo)}</span><span class="v">${money(i.valor)}</span></div>`+
+      `<div class="line"><span style="width:${pct}%"></span></div></div>`;
   }).join('');
 }
 function renderDashCharts(){
@@ -912,7 +913,7 @@ function renderDashCharts(){
   const vazioMsg='<div class="empty" style="padding:16px">Nada em aberto.</div>';
   let html='<div class="dashgrid">';
   html += `<div class="chart"><h3><i data-lucide="pie-chart" class="i-sm"></i> A receber por categoria</h3>`+(cats.length?barras(cats):vazioMsg)+`</div>`;
-  html += `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> A receber por mês</h3>`+(meses.length?barras(meses,'g'):vazioMsg)+`</div>`;
+  html += `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> A receber por mês</h3>`+(meses.length?barras(meses):vazioMsg)+`</div>`;
   html += `<div class="chart"><h3><i data-lucide="building-2" class="i-sm"></i> Top fornecedores</h3>`+(forns.length?barras(forns):vazioMsg)+`</div>`;
   html += '</div>';
   cont.innerHTML = html;
@@ -1513,17 +1514,16 @@ async function salvarPix(){
 /* ============================================================================
    PDF (identidade Maradel: terracota + grafite)
    ========================================================================== */
-function gerarPdf(){
-  if(!consultaVisivel.length){ toast('Nada para gerar','erro'); return; }
-  if(!window.jspdf){ toast('Biblioteca PDF não carregou','erro'); return; }
-  const { jsPDF }=window.jspdf; const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const TER=[219,132,56], GRA=[57,57,59];
-  const titulos={proximo:'Próximo vencimento',aberto:'Em aberto',atraso:'Em atraso',recebidos:'Recebidos',parcelados:'Parcelados',resumo:'Resumo por categoria'};
+const PDF_TITULOS={proximo:'Próximo vencimento',aberto:'Em aberto',atraso:'Em atraso',recebidos:'Recebidos',parcelados:'Parcelados',resumo:'Resumo por categoria'};
+const TER=[219,132,56], GRA=[57,57,59];
+
+/* Desenha o resumo (cabeçalho + por categoria + detalhamento + PIX) no doc atual. */
+function desenharResumo(doc){
   doc.setFillColor(...GRA); doc.rect(0,0,210,26,'F');
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
   doc.text('Relatório de Reembolsos',14,12);
   doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-  doc.text(`${perfil.nome||''}  ·  ${titulos[consultaFiltro]}`,14,19);
+  doc.text(`${perfil.nome||''}  ·  ${PDF_TITULOS[consultaFiltro]}`,14,19);
   doc.setFontSize(8); doc.text(`Gerado em ${brDate(isoToday())}`,196,19,{align:'right'});
 
   const linhas=agruparCategoria(consultaVisivel); const total=soma(consultaVisivel);
@@ -1538,12 +1538,11 @@ function gerarPdf(){
   doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...GRA); doc.text('Detalhamento',14,y);
   const det=consultaVisivel.map(l=>{
     const tag=(l.observacoes&&l.observacoes.match(/\(\d+\/\d+\)/))?' '+l.observacoes.match(/\(\d+\/\d+\)/)[0]:'';
-    return [brDate(l.vencimento), (l.categoria||'')+tag, l.fornecedor||'',
-      l.km_total>0?String(l.km_total):'-', l.pedagio>0?money(l.pedagio):'-', l.estacionamento>0?money(l.estacionamento):'-', money(l.valor_total)];
+    return [brDate(l.vencimento), (l.categoria||'')+tag, l.fornecedor||'', l.numero_nota||'-', money(l.valor_total)];
   });
-  doc.autoTable({ startY:y+3, head:[['Venc.','Categoria','Fornecedor','KM','Pedágio','Estac.','Valor']], body:det, theme:'striped',
+  doc.autoTable({ startY:y+3, head:[['Venc.','Categoria','Fornecedor','Nota','Valor']], body:det, theme:'striped',
     headStyles:{fillColor:GRA,textColor:255,fontStyle:'bold',fontSize:8},
-    columnStyles:{0:{cellWidth:18},3:{halign:'center',cellWidth:12},4:{halign:'right',cellWidth:17},5:{halign:'right',cellWidth:17},6:{halign:'right',cellWidth:22}},
+    columnStyles:{0:{cellWidth:20},3:{cellWidth:24},4:{halign:'right',cellWidth:26}},
     styles:{fontSize:8,cellPadding:1.5}, margin:{left:14,right:14} });
 
   let yp=doc.lastAutoTable.finalY+10; if(yp>250){ doc.addPage(); yp=20; }
@@ -1556,11 +1555,92 @@ function gerarPdf(){
   if(perfil.pix_banco) doc.text(`Banco: ${perfil.pix_banco}`,110,yp+20);
   doc.setFont('helvetica','bold'); doc.setFontSize(10.5); doc.setTextColor(...TER);
   doc.text(`Total a pagar: ${money(total)}`,110,yp+26);
-
   doc.setTextColor(150,150,150); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('Maradel Assessoria e Consultoria Contábil',105,290,{align:'center'});
-  doc.save(`Reembolsos_${(perfil.nome||'').replace(/ /g,'_')}_${titulos[consultaFiltro].replace(/ /g,'_')}.pdf`);
+}
+
+function gerarPdf(){
+  if(!consultaVisivel.length){ toast('Nada para gerar','erro'); return; }
+  if(!window.jspdf){ toast('Biblioteca PDF não carregou','erro'); return; }
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  desenharResumo(doc);
+  doc.save(`Reembolsos_${(perfil.nome||'').replace(/ /g,'_')}_${PDF_TITULOS[consultaFiltro].replace(/ /g,'_')}.pdf`);
   toast('PDF gerado','ok');
+}
+
+/* Baixa a imagem do comprovante e devolve dataURL + dimensões (para embutir no PDF). */
+function carregarImagem(url){
+  return new Promise(async (res,rej)=>{
+    try{
+      const resp=await fetch(url); const blob=await resp.blob();
+      const dataUrl=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); });
+      const img=new Image(); img.onload=()=>res({dataUrl,w:img.naturalWidth,h:img.naturalHeight}); img.onerror=rej; img.src=dataUrl;
+    }catch(e){ rej(e); }
+  });
+}
+
+/* Adiciona uma página descrevendo a despesa + o comprovante embaixo (modelo balancete). */
+async function addPaginaComprovante(doc, l){
+  doc.addPage();
+  doc.setFillColor(...GRA); doc.rect(0,0,210,18,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
+  doc.text('Comprovante de despesa',14,11.5);
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text(`${perfil.nome||''}`,196,11.5,{align:'right'});
+
+  const desc=[
+    ['Categoria', l.categoria||'-'],
+    ['Fornecedor', l.fornecedor||'-'],
+    ['CNPJ', l.cnpj||'-'],
+    ['Nº da nota/cupom', l.numero_nota||'-'],
+    ['Emissão', brDate(l.data_emissao)||'-'],
+    ['Vencimento', brDate(l.vencimento)||'-'],
+    ['Observações', l.observacoes||'-'],
+    ['Valor', money(l.valor_total)],
+  ];
+  doc.autoTable({ startY:24, body:desc, theme:'plain',
+    columnStyles:{0:{fontStyle:'bold',cellWidth:40,textColor:GRA},1:{textColor:[40,40,40]}},
+    styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:14,right:14} });
+
+  let imgY=doc.lastAutoTable.finalY+6;
+  doc.setDrawColor(220,218,214); doc.line(14,imgY,196,imgY); imgY+=6;
+  try{
+    const { data } = await sb.storage.from('comprovantes').createSignedUrl(l.comprovante, 300);
+    if(!data||!data.signedUrl) throw new Error('sem url');
+    if(/\.pdf$/i.test(l.comprovante)){
+      doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(120,120,120);
+      doc.text('Comprovante original em PDF (arquivo anexado à parte).',14,imgY+6);
+      return 'pdf';
+    }
+    const {dataUrl,w,h}=await carregarImagem(data.signedUrl);
+    const maxW=182, maxH=297-imgY-14;
+    let dw=maxW, dh=dw*h/w; if(dh>maxH){ dh=maxH; dw=dh*w/h; }
+    doc.addImage(dataUrl,(210-dw)/2,imgY,dw,dh);
+    return 'img';
+  }catch(e){
+    console.warn('comprovante',e);
+    doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(180,80,80);
+    doc.text('Não foi possível carregar a imagem do comprovante.',14,imgY+6);
+    return 'fail';
+  }
+}
+
+/* Balancete: resumo + uma página por despesa com o comprovante anexado. */
+async function gerarBalancete(){
+  if(!consultaVisivel.length){ toast('Nada para gerar','erro'); return; }
+  if(!window.jspdf){ toast('Biblioteca PDF não carregou','erro'); return; }
+  const comAnexo=consultaVisivel.filter(l=>l.comprovante);
+  if(!comAnexo.length && !confirm('Nenhum lançamento desta lista tem comprovante anexado. Gerar só o resumo?')) return;
+  const { jsPDF }=window.jspdf; const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  desenharResumo(doc);
+  let img=0,pdf=0;
+  for(let i=0;i<comAnexo.length;i++){
+    carregando(true,`Montando balancete (${i+1}/${comAnexo.length})...`);
+    const r=await addPaginaComprovante(doc, comAnexo[i]);
+    if(r==='img') img++; else if(r==='pdf') pdf++;
+  }
+  carregando(false);
+  doc.save(`Balancete_Reembolsos_${(perfil.nome||'').replace(/ /g,'_')}.pdf`);
+  toast(`Balancete gerado: ${img} comprovante(s) anexado(s)${pdf?`, ${pdf} em PDF`:''}.`,'ok');
 }
 
 /* ============================================================================
