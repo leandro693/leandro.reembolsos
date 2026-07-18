@@ -654,7 +654,7 @@ function tela(id, origem){
   el(id).classList.remove('hidden');
   telaAtual=id;
   if(origem) stackAnterior=origem;
-  if(id!=='scForm') fecharViewer();   // o visualizador só vale na tela de lançamento
+  if(id!=='scForm' && id!=='scEditar') fecharViewer();  // viewer vale no lançamento e na edição
   el('btnBack').style.display = PRINCIPAIS.includes(id) ? 'none' : 'flex';
   document.querySelectorAll('nav.bottom button[data-nav]').forEach(b=>{
     b.classList.toggle('on', b.getAttribute('data-nav')===id);
@@ -986,6 +986,20 @@ async function uploadComprovante(){
   }catch(e){ console.warn(e); return ''; }
 }
 
+/* Detecta possível documento duplicado do próprio usuário.
+   Chave: mesma data de emissão + (número da nota, se houver; senão o valor). */
+async function possivelDuplicata(dataEmissao, valor, numeroNota){
+  if(!dataEmissao) return null;
+  try{
+    const { data } = await sb.from('lancamentos')
+      .select('id,fornecedor,numero_nota,valor_total,parcela_total')
+      .eq('user_id', user.id).eq('data_emissao', dataEmissao);
+    if(!data || !data.length) return null;
+    if(numeroNota) return data.find(x=>String(x.numero_nota||'').trim()===String(numeroNota).trim()) || null;
+    return data.find(x=>!x.parcela_total && Number(x.valor_total)===Number(valor)) || null;
+  }catch(e){ return null; }
+}
+
 /* Acha um fornecedor pelo CNPJ (ou nome) ou cria um novo. Devolve o id. */
 async function acharOuCriarFornecedor(nome, cnpj){
   try{
@@ -1035,6 +1049,16 @@ async function lancar(){
         observacoes:(base.observacoes?base.observacoes+' ':'')+`(${i+1}/${n})`}));
     } else {
       rows=[{...base, fornecedor, valor_total:valor, vencimento:el('fVenc').value||null}];
+    }
+  }
+
+  // Evita documento em duplicidade (data + nº da nota, ou data + valor quando não há nota)
+  if(!ehKm){
+    const dup = await possivelDuplicata(dataEmissao, num('fValor'), numeroNota);
+    if(dup){
+      const ref = numeroNota ? ('nota nº '+numeroNota) : ('valor '+money(num('fValor')));
+      if(!confirm(`Atenção: já existe um lançamento com esta data de emissão e ${ref}`+
+        (dup.fornecedor?` (${dup.fornecedor})`:'')+`. Pode ser duplicado. Lançar mesmo assim?`)) return;
     }
   }
 
@@ -1099,6 +1123,16 @@ function abrirEdicao(l, origem){
   el('eValor').value=l.valor_total; el('eObs').value=l.observacoes||'';
   el('eVenc').value=l.vencimento||'';
   tela('scEditar', origem||'scInicio');
+  mostrarComprovanteViewer(l.comprovante);   // no computador, abre o comprovante à direita
+}
+
+/* Busca link temporário do comprovante e mostra no visualizador (computador). */
+async function mostrarComprovanteViewer(path){
+  if(!path){ fecharViewer(); return; }
+  try{
+    const { data } = await sb.storage.from('comprovantes').createSignedUrl(path, 300);
+    if(data && data.signedUrl) abrirViewer(data.signedUrl, /\.pdf$/i.test(path)?'application/pdf':'image');
+  }catch(e){ /* silencioso */ }
 }
 function adiarMes(){
   const atual=el('eVenc').value||isoToday();
