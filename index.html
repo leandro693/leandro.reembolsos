@@ -939,6 +939,7 @@ let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
 let empresaNome = '';
 let empresaPapel = 'operador';   // papel no vínculo empresa_usuarios
+let categoriasDB = [];           // categorias da empresa (do banco)
 
 /* ===== Categorias (keys iguais às da planilha antiga, sem emoji) ===== */
 const CATEGORIAS = [
@@ -1084,6 +1085,18 @@ async function carregarEmpresa(){
     if(data){ empresaId=data.empresa_id; empresaPapel=data.papel||'operador';
       empresaNome=(data.empresas&&(data.empresas.nome_fantasia||data.empresas.razao_social))||''; }
   }catch(e){ empresaId=null; }
+  await carregarCategoriasDB();
+}
+/* Categorias da empresa (do banco). O formulário usa estas; cai na lista fixa se vazio. */
+async function carregarCategoriasDB(){
+  try{
+    const { data } = await sb.from('categorias').select('nome, ativo').eq('empresa_id', empresaId).order('nome',{ascending:true});
+    categoriasDB = (data||[]);
+  }catch(e){ categoriasDB=[]; }
+}
+function listaCategorias(){
+  const ativas = categoriasDB.filter(c=>c.ativo!==false).map(c=>c.nome);
+  return ativas.length ? ativas : CATEGORIAS;
 }
 /* true quando o usuário pode ver os lançamentos de todos (financeiro ou admin) */
 function veTudo(){ return perfil.papel==='admin' || perfil.papel==='financeiro'; }
@@ -1400,7 +1413,7 @@ function autoPreencherForn(){
   if(f && f.cnpj && !el('fCnpj').value.trim()) el('fCnpj').value=f.cnpj;
 }
 function limparForm(){
-  popular(el('fCategoria'), CATEGORIAS, true);
+  popular(el('fCategoria'), listaCategorias(), true);
   popular(el('fBeneficiario'), BENEFICIARIOS, true);
   preencherDatalistForn();
   ['fFornecedor','fValor','fLocal','fKm','fObs','fNumeroNota','fCnpj'].forEach(id=>el(id).value='');
@@ -1527,7 +1540,7 @@ async function analisarFoto(){
 /* Aplica o que a IA extraiu nos campos do formulário */
 function aplicarIA(d){
   el('revisaoBox').classList.remove('hidden');
-  if(d.categoria && CATEGORIAS.includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
+  if(d.categoria && listaCategorias().includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
   if(d.fornecedor) el('fFornecedor').value=d.fornecedor;
   if(d.numero_nota) el('fNumeroNota').value=d.numero_nota;
   if(d.cnpj) el('fCnpj').value=d.cnpj;
@@ -1709,7 +1722,7 @@ async function after(error, msgOk){
 let edicaoAtual=null;
 function abrirEdicao(l, origem){
   edicaoAtual=l;
-  popular(el('eCategoria'), CATEGORIAS, false); el('eCategoria').value=l.categoria;
+  { const cats=listaCategorias(); if(l.categoria && !cats.includes(l.categoria)) cats.push(l.categoria); popular(el('eCategoria'), cats, false); } el('eCategoria').value=l.categoria;
   el('eFornecedor').value=l.fornecedor||'';
   el('eNumeroNota').value=l.numero_nota||''; el('eCnpj').value=l.cnpj||'';
   el('eValor').value=l.valor_total; el('eObs').value=l.observacoes||'';
@@ -2181,7 +2194,8 @@ async function renderAdminCategorias(){
     const { data } = await sb.from('categorias').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
     cacheCategorias = data||[];
     const linhas = cacheCategorias.map(c=>`<div class="item"><div class="l1"><span class="cat">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}</span>
-      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleCategoria('${c.id}',${c.ativo?'false':'true'})"><i data-lucide="${c.ativo?'eye':'eye-off'}" class="i-sm"></i> ${c.ativo?'Ativa':'Inativa'}</button></div></div>`).join('');
+      <span class="l1r"><button class="btn btn-sec" style="width:auto;flex:none" onclick="renomearCategoria('${c.id}')"><i data-lucide="pencil" class="i-sm"></i> Renomear</button>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleCategoria('${c.id}',${c.ativo?'false':'true'})"><i data-lucide="${c.ativo?'eye':'eye-off'}" class="i-sm"></i> ${c.ativo?'Ativa':'Inativa'}</button></span></div></div>`).join('');
     el('adminCategorias').innerHTML = `<div class="chart"><h3><i data-lucide="tags" class="i-sm"></i> Categorias da empresa</h3>
       <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novaCat" placeholder="Nova categoria"></div>
         <div class="field"><button class="btn btn-sec" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
@@ -2194,11 +2208,29 @@ async function addCategoria(){
   const { error } = await sb.from('categorias').insert({ empresa_id:empresaId, nome, tipo_calculo:'valor' });
   carregando(false);
   if(error){ toast('Não foi possível adicionar','erro'); return; }
-  el('novaCat').value=''; renderAdminCategorias();
+  el('novaCat').value=''; await carregarCategoriasDB(); renderAdminCategorias();
 }
 async function toggleCategoria(id, ativo){
   const { error } = await sb.from('categorias').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
-  if(!error) renderAdminCategorias(); else toast('Não foi possível alterar','erro');
+  if(!error){ await carregarCategoriasDB(); renderAdminCategorias(); } else toast('Não foi possível alterar','erro');
+}
+async function renomearCategoria(id){
+  const c = cacheCategorias.find(x=>String(x.id)===String(id)); if(!c) return;
+  const entrada = prompt('Novo nome da categoria:', c.nome);
+  if(entrada===null) return;
+  const nome = entrada.trim();
+  if(!nome){ toast('Nome inválido','erro'); return; }
+  if(nome===c.nome) return;
+  carregando(true,'Renomeando...');
+  try{
+    const { error } = await sb.from('categorias').update({ nome }).eq('id', id);
+    if(error) throw error;
+    // Atualiza os lançamentos que usavam o nome antigo (mantém o texto consistente).
+    await sb.from('lancamentos').update({ categoria:nome }).eq('empresa_id', empresaId).eq('categoria', c.nome);
+    await carregarCategoriasDB(); await carregarLista();
+    carregando(false); renderAdminCategorias();
+    toast('Categoria renomeada','ok');
+  }catch(e){ carregando(false); toast('Não foi possível renomear','erro'); }
 }
 async function renderAdminPoliticas(){
   try{
