@@ -62,15 +62,18 @@ Criado (aditivo, sem quebrar o app atual):
 - [x] Testes: suíte do app (36 verificações) + testes de injeção/CNPJ da IA
       (`supabase/functions/ler-comprovante/seguranca.test.mjs`).
 
-### Parcial / próximos passos (mesma fase)
-- [ ] Cadastro visual de categorias/setores/políticas de limite (tabelas já
-      existem; RLS pronta para gestor). Hoje via banco.
-- [ ] Número sequencial (#0001) exibido na interface e soft-delete no botão
-      Excluir (coluna `deleted_at` já existe e a RLS já esconde soft-deletados).
-- [ ] Duplicata: gravar em `alertas` (hoje o app sugere editar o anterior) e
-      duplicata exata por hash de arquivo.
+### Acabamentos Fase 1 — feitos
+- [x] Número sequencial **#0001** nos cartões e na tabela + selo da empresa no Dashboard.
+- [x] **Soft-delete** no Excluir (coluna `deleted_at`; RLS esconde).
+- [x] **Auditoria** por trigger (0003): criar/editar/pagar/estornar/excluir.
+- [x] **Alerta de duplicata** gravado (`registrar_alerta`) e visível no painel.
+- [x] Painel admin: **cadastro de categorias** (add/ativar) e **políticas de limite** (add/remover).
+
+### Ainda aberto (mesma fase, opcional)
+- [ ] Duplicata **exata por hash de arquivo** (precisa popular `comprovantes` com sha256).
 - [ ] Migrar `parcelas`/`comprovantes` para as novas tabelas (hoje o app usa o
       modelo antigo, que segue funcionando).
+- [ ] Cadastro de **setores** na interface (tabela e RLS já prontas).
 
 ## Fase 2/3 (do doc) — ainda não iniciado
 Aprovação multinível, relatórios customizáveis, e-mails de evolução, onboarding
