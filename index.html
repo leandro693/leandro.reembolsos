@@ -184,6 +184,8 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .row2 .field{margin-bottom:0}
 .chk-line{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;margin-top:2px}
 .chk-line input{width:auto;margin:0}
+.numseq{font-family:'JetBrains Mono',monospace;color:var(--text-4);font-weight:600;font-size:.9em}
+.empresa-chip{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;text-transform:uppercase;opacity:.9}
 
 /* ---- Toggle (segmented) ---- */
 .seg{display:flex;gap:6px}
@@ -845,6 +847,8 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       </div>
       <div id="adminConsumo"></div>
       <div id="adminUsuarios" class="mt12"></div>
+      <div id="adminCategorias" class="mt12"></div>
+      <div id="adminPoliticas" class="mt12"></div>
       <div id="adminAlertas" class="mt12"></div>
       <div id="adminSeguranca" class="mt12"></div>
       <button class="btn btn-ghost mt12" onclick="voltar()">Voltar</button>
@@ -1126,9 +1130,10 @@ function atrasados(){ const hoje=isoToday(); return emAberto().filter(l=>l.venci
    ========================================================================== */
 function mesLabel(iso){ const [a,m]=String(iso).split('-'); return `${m}/${a}`; }
 function renderInicio(){
-  el('dashSub').textContent = veTudo()
+  const base = veTudo()
     ? 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').'
     : 'Visão geral dos seus reembolsos.';
+  el('dashSub').innerHTML = (empresaNome?`<span class="empresa-chip">${esc(empresaNome)}</span> · `:'') + esc(base);
   renderKpis();
   renderDashCharts();
   // Vencendo em breve: em aberto, por vencimento crescente
@@ -1343,8 +1348,9 @@ function itemHtml(l){
   if(l.comprovante_pagamento) acts.push(`<button class="btn btn-sec" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
   const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
+  const numSeq = l.numero_sequencial ? `<span class="numseq">#${String(l.numero_sequencial).padStart(4,'0')}</span> ` : '';
   return `<div class="item">
-    <div class="l1"><span class="cat">${esc(l.categoria)}${tag}</span><span class="l1r">${st}<span class="val num">${money(l.valor_total)}</span></span></div>
+    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="l1r">${st}<span class="val num">${money(l.valor_total)}</span></span></div>
     <div class="l2"><span>${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
     ${extras}${autor}
     ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
@@ -1621,6 +1627,9 @@ async function lancar(){
   if(!ehKm){
     const dup = await possivelDuplicata(dataEmissao, num('fValor'), numeroNota);
     if(dup){
+      // Registra o alerta para o painel do gestor (nunca bloqueia silenciosamente).
+      try{ await sb.rpc('registrar_alerta', { p_empresa: empresaId, p_lancamento: dup.id, p_tipo:'duplicata',
+        p_detalhe:{ data_emissao:dataEmissao, numero_nota:numeroNota, valor:num('fValor'), cnpj } }); }catch(e){}
       const ref = numeroNota ? ('nota nº '+numeroNota) : ('valor '+money(num('fValor')));
       if(confirm(`Já existe um lançamento com esta data e ${ref}`+(dup.fornecedor?` (${dup.fornecedor})`:'')+
         `.\n\nPara evitar duplicidade, este novo lançamento NÃO será incluído.\n\nDeseja abrir o lançamento anterior para editar?`)){
@@ -1672,9 +1681,10 @@ async function excluir(l){
     const todas=confirm('Lançamento parcelado.\n\nOK = excluir TODAS as parcelas desta compra.\nCancelar = excluir só esta parcela.');
     if(todas) ids = lista.filter(x=>x.id_compra===l.id_compra).map(x=>x.id);
   }
-  if(!confirm('Confirma a exclusão? Esta ação não pode ser desfeita.')) return;
+  if(!confirm('Confirma a exclusão?')) return;
   carregando(true,'Excluindo...');
-  const { error } = await sb.from('lancamentos').delete().in('id', ids);
+  // Soft-delete: marca deleted_at (a RLS esconde; nada é apagado de fato — auditoria).
+  const { error } = await sb.from('lancamentos').update({ deleted_at: new Date().toISOString() }).in('id', ids);
   await after(error, ids.length+' lançamento(s) excluído(s)');
 }
 async function after(error, msgOk){
@@ -1857,8 +1867,10 @@ function tabelaLancamentos(arr, comCheck){
     }
     const autor = veTudo() && l.usuario ? `<div class="sub2">${esc(l.usuario)}</div>` : '';
     const chk = comCheck ? `<td class="chk-td">${!pago?`<input type="checkbox" class="chk" ${selConsulta.has(String(l.id))?'checked':''} onchange="toggleSel('${l.id}',this.checked)">`:''}</td>` : '';
+    const nseq = l.numero_sequencial ? '#'+String(l.numero_sequencial).padStart(4,'0') : '';
     return `<tr>
       ${chk}
+      <td class="code numseq">${nseq}</td>
       <td class="code">${brDate(l.vencimento)}</td>
       <td>${esc(l.categoria)}${tag?`<span class="tag">${esc(tag.trim())}</span>`:''}${autor}</td>
       <td>${esc(l.fornecedor||'')}</td>
@@ -1870,7 +1882,7 @@ function tabelaLancamentos(arr, comCheck){
   }).join('');
   const thChk = comCheck ? `<th class="chk-td"><input type="checkbox" class="chk" onchange="toggleSelTodos(this.checked)" title="Selecionar todos"></th>` : '';
   return `<div class="tbl-wrap"><table class="tbl">
-    <thead><tr>${thChk}<th>Venc.</th><th>Categoria</th><th>Fornecedor</th><th>Nota</th><th class="num">Valor</th><th>Status</th><th></th></tr></thead>
+    <thead><tr>${thChk}<th>Nº</th><th>Venc.</th><th>Categoria</th><th>Fornecedor</th><th>Nota</th><th class="num">Valor</th><th>Status</th><th></th></tr></thead>
     <tbody>${linhas}</tbody></table></div>`;
 }
 
@@ -2149,7 +2161,60 @@ async function renderAdmin(){
       <div class="l2"><span>sev: ${esc(s.severidade||'')}</span><span>${brDate(s.created_at)}</span></div></div>`).join('');
     el('adminSeguranca').innerHTML = `<div class="chart"><h3><i data-lucide="shield" class="i-sm"></i> Segurança — quarentena de IA</h3>${arr.length?linhas:'<div class="empty" style="padding:14px">Nada em quarentena.</div>'}</div>`;
   }catch(e){ el('adminSeguranca').innerHTML=''; }
+  await renderAdminCategorias();
+  await renderAdminPoliticas();
   icons();
+}
+let cacheCategorias=[];
+async function renderAdminCategorias(){
+  try{
+    const { data } = await sb.from('categorias').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
+    cacheCategorias = data||[];
+    const linhas = cacheCategorias.map(c=>`<div class="item"><div class="l1"><span class="cat">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}</span>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleCategoria('${c.id}',${c.ativo?'false':'true'})"><i data-lucide="${c.ativo?'eye':'eye-off'}" class="i-sm"></i> ${c.ativo?'Ativa':'Inativa'}</button></div></div>`).join('');
+    el('adminCategorias').innerHTML = `<div class="chart"><h3><i data-lucide="tags" class="i-sm"></i> Categorias da empresa</h3>
+      <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novaCat" placeholder="Nova categoria"></div>
+        <div class="field"><button class="btn btn-sec" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
+      ${linhas||'<div class="empty" style="padding:14px">Sem categorias.</div>'}</div>`;
+  }catch(e){ el('adminCategorias').innerHTML=''; }
+}
+async function addCategoria(){
+  const nome=(el('novaCat').value||'').trim(); if(!nome){ toast('Informe o nome','erro'); return; }
+  carregando(true,'Adicionando...');
+  const { error } = await sb.from('categorias').insert({ empresa_id:empresaId, nome, tipo_calculo:'valor' });
+  carregando(false);
+  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  el('novaCat').value=''; renderAdminCategorias();
+}
+async function toggleCategoria(id, ativo){
+  const { error } = await sb.from('categorias').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
+  if(!error) renderAdminCategorias(); else toast('Não foi possível alterar','erro');
+}
+async function renderAdminPoliticas(){
+  try{
+    const { data } = await sb.from('politicas_limite').select('*').eq('empresa_id', empresaId).order('criado_em',{ascending:false});
+    const arr=data||[];
+    const linhas = arr.map(p=>`<div class="item"><div class="l1"><span class="cat">${money(p.valor_limite)} <span class="tag">${p.periodo==='mensal'?'por mês':'por lançamento'}</span></span>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="excluirPolitica('${p.id}')"><i data-lucide="trash-2" class="i-sm"></i></button></div></div>`).join('');
+    el('adminPoliticas').innerHTML = `<div class="chart"><h3><i data-lucide="gauge" class="i-sm"></i> Políticas de limite (alertam, nunca bloqueiam)</h3>
+      <div class="row2" style="margin-bottom:8px"><div class="field"><label>Valor limite (R$)</label><input type="number" id="polValor" placeholder="0,00" inputmode="decimal"></div>
+        <div class="field"><label>Período</label><select id="polPeriodo"><option value="por_lancamento">Por lançamento</option><option value="mensal">Mensal</option></select></div></div>
+      <button class="btn btn-sec" style="margin-bottom:10px" onclick="addPolitica()"><i data-lucide="plus" class="i-sm"></i> Adicionar política</button>
+      ${arr.length?linhas:'<div class="empty" style="padding:14px">Sem políticas definidas.</div>'}</div>`;
+  }catch(e){ el('adminPoliticas').innerHTML=''; }
+}
+async function addPolitica(){
+  const v=parseFloat((el('polValor').value||'0').replace(',','.'))||0; if(v<=0){ toast('Informe o valor','erro'); return; }
+  carregando(true,'Adicionando...');
+  const { error } = await sb.from('politicas_limite').insert({ empresa_id:empresaId, valor_limite:v, periodo:el('polPeriodo').value });
+  carregando(false);
+  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  el('polValor').value=''; renderAdminPoliticas();
+}
+async function excluirPolitica(id){
+  if(!confirm('Remover esta política?')) return;
+  const { error } = await sb.from('politicas_limite').delete().eq('id', id);
+  if(!error) renderAdminPoliticas(); else toast('Não foi possível remover','erro');
 }
 async function mudarPapel(id, papel){
   carregando(true,'Salvando papel...');
