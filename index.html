@@ -192,7 +192,8 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .crow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--border)}
 .crow:first-child{border-top:none}
 .crow .cnome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
-.crow .ccod{width:92px;flex:none;border:1px solid var(--border-strong);border-radius:7px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace}
+.crow .ccod{width:64px;flex:none;border:1px solid var(--border-strong);border-radius:7px;padding:5px 6px;font-size:12px;text-align:center;background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace}
+.crow .ic-btn{width:28px;height:28px;flex:none}
 .switch{position:relative;display:inline-block;width:38px;height:22px;flex:none}
 .switch input{opacity:0;width:0;height:0}
 .switch .slider{position:absolute;inset:0;background:var(--border-strong);border-radius:9999px;transition:.2s;cursor:pointer}
@@ -2330,6 +2331,7 @@ async function renderAdminSetores(){
       <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novoSetor" placeholder="Novo setor"></div>
         <div class="field"><button class="btn btn-sec" onclick="addSetor()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
       <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem setores.</div>'}</div></div>`;
+    icons();
   }catch(e){ el('adminSetores').innerHTML=''; }
 }
 async function addSetor(){
@@ -2372,6 +2374,7 @@ async function renderAdminCategorias(){
         <div class="field"><button class="btn btn-sec" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
       <div style="font-size:11px;color:var(--text-4);margin:-2px 0 8px">A coluna à direita é o código no seu sistema (ex.: Omie). Preencha manualmente.</div>
       <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem categorias.</div>'}</div></div>`;
+    icons();
   }catch(e){ el('adminCategorias').innerHTML=''; }
 }
 async function addCategoria(){
