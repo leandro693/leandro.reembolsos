@@ -192,7 +192,6 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .crow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--border)}
 .crow:first-child{border-top:none}
 .crow .cnome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
-.crow .ccod{width:64px;flex:none;border:1px solid var(--border-strong);border-radius:7px;padding:5px 6px;font-size:12px;text-align:center;background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace}
 .crow .ic-btn{width:28px;height:28px;flex:none}
 .switch{position:relative;display:inline-block;width:38px;height:22px;flex:none}
 .switch input{opacity:0;width:0;height:0}
@@ -866,6 +865,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div id="adminConsumo" class="mt12"></div>
       <div id="adminAprovacao" class="mt12"></div>
       <div id="adminUsuarios" class="mt12"></div>
+      <div id="adminIntegracao" class="mt12"></div>
       <div id="adminCategorias" class="mt12"></div>
       <div id="adminSetores" class="mt12"></div>
       <div id="adminPoliticas" class="mt12"></div>
@@ -2264,6 +2264,7 @@ async function renderAdmin(){
       <div class="l2"><span>sev: ${esc(s.severidade||'')}</span><span>${brDate(s.created_at)}</span></div></div>`).join('');
     el('adminSeguranca').innerHTML = `<div class="chart"><h3><i data-lucide="shield" class="i-sm"></i> Segurança — quarentena de IA</h3>${arr.length?linhas:'<div class="empty" style="padding:14px">Nada em quarentena.</div>'}</div>`;
   }catch(e){ el('adminSeguranca').innerHTML=''; }
+  await renderAdminIntegracao();
   await renderAdminCategorias();
   await renderAdminSetores();
   await renderAdminPoliticas();
@@ -2323,8 +2324,7 @@ async function renderAdminSetores(){
     const { data } = await sb.from('setores').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
     cacheSetores=data||[];
     const linhas = cacheSetores.map(s=>`<div class="crow">
-      <span class="cnome" title="${esc(s.nome)}">${esc(s.nome)}</span>
-      <input class="ccod" value="${esc(s.codigo_externo||'')}" placeholder="Omie" title="Código no sistema externo (ex.: Omie)" onchange="setCodSetor('${s.id}',this.value)">
+      <span class="cnome" title="${esc(s.nome)}">${esc(s.nome)}${s.codigo_externo?` <span class="tag" title="Código no ERP">${esc(s.codigo_externo)}</span>`:''}</span>
       <button class="ic-btn" title="Renomear" onclick="renomearSetor('${s.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
       <label class="switch" title="${s.ativo?'Ativo':'Inativo'}"><input type="checkbox" ${s.ativo?'checked':''} onchange="toggleSetor('${s.id}',this.checked)"><span class="slider"></span></label></div>`).join('');
     el('adminSetores').innerHTML = `<div class="chart"><h3><i data-lucide="network" class="i-sm"></i> Setores da empresa</h3>
@@ -2346,9 +2346,59 @@ async function toggleSetor(id, ativo){
   const { error } = await sb.from('setores').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
   if(!error){ await carregarSetoresDB(); renderAdminSetores(); } else toast('Não foi possível alterar','erro');
 }
-async function setCodSetor(id, val){
-  const { error } = await sb.from('setores').update({ codigo_externo:(val||'').trim() }).eq('id', id);
-  if(error) toast('Não foi possível salvar o código','erro'); else toast('Código salvo','ok');
+/* --- Integração com ERP (Omie e, no futuro, outros) --- */
+let integracaoErp=null;
+async function renderAdminIntegracao(){
+  try{
+    const { data } = await sb.from('integracoes_erp').select('provedor,app_key,ativo,secret_set,ultima_sync').eq('empresa_id', empresaId).eq('provedor','omie').maybeSingle();
+    integracaoErp = data||null;
+    const ativo=!!(data&&data.ativo), temSecret=!!(data&&data.secret_set), temKey=!!(data&&data.app_key);
+    const pronta = ativo && temKey && temSecret;
+    const ultima = data&&data.ultima_sync ? brDate(data.ultima_sync) : '—';
+    el('adminIntegracao').innerHTML = `<div class="chart"><h3><i data-lucide="plug" class="i-sm"></i> Integração com ERP</h3>
+      <div style="font-size:12px;color:var(--text-4);margin:-4px 0 10px">Conecte um sistema de gestão para importar as categorias de lá, em vez de cadastrar à mão. Hoje: Omie (outros em breve).</div>
+      <div class="row2"><div class="field"><label>Sistema</label>
+        <select id="erpProvedor"><option value="omie" selected>Omie</option></select></div>
+        <div class="field"><label>App Key</label><input type="text" id="erpKey" value="${esc(data?.app_key||'')}" placeholder="App Key do Omie"></div></div>
+      <div class="row2"><div class="field"><label>App Secret</label><input type="password" id="erpSecret" placeholder="${temSecret?'•••••••• (guardado)':'App Secret do Omie'}"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn btn-sec" onclick="salvarIntegracao()"><i data-lucide="save" class="i-sm"></i> Salvar credenciais</button></div></div>
+      <div class="chk-line" style="margin:4px 0 12px"><label class="switch" title="${ativo?'Ativa':'Inativa'}"><input type="checkbox" ${ativo?'checked':''} onchange="toggleIntegracao(this.checked)"><span class="slider"></span></label>
+        <span>Integração ${ativo?'ativa':'desativada'}</span></div>
+      <button class="btn btn-primary" ${pronta?'':'disabled'} onclick="importarCategoriasERP()"><i data-lucide="download-cloud" class="i-sm"></i> Importar categorias do ERP</button>
+      <div style="font-size:11px;color:var(--text-4);margin-top:8px">${pronta?('Última importação: '+ultima+'.'):'Preencha as credenciais e ative para liberar a importação.'} As credenciais ficam no servidor; o app nunca as expõe.</div>
+    </div>`;
+    icons();
+  }catch(e){ el('adminIntegracao').innerHTML=''; }
+}
+async function salvarIntegracao(){
+  const provedor=(el('erpProvedor')?.value)||'omie';
+  const app_key=(el('erpKey')?.value||'').trim();
+  const app_secret=(el('erpSecret')?.value||'').trim();
+  if(!app_key){ toast('Informe a App Key','erro'); return; }
+  const payload={ empresa_id:empresaId, provedor, app_key };
+  if(app_secret){ payload.app_secret=app_secret; payload.secret_set=true; }
+  carregando(true,'Salvando...');
+  const { error } = await sb.from('integracoes_erp').upsert(payload, { onConflict:'empresa_id,provedor' });
+  carregando(false);
+  if(error){ toast('Não foi possível salvar','erro'); return; }
+  toast('Credenciais salvas','ok'); renderAdminIntegracao();
+}
+async function toggleIntegracao(ativo){
+  const { error } = await sb.from('integracoes_erp').upsert({ empresa_id:empresaId, provedor:'omie', ativo:!!ativo }, { onConflict:'empresa_id,provedor' });
+  if(error){ toast('Não foi possível alterar','erro'); return; }
+  renderAdminIntegracao();
+}
+async function importarCategoriasERP(){
+  carregando(true,'Importando do ERP...');
+  try{
+    const { data, error } = await sb.functions.invoke('importar-erp', { body:{ empresa_id:empresaId, provedor:'omie', tipo:'categorias' } });
+    if(error) throw error;
+    if(data&&data.erro){ carregando(false); toast(data.erro,'erro'); return; }
+    await carregarCategoriasDB();
+    carregando(false);
+    toast(`Importado: ${data?.criadas||0} novas, ${data?.atualizadas||0} atualizadas`,'ok');
+    renderAdminCategorias(); renderAdminIntegracao();
+  }catch(e){ carregando(false); toast('Falha ao importar do ERP','erro'); }
 }
 async function renomearSetor(id){
   const s=cacheSetores.find(x=>String(x.id)===String(id)); if(!s) return;
@@ -2365,14 +2415,12 @@ async function renderAdminCategorias(){
     const { data } = await sb.from('categorias').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
     cacheCategorias = data||[];
     const linhas = cacheCategorias.map(c=>`<div class="crow">
-      <span class="cnome" title="${esc(c.nome)}">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}</span>
-      <input class="ccod" value="${esc(c.codigo_externo||'')}" placeholder="Omie" title="Código no sistema externo (ex.: Omie)" onchange="setCodCategoria('${c.id}',this.value)">
+      <span class="cnome" title="${esc(c.nome)}">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}${c.codigo_externo?` <span class="tag" title="Código no ERP">${esc(c.codigo_externo)}</span>`:''}</span>
       <button class="ic-btn" title="Renomear" onclick="renomearCategoria('${c.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
       <label class="switch" title="${c.ativo?'Ativa':'Inativa'}"><input type="checkbox" ${c.ativo?'checked':''} onchange="toggleCategoria('${c.id}',this.checked)"><span class="slider"></span></label></div>`).join('');
     el('adminCategorias').innerHTML = `<div class="chart"><h3><i data-lucide="tags" class="i-sm"></i> Categorias da empresa</h3>
       <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novaCat" placeholder="Nova categoria"></div>
         <div class="field"><button class="btn btn-sec" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
-      <div style="font-size:11px;color:var(--text-4);margin:-2px 0 8px">A coluna à direita é o código no seu sistema (ex.: Omie). Preencha manualmente.</div>
       <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem categorias.</div>'}</div></div>`;
     icons();
   }catch(e){ el('adminCategorias').innerHTML=''; }
@@ -2388,10 +2436,6 @@ async function addCategoria(){
 async function toggleCategoria(id, ativo){
   const { error } = await sb.from('categorias').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
   if(!error){ await carregarCategoriasDB(); renderAdminCategorias(); } else toast('Não foi possível alterar','erro');
-}
-async function setCodCategoria(id, val){
-  const { error } = await sb.from('categorias').update({ codigo_externo:(val||'').trim() }).eq('id', id);
-  if(error) toast('Não foi possível salvar o código','erro'); else toast('Código salvo','ok');
 }
 async function renomearCategoria(id){
   const c = cacheCategorias.find(x=>String(x.id)===String(id)); if(!c) return;

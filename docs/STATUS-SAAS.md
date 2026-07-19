@@ -80,9 +80,16 @@ Criado (aditivo, sem quebrar o app atual):
       `comprovantes` + dual-write dos metadados.
 - [x] **Renomear categorias** e formulário usando as categorias da empresa (banco).
 - [x] **Categorias/Setores compactos**: lista enxuta (nome ocupa a linha toda) com
-      só um botão de renomear e um **liga/desliga** (switch). Cada linha tem um
-      campo de **código externo** para mapear a categoria/setor ao ERP (ex.: Omie),
-      preenchido manualmente (integração automática é Fase 3). (migration 0005)
+      só um botão de renomear e um **liga/desliga** (switch). (migration 0005)
+- [x] **Integração com ERP (Omie)**: em vez de coluna manual, a Omie virou uma
+      **conexão de API**. No painel admin há a seção "Integração com ERP": informa
+      App Key/App Secret, ativa e clica **Importar categorias do ERP**. As
+      credenciais ficam no **servidor** (tabela `integracoes_erp`, RLS gestor/dono;
+      migration 0006) e a busca roda na Edge Function **`importar-erp`**, que chama
+      a API do Omie (`ListarCategorias`), casa por código/nome e cria/atualiza as
+      categorias. Estrutura pronta para outros ERPs. O código do ERP aparece como
+      selo discreto na categoria (sem coluna). Falta apenas validar com uma conta
+      Omie real (App Key/Secret do cliente).
 
 ### Ainda aberto (evolução, precisa de infra externa ou é organização interna)
 - [ ] Migrar o modelo de **parcelas** para a tabela `parcelas` (hoje parcela é
