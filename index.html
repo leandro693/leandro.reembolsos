@@ -1536,7 +1536,14 @@ function aplicarIA(d){
     atualizarVenc();
   }
   if(d.observacoes) el('fObs').value=d.observacoes;
-  if(parcelado) calcParcelas();
+  // Compra parcelada detectada pela IA: entra em modo parcelado com as N parcelas.
+  const nparc = parseInt(d.parcelas)||0;
+  if(nparc>=2 && d.categoria!=='Quilometragem'){
+    setParcelado(true);
+    el('fNumParc').value = Math.min(48, nparc);
+    calcParcelas();
+    toast(`Compra parcelada em ${nparc}x — parcelas preenchidas. Confira.`,'ok');
+  } else if(parcelado){ calcParcelas(); }
   window.scrollTo(0,0);
   icons();
 }

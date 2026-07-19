@@ -87,9 +87,12 @@ Use "legivel": false só se ilegível, em branco, cortado ou claramente não for
 Campos:
 - "legivel": boolean.
 - "fornecedor": empresa/estabelecimento ou a PESSOA que recebeu (em maquininha, o nome perto do CPF).
-- "valor": total (número com ponto decimal, sem "R$").
+- "valor": valor TOTAL da compra (número com ponto decimal, sem "R$"). Se for
+  parcelado, é o total (não o valor de cada parcela).
+- "parcelas": número de vezes se a compra for PARCELADA (ex.: "3x", "em 3 vezes",
+  "PARCELADO 3X", "3 parcelas", "PARC 03"). Se for à vista, use 1.
 - "data_emissao": AAAA-MM-DD (converta formatos como "18/JUL/2026").
-- "numero_nota": número da nota/cupom/autorização; senão "".
+- "numero_nota": número da nota/cupom/autorização/ordem de serviço; senão "".
 - "cnpj": CNPJ (00.000.000/0000-00) ou CPF (000.000.000-00) do vendedor; senão "".
 - "categoria": escolha EXATAMENTE uma:
 ${CATEGORIAS.map((c) => "  - " + c).join("\n")}
@@ -142,7 +145,8 @@ Deno.serve(async (req) => {
               type: "OBJECT",
               properties: {
                 legivel: { type: "BOOLEAN" }, fornecedor: { type: "STRING" },
-                valor: { type: "NUMBER" }, data_emissao: { type: "STRING" },
+                valor: { type: "NUMBER" }, parcelas: { type: "INTEGER" },
+                data_emissao: { type: "STRING" },
                 numero_nota: { type: "STRING" }, cnpj: { type: "STRING" },
                 categoria: { type: "STRING" }, observacoes: { type: "STRING" },
               },
