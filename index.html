@@ -199,7 +199,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .f2-grp{min-width:0}
 .ctl-sm{border:1px solid var(--border-strong);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);font-family:inherit;height:38px}
 #btnData{height:38px}
-.btn-compact.on-filter{border-color:var(--accent);color:var(--accent);font-weight:600}
+.btn-compact.on-filter,.btn-compact.anexado{border-color:var(--accent);color:var(--accent);font-weight:600}
 @media(max-width:560px){ .f2-grp{flex:1 1 100%} .f2-grp .ctl-sm,.f2-grp .menu-wrap,.f2-grp #btnData{width:100%} }
 .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 @media(min-width:720px){ .chips{grid-template-columns:repeat(6,1fr)} }
@@ -699,6 +699,8 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="marcar-bar hidden" id="marcarBar">
         <span id="marcarInfo"></span>
         <label class="mb-date">Recebido em <input type="date" id="marcarData"></label>
+        <input type="file" id="marcarFile" accept="image/*,application/pdf" class="hidden" onchange="marcarFileSel(this)">
+        <button type="button" class="btn-compact" id="marcarFileBtn" onclick="el('marcarFile').click()"><i data-lucide="paperclip" class="i-sm"></i> <span id="marcarFileLbl">Comprovante de pagamento</span></button>
         <button class="btn-compact ok" onclick="marcarSelecionados()"><i data-lucide="check" class="i-sm"></i> Marcar como recebidos</button>
       </div>
       <div id="consultaLista"><div class="empty">Carregando...</div></div>
@@ -1275,6 +1277,7 @@ function itemHtml(l){
   } else if(l.comprovante){
     acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Ver nota</button>`);
   }
+  if(l.comprovante_pagamento) acts.push(`<button class="btn btn-sec" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
   const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
   return `<div class="item">
@@ -1297,6 +1300,7 @@ function bindAcoes(containerId){
     if(act==='editar') return abrirEdicao(l, telaAtual);
     if(act==='excluir') return excluir(l);
     if(act==='comprovante') return verComprovante(l);
+    if(act==='comprovantePag') return verComprovante(l.comprovante_pagamento);
   };
 }
 
@@ -1465,16 +1469,21 @@ function aplicarIA(d){
   icons();
 }
 
-async function uploadComprovante(){
-  if(!fotoFile) return '';
+/* Sobe um arquivo para o bucket privado, sob a pasta indicada. Devolve o caminho. */
+async function uploadArquivo(file, pasta){
+  if(!file) return '';
   try{
-    const ext=(fotoFile.name.split('.').pop()||'jpg').toLowerCase();
-    const path=`${user.id}/${crypto.randomUUID()}.${ext}`;
-    const { error }=await sb.storage.from('comprovantes').upload(path, fotoFile, {contentType:fotoFile.type, upsert:false});
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const path=`${pasta}/${crypto.randomUUID()}.${ext}`;
+    const { error }=await sb.storage.from('comprovantes').upload(path, file, {contentType:file.type, upsert:false});
     if(error){ console.warn(error); return ''; }
     return path;
   }catch(e){ console.warn(e); return ''; }
 }
+/* Nota/comprovante da despesa: fica na pasta do próprio usuário. */
+async function uploadComprovante(){ return uploadArquivo(fotoFile, user.id); }
+/* Comprovante de pagamento: pasta compartilhada (a baixa pode ser de vários). */
+async function uploadPagamento(file){ return uploadArquivo(file, 'pagamentos'); }
 
 /* Detecta possível documento duplicado do próprio usuário.
    Chave: mesma data de emissão + (número da nota, se houver; senão o valor). */
@@ -1587,7 +1596,7 @@ async function receber(l){
 async function estornar(l){
   if(!confirm('Estornar o recebimento? Volta para "A receber".')) return;
   carregando(true,'Estornando...');
-  const { error } = await sb.from('lancamentos').update({status:'aberto', data_pagamento:null}).eq('id', l.id);
+  const { error } = await sb.from('lancamentos').update({status:'aberto', data_pagamento:null, comprovante_pagamento:''}).eq('id', l.id);
   await after(error,'Recebimento estornado');
 }
 async function excluir(l){
@@ -1774,6 +1783,7 @@ function tabelaLancamentos(arr, comCheck){
     const podeAgir=perfil.papel!=='financeiro';
     let acts='';
     if(l.comprovante) acts+=`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`;
+    if(l.comprovante_pagamento) acts+=`<button class="ic-btn" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i></button>`;
     if(podeAgir){
       if(pago)  acts+=`<button class="ic-btn" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i></button>`;
       acts+=`<button class="ic-btn" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i></button>`;
@@ -1805,9 +1815,16 @@ function toggleSelTodos(checked){
   if(checked) consultaVisivel.filter(l=>l.status!=='pago').forEach(l=>selConsulta.add(String(l.id)));
   renderConsulta();
 }
+let pagFile = null; // comprovante de pagamento escolhido na baixa
+function marcarFileSel(input){
+  pagFile = input.files && input.files[0] ? input.files[0] : null;
+  el('marcarFileLbl').textContent = pagFile ? (pagFile.name.length>22?pagFile.name.slice(0,20)+'…':pagFile.name) : 'Comprovante de pagamento';
+  el('marcarFileBtn').classList.toggle('anexado', !!pagFile);
+}
+function limparPagFile(){ pagFile=null; el('marcarFile').value=''; el('marcarFileLbl').textContent='Comprovante de pagamento'; el('marcarFileBtn').classList.remove('anexado'); }
 function atualizarMarcarBar(){
   const bar=el('marcarBar');
-  if(!selConsulta.size){ bar.classList.add('hidden'); return; }
+  if(!selConsulta.size){ bar.classList.add('hidden'); limparPagFile(); return; }
   const sel=consultaVisivel.filter(l=>selConsulta.has(String(l.id)));
   el('marcarInfo').textContent = `${sel.length} selecionado(s) · ${money(soma(sel))}`;
   if(!el('marcarData').value) el('marcarData').value=isoToday();
@@ -1816,10 +1833,17 @@ function atualizarMarcarBar(){
 async function marcarSelecionados(){
   const ids=[...selConsulta]; if(!ids.length) return;
   const dp=el('marcarData').value||isoToday();
-  if(!confirm(`Marcar ${ids.length} lançamento(s) como recebidos em ${brDate(dp)}?`)) return;
+  const comProva = pagFile ? ' com comprovante de pagamento' : '';
+  if(!confirm(`Marcar ${ids.length} lançamento(s) como recebidos em ${brDate(dp)}${comProva}?`)) return;
   carregando(true,'Marcando...');
-  const { error } = await sb.from('lancamentos').update({status:'pago', data_pagamento:dp}).in('id', ids);
-  selConsulta.clear();
+  const patch={ status:'pago', data_pagamento:dp };
+  if(pagFile){
+    const caminho = await uploadPagamento(pagFile);
+    if(!caminho){ carregando(false); toast('Não foi possível anexar o comprovante de pagamento','erro'); return; }
+    patch.comprovante_pagamento = caminho;
+  }
+  const { error } = await sb.from('lancamentos').update(patch).in('id', ids);
+  selConsulta.clear(); limparPagFile();
   await after(error, ids.length+' marcado(s) como recebidos');
 }
 /* Menu suspenso (Relatórios) */

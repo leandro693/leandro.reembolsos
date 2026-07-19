@@ -94,8 +94,10 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
   a receber (próximo mês, próximos 3 e 6 meses) quanto passados (mês passado,
   últimos 3 meses), além de este mês, este ano e todo período; e, para quem vê
   todos, filtro por **pessoa**. Tem ainda resumo por categoria, seleção para
-  marcar vários como recebidos e o menu **Relatórios** (PDF, balancete com
-  comprovantes anexos e exportação em `.xlsx`), que respeita os filtros ativos.
+  marcar vários como recebidos — **com anexo do comprovante de pagamento**
+  (foto/PDF do PIX/transferência, que pode cobrir vários lançamentos de uma vez)
+  — e o menu **Relatórios** (PDF, balancete com comprovantes anexos e exportação
+  em `.xlsx`), que respeita os filtros ativos.
 - **Fornecedores:** cadastro (nome, CPF/CNPJ com máscara automática, telefone,
   e-mail e cidade/região). Cresce sozinho a cada lançamento com nota e também pode
   ser editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos
@@ -175,6 +177,7 @@ publicada, o app avisa e você preenche manual, sem travar.
 | `supabase-setup.sql` | Script do banco: tabelas, segurança e storage. |
 | `supabase-v2-fundacao.sql` | v2: perfis de acesso, fornecedores e campos de nota. Rode depois do setup. |
 | `supabase-v3-fornecedor.sql` | v3: telefone e e-mail separados no fornecedor. Rode depois do v2. |
+| `supabase-v4-pagamento.sql` | v4: comprovante de pagamento na baixa. Rode depois do v3. |
 | `supabase/functions/ler-comprovante/` | Edge Function da IA (Gemini) que lê o comprovante. |
 
 ### v2 Fase 1 (perfis e fornecedores)
