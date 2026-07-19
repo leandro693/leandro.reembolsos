@@ -187,6 +187,18 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .row2 .field .hint{position:static}
 .chk-line{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;margin-top:2px}
 .chk-line input{width:auto;margin:0}
+/* Lista compacta (categorias/setores): nome largo + código + editar + liga/desliga */
+.lista-compacta{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+.crow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-top:1px solid var(--border)}
+.crow:first-child{border-top:none}
+.crow .cnome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
+.crow .ccod{width:92px;flex:none;border:1px solid var(--border-strong);border-radius:7px;padding:5px 7px;font-size:12px;background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace}
+.switch{position:relative;display:inline-block;width:38px;height:22px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:var(--border-strong);border-radius:9999px;transition:.2s;cursor:pointer}
+.switch .slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--accent)}
+.switch input:checked+.slider:before{transform:translateX(16px)}
 .numseq{font-family:'JetBrains Mono',monospace;color:var(--text-4);font-weight:600;font-size:.9em}
 .empresa-chip{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;text-transform:uppercase;opacity:.9}
 
@@ -2309,13 +2321,15 @@ async function renderAdminSetores(){
   try{
     const { data } = await sb.from('setores').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
     cacheSetores=data||[];
-    const linhas = cacheSetores.map(s=>`<div class="item"><div class="l1"><span class="cat">${esc(s.nome)}</span>
-      <span class="l1r"><button class="btn btn-sec" style="width:auto;flex:none" onclick="renomearSetor('${s.id}')"><i data-lucide="pencil" class="i-sm"></i> Renomear</button>
-      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleSetor('${s.id}',${s.ativo?'false':'true'})"><i data-lucide="${s.ativo?'eye':'eye-off'}" class="i-sm"></i> ${s.ativo?'Ativo':'Inativo'}</button></span></div></div>`).join('');
+    const linhas = cacheSetores.map(s=>`<div class="crow">
+      <span class="cnome" title="${esc(s.nome)}">${esc(s.nome)}</span>
+      <input class="ccod" value="${esc(s.codigo_externo||'')}" placeholder="Omie" title="Código no sistema externo (ex.: Omie)" onchange="setCodSetor('${s.id}',this.value)">
+      <button class="ic-btn" title="Renomear" onclick="renomearSetor('${s.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
+      <label class="switch" title="${s.ativo?'Ativo':'Inativo'}"><input type="checkbox" ${s.ativo?'checked':''} onchange="toggleSetor('${s.id}',this.checked)"><span class="slider"></span></label></div>`).join('');
     el('adminSetores').innerHTML = `<div class="chart"><h3><i data-lucide="network" class="i-sm"></i> Setores da empresa</h3>
       <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novoSetor" placeholder="Novo setor"></div>
         <div class="field"><button class="btn btn-sec" onclick="addSetor()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
-      ${linhas||'<div class="empty" style="padding:14px">Sem setores.</div>'}</div>`;
+      <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem setores.</div>'}</div></div>`;
   }catch(e){ el('adminSetores').innerHTML=''; }
 }
 async function addSetor(){
@@ -2329,6 +2343,10 @@ async function addSetor(){
 async function toggleSetor(id, ativo){
   const { error } = await sb.from('setores').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
   if(!error){ await carregarSetoresDB(); renderAdminSetores(); } else toast('Não foi possível alterar','erro');
+}
+async function setCodSetor(id, val){
+  const { error } = await sb.from('setores').update({ codigo_externo:(val||'').trim() }).eq('id', id);
+  if(error) toast('Não foi possível salvar o código','erro'); else toast('Código salvo','ok');
 }
 async function renomearSetor(id){
   const s=cacheSetores.find(x=>String(x.id)===String(id)); if(!s) return;
@@ -2344,13 +2362,16 @@ async function renderAdminCategorias(){
   try{
     const { data } = await sb.from('categorias').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
     cacheCategorias = data||[];
-    const linhas = cacheCategorias.map(c=>`<div class="item"><div class="l1"><span class="cat">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}</span>
-      <span class="l1r"><button class="btn btn-sec" style="width:auto;flex:none" onclick="renomearCategoria('${c.id}')"><i data-lucide="pencil" class="i-sm"></i> Renomear</button>
-      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleCategoria('${c.id}',${c.ativo?'false':'true'})"><i data-lucide="${c.ativo?'eye':'eye-off'}" class="i-sm"></i> ${c.ativo?'Ativa':'Inativa'}</button></span></div></div>`).join('');
+    const linhas = cacheCategorias.map(c=>`<div class="crow">
+      <span class="cnome" title="${esc(c.nome)}">${esc(c.nome)}${c.tipo_calculo==='km'?' <span class="tag">km</span>':''}</span>
+      <input class="ccod" value="${esc(c.codigo_externo||'')}" placeholder="Omie" title="Código no sistema externo (ex.: Omie)" onchange="setCodCategoria('${c.id}',this.value)">
+      <button class="ic-btn" title="Renomear" onclick="renomearCategoria('${c.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
+      <label class="switch" title="${c.ativo?'Ativa':'Inativa'}"><input type="checkbox" ${c.ativo?'checked':''} onchange="toggleCategoria('${c.id}',this.checked)"><span class="slider"></span></label></div>`).join('');
     el('adminCategorias').innerHTML = `<div class="chart"><h3><i data-lucide="tags" class="i-sm"></i> Categorias da empresa</h3>
       <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novaCat" placeholder="Nova categoria"></div>
         <div class="field"><button class="btn btn-sec" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
-      ${linhas||'<div class="empty" style="padding:14px">Sem categorias.</div>'}</div>`;
+      <div style="font-size:11px;color:var(--text-4);margin:-2px 0 8px">A coluna à direita é o código no seu sistema (ex.: Omie). Preencha manualmente.</div>
+      <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem categorias.</div>'}</div></div>`;
   }catch(e){ el('adminCategorias').innerHTML=''; }
 }
 async function addCategoria(){
@@ -2364,6 +2385,10 @@ async function addCategoria(){
 async function toggleCategoria(id, ativo){
   const { error } = await sb.from('categorias').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
   if(!error){ await carregarCategoriasDB(); renderAdminCategorias(); } else toast('Não foi possível alterar','erro');
+}
+async function setCodCategoria(id, val){
+  const { error } = await sb.from('categorias').update({ codigo_externo:(val||'').trim() }).eq('id', id);
+  if(error) toast('Não foi possível salvar o código','erro'); else toast('Código salvo','ok');
 }
 async function renomearCategoria(id){
   const c = cacheCategorias.find(x=>String(x.id)===String(id)); if(!c) return;

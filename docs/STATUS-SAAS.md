@@ -79,6 +79,10 @@ Criado (aditivo, sem quebrar o app atual):
 - [x] **Duplicata exata por hash**: sha256 do comprovante, checagem em
       `comprovantes` + dual-write dos metadados.
 - [x] **Renomear categorias** e formulário usando as categorias da empresa (banco).
+- [x] **Categorias/Setores compactos**: lista enxuta (nome ocupa a linha toda) com
+      só um botão de renomear e um **liga/desliga** (switch). Cada linha tem um
+      campo de **código externo** para mapear a categoria/setor ao ERP (ex.: Omie),
+      preenchido manualmente (integração automática é Fase 3). (migration 0005)
 
 ### Ainda aberto (evolução, precisa de infra externa ou é organização interna)
 - [ ] Migrar o modelo de **parcelas** para a tabela `parcelas` (hoje parcela é
