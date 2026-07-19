@@ -1,7 +1,8 @@
 name: Deploy Supabase Function
 
-# Publica automaticamente a Edge Function "ler-comprovante" no Supabase
-# a cada push, e também sob demanda (botão "Run workflow").
+# Publica automaticamente as Edge Functions ("ler-comprovante" e
+# "importar-erp") no Supabase a cada push, e também sob demanda
+# (botão "Run workflow").
 #
 # Pré-requisito (feito UMA vez): criar um Access Token no Supabase
 # (Account > Access Tokens) e cadastrá-lo neste repositório em
@@ -29,3 +30,6 @@ jobs:
 
       - name: Deploy ler-comprovante
         run: supabase functions deploy ler-comprovante --project-ref "$PROJECT_ID"
+
+      - name: Deploy importar-erp
+        run: supabase functions deploy importar-erp --project-ref "$PROJECT_ID"
