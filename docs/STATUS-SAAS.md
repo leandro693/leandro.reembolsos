@@ -69,11 +69,25 @@ Criado (aditivo, sem quebrar o app atual):
 - [x] **Alerta de duplicata** gravado (`registrar_alerta`) e visível no painel.
 - [x] Painel admin: **cadastro de categorias** (add/ativar) e **políticas de limite** (add/remover).
 
-### Ainda aberto (mesma fase, opcional)
-- [ ] Duplicata **exata por hash de arquivo** (precisa popular `comprovantes` com sha256).
-- [ ] Migrar `parcelas`/`comprovantes` para as novas tabelas (hoje o app usa o
-      modelo antigo, que segue funcionando).
-- [ ] Cadastro de **setores** na interface (tabela e RLS já prontas).
+### Fase 2 + acabamentos — feitos
+- [x] **Aprovação multinível**: `empresas.exige_aprovacao`; lançamento de operador
+      entra `pendente`; gestor/financeiro aprovam/rejeitam (na lista e no painel);
+      rejeitado sai do "a pagar"; selos Pendente/Rejeitado. (migration 0004)
+- [x] **Setores**: cadastro no painel admin (add/renomear/ativar).
+- [x] **Onboarding de empresas** (dono do SaaS): RPC `criar_empresa` (plano +
+      categorias + setor) e `vincular_usuario_empresa`; formulário no painel.
+- [x] **Duplicata exata por hash**: sha256 do comprovante, checagem em
+      `comprovantes` + dual-write dos metadados.
+- [x] **Renomear categorias** e formulário usando as categorias da empresa (banco).
+
+### Ainda aberto (evolução, precisa de infra externa ou é organização interna)
+- [ ] Migrar o modelo de **parcelas** para a tabela `parcelas` (hoje parcela é
+      uma linha de `lancamentos` com `id_compra`; funciona bem).
+- [ ] **E-mails de evolução** e avisos por e-mail (precisa de provedor SMTP/serviço).
+- [ ] **Cobrança/assinatura** (gateway de pagamento), **integração Omie**,
+      **LGPD** formal e **antifraude avançado** — Fase 3, dependem de contas/credenciais.
+- [ ] Criar o **login** do gestor de uma nova empresa direto pelo app (hoje o
+      usuário é criado pelo fluxo de convite/painel Supabase e depois vinculado).
 
 ## Fase 2/3 (do doc) — ainda não iniciado
 Aprovação multinível, relatórios customizáveis, e-mails de evolução, onboarding
