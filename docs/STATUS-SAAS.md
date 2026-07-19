@@ -50,12 +50,27 @@ Criado (aditivo, sem quebrar o app atual):
    aditiva (não apaga dados), então basta apontar o app para o backup de código.
 
 ## Feito nesta noite (além da fundação)
-_(atualizado conforme avança — ver commits)_
-- [x] Fundação multiempresa aplicada e verificada.
-- [ ] Endurecimento anti-injeção da IA + metering na Edge Function.
-- [ ] Painel administrativo (gestor/dono): metering, usuários, categorias,
-      setores, políticas, alertas, segurança/auditoria.
-- [ ] Número sequencial (#0001) e soft-delete na interface.
+- [x] Fundação multiempresa aplicada e verificada (0001).
+- [x] Metering + segurança: funções de cota/registro (0002) e Edge Function
+      endurecida (anti-injeção → quarentena, cota do plano, schema estrito,
+      vocabulário fechado, teto de sanidade, validação de CNPJ, log de uso_ia).
+- [x] Front-end multiempresa: carrega a empresa do usuário; a leitura por IA
+      passa empresa/usuário e trata cota/quarentena.
+- [x] **Painel de Administração** (gestor/dono, em Ajustes): consumo de IA vs
+      cota do plano, usuários e papéis (alteráveis), alertas em aberto e
+      quarentena de segurança (marcar revisado).
+- [x] Testes: suíte do app (36 verificações) + testes de injeção/CNPJ da IA
+      (`supabase/functions/ler-comprovante/seguranca.test.mjs`).
+
+### Parcial / próximos passos (mesma fase)
+- [ ] Cadastro visual de categorias/setores/políticas de limite (tabelas já
+      existem; RLS pronta para gestor). Hoje via banco.
+- [ ] Número sequencial (#0001) exibido na interface e soft-delete no botão
+      Excluir (coluna `deleted_at` já existe e a RLS já esconde soft-deletados).
+- [ ] Duplicata: gravar em `alertas` (hoje o app sugere editar o anterior) e
+      duplicata exata por hash de arquivo.
+- [ ] Migrar `parcelas`/`comprovantes` para as novas tabelas (hoje o app usa o
+      modelo antigo, que segue funcionando).
 
 ## Fase 2/3 (do doc) — ainda não iniciado
 Aprovação multinível, relatórios customizáveis, e-mails de evolução, onboarding
