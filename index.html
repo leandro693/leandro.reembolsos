@@ -309,6 +309,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .st.aberto{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-border)}
 .st.pago{background:var(--ok-bg);color:var(--ok-fg);border:1px solid var(--ok-border)}
 .st.atraso{background:var(--err-bg);color:var(--err-fg);border:1px solid var(--err-border)}
+.st.pend{background:var(--accent-subtle);color:var(--accent);border:1px solid var(--accent)}
 
 /* ---- Painéis semânticos ---- */
 .note{border-radius:9px;padding:11px 12px;font-size:12.5px;display:flex;gap:9px;align-items:flex-start;margin-bottom:14px}
@@ -848,9 +849,12 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         <div><h2 class="pagetitle">Administração</h2><p class="pagesub" id="adminSub">-</p></div>
         <button class="btn-compact" onclick="renderAdmin()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
       </div>
-      <div id="adminConsumo"></div>
+      <div id="adminEmpresa"></div>
+      <div id="adminConsumo" class="mt12"></div>
+      <div id="adminAprovacao" class="mt12"></div>
       <div id="adminUsuarios" class="mt12"></div>
       <div id="adminCategorias" class="mt12"></div>
+      <div id="adminSetores" class="mt12"></div>
       <div id="adminPoliticas" class="mt12"></div>
       <div id="adminAlertas" class="mt12"></div>
       <div id="adminSeguranca" class="mt12"></div>
@@ -940,6 +944,9 @@ let empresaId = null;            // empresa (tenant) do usuário logado
 let empresaNome = '';
 let empresaPapel = 'operador';   // papel no vínculo empresa_usuarios
 let categoriasDB = [];           // categorias da empresa (do banco)
+let setoresDB = [];              // setores da empresa
+let exigeAprovacao = false;      // empresa exige aprovação dos lançamentos
+let isOwner = false;             // dono do SaaS
 
 /* ===== Categorias (keys iguais às da planilha antiga, sem emoji) ===== */
 const CATEGORIAS = [
@@ -1080,12 +1087,19 @@ async function garantirPerfil(){
 async function carregarEmpresa(){
   try{
     const { data } = await sb.from('empresa_usuarios')
-      .select('empresa_id, papel, empresas(razao_social, nome_fantasia)')
+      .select('empresa_id, papel, empresas(razao_social, nome_fantasia, exige_aprovacao)')
       .eq('usuario_id', user.id).eq('ativo', true).limit(1).maybeSingle();
     if(data){ empresaId=data.empresa_id; empresaPapel=data.papel||'operador';
-      empresaNome=(data.empresas&&(data.empresas.nome_fantasia||data.empresas.razao_social))||''; }
+      empresaNome=(data.empresas&&(data.empresas.nome_fantasia||data.empresas.razao_social))||'';
+      exigeAprovacao=!!(data.empresas&&data.empresas.exige_aprovacao); }
   }catch(e){ empresaId=null; }
+  try{ const { data:u } = await sb.from('usuarios').select('is_owner').eq('id', user.id).maybeSingle(); isOwner=!!(u&&u.is_owner); }catch(e){ isOwner=false; }
   await carregarCategoriasDB();
+  await carregarSetoresDB();
+}
+async function carregarSetoresDB(){
+  try{ const { data } = await sb.from('setores').select('id, nome, ativo').eq('empresa_id', empresaId).order('nome',{ascending:true}); setoresDB=data||[]; }
+  catch(e){ setoresDB=[]; }
 }
 /* Categorias da empresa (do banco). O formulário usa estas; cai na lista fixa se vazio. */
 async function carregarCategoriasDB(){
@@ -1137,7 +1151,8 @@ let escopoVer = localStorage.getItem('mrd_escopo') || 'todos';
 function baseLista(){
   return (veTudo() && escopoVer==='meus') ? lista.filter(l=>String(l.user_id)===String(user&&user.id)) : lista;
 }
-const emAberto = ()=> baseLista().filter(l=>l.status!=='pago');
+const emAberto = ()=> baseLista().filter(l=>l.status!=='pago' && l.aprovacao!=='rejeitado');
+function pendentesAprovacao(){ return baseLista().filter(l=>l.aprovacao==='pendente'); }
 const soma = (arr)=> arr.reduce((s,l)=>s+(Number(l.valor_total)||0),0);
 function atrasados(){ const hoje=isoToday(); return emAberto().filter(l=>l.vencimento && l.vencimento<hoje); }
 
@@ -1362,11 +1377,18 @@ function itemHtml(l){
     acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Ver nota</button>`);
   }
   if(l.comprovante_pagamento) acts.push(`<button class="btn btn-sec" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
+  // Aprovação: gestor/financeiro aprovam ou rejeitam pendentes.
+  if(l.aprovacao==='pendente' && veTudo()){
+    acts.push(`<button class="btn btn-sec" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i> Aprovar</button>`);
+    acts.push(`<button class="btn btn-danger" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i></button>`);
+  }
+  const apr = l.aprovacao==='pendente' ? '<span class="st pend"><i data-lucide="clock" class="i-sm"></i> Pendente</span> '
+    : l.aprovacao==='rejeitado' ? '<span class="st atraso"><i data-lucide="x" class="i-sm"></i> Rejeitado</span> ' : '';
   const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
   const numSeq = l.numero_sequencial ? `<span class="numseq">#${String(l.numero_sequencial).padStart(4,'0')}</span> ` : '';
   return `<div class="item">
-    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="l1r">${st}<span class="val num">${money(l.valor_total)}</span></span></div>
+    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="l1r">${apr}${st}<span class="val num">${money(l.valor_total)}</span></span></div>
     <div class="l2"><span>${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
     ${extras}${autor}
     ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
@@ -1386,7 +1408,15 @@ function bindAcoes(containerId){
     if(act==='excluir') return excluir(l);
     if(act==='comprovante') return verComprovante(l);
     if(act==='comprovantePag') return verComprovante(l.comprovante_pagamento);
+    if(act==='aprovar') return decidirAprovacao(l,'aprovado');
+    if(act==='rejeitar') return decidirAprovacao(l,'rejeitado');
   };
+}
+async function decidirAprovacao(l, decisao){
+  if(decisao==='rejeitado' && !confirm('Rejeitar este lançamento?')) return;
+  carregando(true, decisao==='aprovado'?'Aprovando...':'Rejeitando...');
+  const { error } = await sb.from('lancamentos').update({ aprovacao:decisao }).eq('id', l.id);
+  await after(error, decisao==='aprovado'?'Lançamento aprovado':'Lançamento rejeitado');
 }
 
 /* ============================================================================
@@ -1509,6 +1539,14 @@ function fileToBase64(file){
   return new Promise((res,rej)=>{ const r=new FileReader();
     r.onload=()=>res(String(r.result).split(',')[1]); r.onerror=rej; r.readAsDataURL(file); });
 }
+/* sha256 do arquivo (para detectar comprovante exatamente igual). */
+async function sha256Hex(file){
+  try{
+    const buf=await file.arrayBuffer();
+    const h=await crypto.subtle.digest('SHA-256', buf);
+    return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return ''; }
+}
 
 /* Chama a Edge Function do Supabase (Gemini) e preenche o formulário */
 async function analisarFoto(){
@@ -1618,9 +1656,11 @@ async function lancar(){
   if(ehEdu && !el('fBeneficiario').value){ toast('Informe o beneficiário','erro'); return; }
 
   const numeroNota=el('fNumeroNota').value.trim(), cnpj=el('fCnpj').value.trim();
+  // Aprovação: se a empresa exige e quem lança é operador, entra como "pendente".
+  const aprovacao = (exigeAprovacao && empresaPapel==='operador') ? 'pendente' : 'aprovado';
   const base={ user_id:user.id, usuario:perfil.nome||'', categoria:cat, data_emissao:dataEmissao,
     beneficiario: ehEdu?el('fBeneficiario').value:'', observacoes:el('fObs').value.trim(),
-    status:'aberto', km_total:0, valor_km:0, pedagio:0, estacionamento:0,
+    status:'aberto', km_total:0, valor_km:0, pedagio:0, estacionamento:0, aprovacao,
     numero_nota:ehKm?'':numeroNota, cnpj:ehKm?'':cnpj };
 
   let rows=[], fornecedorNome='';
@@ -1664,6 +1704,21 @@ async function lancar(){
     }
   }
 
+  // Duplicata EXATA por hash do arquivo (comprovante idêntico já lançado).
+  let arqHash='';
+  if(fotoFile){
+    arqHash = await sha256Hex(fotoFile);
+    if(arqHash){
+      try{
+        const { data:hd } = await sb.from('comprovantes').select('id').eq('empresa_id', empresaId).eq('arquivo_hash', arqHash).limit(1);
+        if(hd && hd.length){
+          if(!confirm('Este arquivo de comprovante é idêntico a um já lançado.\n\nDeseja lançar assim mesmo?')){ toast('Cancelado (comprovante duplicado).','erro'); return; }
+          try{ await sb.rpc('registrar_alerta',{p_empresa:empresaId,p_lancamento:null,p_tipo:'duplicata',p_detalhe:{motivo:'arquivo_identico'}}); }catch(e){}
+        }
+      }catch(e){}
+    }
+  }
+
   carregando(true,'Lançando reembolso...');
   try{
     // vincula/cria o fornecedor (cadastro cresce com o uso; você já confirmou os dados)
@@ -1673,8 +1728,14 @@ async function lancar(){
     }
     const comp = await uploadComprovante();
     if(comp) rows.forEach(r=>r.comprovante=comp);  // parcelado: mesmo comprovante em todas as parcelas
-    const { error } = await sb.from('lancamentos').insert(rows);
+    const { data:ins, error } = await sb.from('lancamentos').insert(rows).select('id');
     if(error) throw error;
+    // Grava metadados do comprovante (hash para dedup exata; nunca bloqueia).
+    if(comp && ins && ins[0]){
+      try{ await sb.from('comprovantes').insert({ lancamento_id:ins[0].id, empresa_id:empresaId, storage_path:comp,
+        arquivo_hash:arqHash||null, mime_type:(fotoFile&&fotoFile.type)||'', tamanho_bytes:(fotoFile&&fotoFile.size)||0,
+        nome_arquivo_original:((fotoFile&&fotoFile.name)||'').replace(/[^\w.\- ]/g,'').slice(0,120) }); }catch(e){}
+    }
     await carregarLista();
     carregando(false);
     toast(rows.length>1?`${rows.length} parcelas lançadas`:'Reembolso lançado','ok');
@@ -1877,12 +1938,18 @@ function tabelaLancamentos(arr, comCheck){
   const linhas=arr.map(l=>{
     const pago=l.status==='pago';
     const atraso=!pago && l.vencimento && l.vencimento<hoje;
-    const st = pago?`<span class="st pago">Recebido</span>`:atraso?`<span class="st atraso">Em atraso</span>`:`<span class="st aberto">A receber</span>`;
+    let st = pago?`<span class="st pago">Recebido</span>`:atraso?`<span class="st atraso">Em atraso</span>`:`<span class="st aberto">A receber</span>`;
+    if(l.aprovacao==='pendente') st=`<span class="st pend">Pendente</span>`+st;
+    else if(l.aprovacao==='rejeitado') st=`<span class="st atraso">Rejeitado</span>`;
     const tag=/\(\d+\/\d+\)/.test(l.observacoes||'')?' '+l.observacoes.match(/\(\d+\/\d+\)/)[0]:'';
     const podeAgir=perfil.papel!=='financeiro';
     let acts='';
     if(l.comprovante) acts+=`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`;
     if(l.comprovante_pagamento) acts+=`<button class="ic-btn" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i></button>`;
+    if(l.aprovacao==='pendente' && veTudo()){
+      acts+=`<button class="ic-btn" title="Aprovar" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i></button>`;
+      acts+=`<button class="ic-btn danger" title="Rejeitar" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i></button>`;
+    }
     if(podeAgir){
       if(pago)  acts+=`<button class="ic-btn" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i></button>`;
       acts+=`<button class="ic-btn" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i></button>`;
@@ -2185,8 +2252,92 @@ async function renderAdmin(){
     el('adminSeguranca').innerHTML = `<div class="chart"><h3><i data-lucide="shield" class="i-sm"></i> Segurança — quarentena de IA</h3>${arr.length?linhas:'<div class="empty" style="padding:14px">Nada em quarentena.</div>'}</div>`;
   }catch(e){ el('adminSeguranca').innerHTML=''; }
   await renderAdminCategorias();
+  await renderAdminSetores();
   await renderAdminPoliticas();
+  renderAdminAprovacao();
+  renderAdminEmpresaOwner();
   icons();
+}
+/* --- Aprovação: liga/desliga a exigência e lista pendentes --- */
+function renderAdminAprovacao(){
+  const pend = pendentesAprovacao();
+  const linhas = pend.slice(0,20).map(l=>`<div class="item"><div class="l1"><span class="cat">${esc(l.usuario||'')} · ${esc(l.categoria)}</span>
+    <span class="l1r"><span class="val num">${money(l.valor_total)}</span></span></div>
+    <div class="l2"><span>${esc(l.fornecedor||'')}</span><span>emissão ${brDate(l.data_emissao)}</span></div>
+    <div class="acts"><button class="btn btn-sec" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i> Aprovar</button>
+      <button class="btn btn-danger" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i> Rejeitar</button></div></div>`).join('');
+  el('adminAprovacao').innerHTML = `<div class="chart"><h3><i data-lucide="check-check" class="i-sm"></i> Aprovação de lançamentos</h3>
+    <label class="chk-line" style="margin-bottom:10px"><input type="checkbox" id="cfgExigeAprov" ${exigeAprovacao?'checked':''} onchange="setExigeAprovacao(this.checked)"> Exigir aprovação dos lançamentos dos operadores</label>
+    <div class="seclbl">Pendentes (${pend.length})</div>
+    ${pend.length?linhas:'<div class="empty" style="padding:14px">Nada pendente.</div>'}</div>`;
+  bindAcoes('adminAprovacao');
+}
+async function setExigeAprovacao(v){
+  const { error } = await sb.from('empresas').update({ exige_aprovacao:v }).eq('id', empresaId);
+  if(error){ toast('Não foi possível alterar','erro'); return; }
+  exigeAprovacao=v; toast(v?'Aprovação passa a ser exigida':'Aprovação desativada','ok');
+}
+/* --- Onboarding: dono cria nova empresa e vincula o gestor --- */
+function renderAdminEmpresaOwner(){
+  if(!isOwner){ el('adminEmpresa').innerHTML=''; return; }
+  el('adminEmpresa').innerHTML = `<div class="chart"><h3><i data-lucide="building" class="i-sm"></i> Nova empresa (dono do SaaS)</h3>
+    <div class="field"><label>Razão social</label><input type="text" id="novaEmpRazao" placeholder="Empresa Cliente LTDA"></div>
+    <div class="row2"><div class="field"><label>Nome fantasia</label><input type="text" id="novaEmpFant" placeholder="opcional"></div>
+      <div class="field"><label>E-mail do gestor</label><input type="email" id="novaEmpGestor" placeholder="gestor@cliente.com"></div></div>
+    <button class="btn btn-sec" onclick="criarEmpresa()"><i data-lucide="plus" class="i-sm"></i> Criar empresa</button>
+    <p class="pagesub" style="margin-top:8px">Cria a empresa com plano, categorias e setor padrão. O gestor precisa já ter login (crie o usuário antes, se necessário).</p></div>`;
+}
+async function criarEmpresa(){
+  const razao=(el('novaEmpRazao').value||'').trim(); if(!razao){ toast('Informe a razão social','erro'); return; }
+  const fant=(el('novaEmpFant').value||'').trim(), gestor=(el('novaEmpGestor').value||'').trim();
+  carregando(true,'Criando empresa...');
+  try{
+    const { data:empId, error } = await sb.rpc('criar_empresa', { p_razao:razao, p_fantasia:fant });
+    if(error) throw error;
+    let msg='Empresa criada.';
+    if(gestor){
+      const { data:r } = await sb.rpc('vincular_usuario_empresa', { p_empresa:empId, p_email:gestor, p_papel:'gestor' });
+      msg += (r==='ok') ? ' Gestor vinculado.' : ' (gestor ainda sem login — crie o usuário e vincule depois.)';
+    }
+    carregando(false); el('novaEmpRazao').value=''; el('novaEmpFant').value=''; el('novaEmpGestor').value='';
+    toast(msg,'ok');
+  }catch(e){ carregando(false); toast('Não foi possível criar a empresa','erro'); }
+}
+/* --- Setores (cadastro por empresa) --- */
+let cacheSetores=[];
+async function renderAdminSetores(){
+  try{
+    const { data } = await sb.from('setores').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
+    cacheSetores=data||[];
+    const linhas = cacheSetores.map(s=>`<div class="item"><div class="l1"><span class="cat">${esc(s.nome)}</span>
+      <span class="l1r"><button class="btn btn-sec" style="width:auto;flex:none" onclick="renomearSetor('${s.id}')"><i data-lucide="pencil" class="i-sm"></i> Renomear</button>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="toggleSetor('${s.id}',${s.ativo?'false':'true'})"><i data-lucide="${s.ativo?'eye':'eye-off'}" class="i-sm"></i> ${s.ativo?'Ativo':'Inativo'}</button></span></div></div>`).join('');
+    el('adminSetores').innerHTML = `<div class="chart"><h3><i data-lucide="network" class="i-sm"></i> Setores da empresa</h3>
+      <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novoSetor" placeholder="Novo setor"></div>
+        <div class="field"><button class="btn btn-sec" onclick="addSetor()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
+      ${linhas||'<div class="empty" style="padding:14px">Sem setores.</div>'}</div>`;
+  }catch(e){ el('adminSetores').innerHTML=''; }
+}
+async function addSetor(){
+  const nome=(el('novoSetor').value||'').trim(); if(!nome){ toast('Informe o nome','erro'); return; }
+  carregando(true,'Adicionando...');
+  const { error } = await sb.from('setores').insert({ empresa_id:empresaId, nome });
+  carregando(false);
+  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  el('novoSetor').value=''; await carregarSetoresDB(); renderAdminSetores();
+}
+async function toggleSetor(id, ativo){
+  const { error } = await sb.from('setores').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
+  if(!error){ await carregarSetoresDB(); renderAdminSetores(); } else toast('Não foi possível alterar','erro');
+}
+async function renomearSetor(id){
+  const s=cacheSetores.find(x=>String(x.id)===String(id)); if(!s) return;
+  const entrada=prompt('Novo nome do setor:', s.nome); if(entrada===null) return;
+  const nome=entrada.trim(); if(!nome){ toast('Nome inválido','erro'); return; } if(nome===s.nome) return;
+  carregando(true,'Renomeando...');
+  const { error } = await sb.from('setores').update({ nome }).eq('id', id);
+  carregando(false);
+  if(!error){ await carregarSetoresDB(); renderAdminSetores(); toast('Setor renomeado','ok'); } else toast('Não foi possível renomear','erro');
 }
 let cacheCategorias=[];
 async function renderAdminCategorias(){
