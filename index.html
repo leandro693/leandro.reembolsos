@@ -198,7 +198,6 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .filtros2 .filtros-lbl{margin-bottom:6px}
 .f2-grp{min-width:0}
 .ctl-sm{border:1px solid var(--border-strong);border-radius:8px;padding:8px 10px;font-size:13px;background:var(--surface);color:var(--text);font-family:inherit;height:38px}
-#btnData{height:38px}
 .btn-compact.on-filter,.btn-compact.anexado{border-color:var(--accent);color:var(--accent);font-weight:600}
 @media(max-width:560px){ .f2-grp{flex:1 1 100%} .f2-grp .ctl-sm,.f2-grp .menu-wrap,.f2-grp #btnData{width:100%} }
 .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
@@ -223,7 +222,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .ph-title{flex:1 1 220px;min-width:0}
 .head-actions{display:flex;gap:8px;flex:1 1 300px;max-width:440px}
 .head-actions .menu-wrap{flex:1}
-.head-actions .btn-compact{width:100%;justify-content:center}
+.head-actions .btn-compact{width:100%;height:38px;justify-content:center}
 .head-actions .menu-wrap:first-child .menu{left:0;right:auto}
 .head-actions .menu-wrap:last-child .menu{right:0;left:auto}
 /* Botão compacto e menu suspenso */
@@ -516,7 +515,6 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <button data-nav="scInicio" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
       <button data-nav="scForm" onclick="irForm('foto')"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
       <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
-      <button data-nav="scGestao" id="sbGestao" class="hidden" onclick="irGestao()"><i data-lucide="bar-chart-3" class="i-md"></i><span>Gestão</span></button>
       <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
     </nav>
@@ -547,6 +545,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         <button class="btn btn-ghost sm" onclick="irConsultas('proximo')">Ver todos</button>
       </div>
       <div id="inicioUltimos"><div class="empty">Carregando...</div></div>
+      <div id="dashPessoas" class="mt12"></div>
     </section>
 
     <!-- FORMULÁRIO -->
@@ -672,10 +671,6 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
           <div class="menu-wrap">
             <button class="btn-compact" onclick="toggleMenu('menuRelatorios',event)"><i data-lucide="file-down" class="i-sm"></i> Relatórios <i data-lucide="chevron-down" class="i-sm"></i></button>
             <div class="menu hidden" id="menuRelatorios">
-              <div class="menu-sep hidden" id="relGestaoSep">Gestão</div>
-              <button class="hidden" id="relGestao" onclick="fecharMenus();irGestao()"><i data-lucide="bar-chart-3" class="i-sm"></i> Painel de gestão</button>
-              <button class="hidden" id="relFechamento" onclick="fecharMenus();irMarcar()"><i data-lucide="calendar-check" class="i-sm"></i> Fechamento do mês</button>
-              <div class="menu-sep">Exportar</div>
               <button onclick="fecharMenus();copiarConsulta()"><i data-lucide="copy" class="i-sm"></i> Copiar para o financeiro</button>
               <button onclick="fecharMenus();gerarPdf()"><i data-lucide="file-text" class="i-sm"></i> PDF (resumo)</button>
               <button onclick="fecharMenus();gerarBalancete()"><i data-lucide="folder-check" class="i-sm"></i> Balancete (com comprovantes)</button>
@@ -794,6 +789,9 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
           <button type="button" id="cfgEscMeus" onclick="setEscopo('meus')">Só os meus</button>
           <button type="button" id="cfgEscTodos" onclick="setEscopo('todos')">De todos</button>
         </div>
+        <div class="seclbl mt12">Fechamento</div>
+        <p class="pagesub" style="margin-top:-4px">Baixe o lote de pagamentos do mês, com o comprovante.</p>
+        <button class="btn btn-sec" onclick="irMarcar()"><i data-lucide="calendar-check" class="i-md"></i> Fechamento do mês</button>
       </div>
 
       <div class="divider"></div>
@@ -834,27 +832,6 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div id="fornLista"><div class="empty">Carregando...</div></div>
     </section>
 
-    <!-- GESTÃO -->
-    <section id="scGestao" class="screen hidden">
-      <div class="page-head">
-        <div><h2 class="pagetitle">Painel de gestão</h2><p class="pagesub" id="gestaoSub">Visão consolidada dos reembolsos.</p></div>
-        <div class="f2-grp">
-          <span class="filtros-lbl">Período (vencimento)</span>
-          <select id="gestaoPeriodo" class="ctl-sm" onchange="renderGestao()">
-            <option value="tudo">Todo período</option>
-            <option value="mes">Este mês</option>
-            <option value="proxmes">Próximo mês</option>
-            <option value="prox3meses">Próximos 3 meses</option>
-            <option value="mespassado">Mês passado</option>
-            <option value="3meses">Últimos 3 meses</option>
-            <option value="ano" selected>Este ano</option>
-          </select>
-        </div>
-      </div>
-      <div id="gestaoKpis" class="kpis"></div>
-      <div id="gestaoPessoas" class="mt12"></div>
-      <div id="gestaoCharts"></div>
-    </section>
   </main>
 
   <!-- Visualizador do documento no computador (lado direito), para conferência -->
@@ -999,8 +976,8 @@ function toggleTemaLogin(){ toggleTema(); }
 /* ============================================================================
    NAVEGAÇÃO
    ========================================================================== */
-const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores','scGestao'];
-const PRINCIPAIS=['scInicio','scConsultas','scGestao','scAjustes','scFornecedores'];
+const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores'];
+const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
   el(id).classList.remove('hidden');
@@ -1050,15 +1027,9 @@ async function entrar(session){
   el('uNome').textContent = nome; el('uAv').textContent = inicial;
   el('uNomeSb').textContent = nome; el('uAvSb').textContent = inicial;
   el('uPapelSb').textContent = rotuloPapel();
-  aplicarPapelUI();
   tela('scInicio');
   await carregarLista();
   renderInicio();
-}
-/* Mostra os recursos de gestão apenas para admin/financeiro. */
-function aplicarPapelUI(){
-  const most=veTudo();
-  ['sbGestao','relGestao','relFechamento','relGestaoSep'].forEach(id=>el(id)&&el(id).classList.toggle('hidden', !most));
 }
 
 async function garantirPerfil(){
@@ -1133,7 +1104,23 @@ function renderInicio(){
     ? (ehDesktop()?tabelaLancamentos(prox):prox.map(itemHtml).join(''))
     : vazio('check-check','Nada a receber no momento.');
   bindAcoes('inicioUltimos');
+  renderDashPessoas();
   icons();
+}
+/* Ranking por pessoa no Dashboard (só admin/financeiro). Respeita o escopo. */
+function renderDashPessoas(){
+  const box=el('dashPessoas');
+  if(!veTudo()){ box.innerHTML=''; return; }
+  const arr=baseLista();
+  const pp={};
+  arr.forEach(l=>{ const p=l.usuario||'(sem nome)'; (pp[p]=pp[p]||{qtd:0,total:0,aberto:0,pago:0}); pp[p].qtd++; pp[p].total+=Number(l.valor_total); if(l.status==='pago') pp[p].pago+=Number(l.valor_total); else pp[p].aberto+=Number(l.valor_total); });
+  const pessoas=Object.entries(pp).sort((a,b)=>b[1].aberto-a[1].aberto);
+  const corpo = pessoas.length
+    ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pessoa</th><th class="num">Lançs.</th><th class="num">A pagar</th><th class="num">Pago</th><th class="num">Total</th></tr></thead><tbody>`+
+      pessoas.map(([p,v])=>`<tr><td>${esc(p)}</td><td class="num">${v.qtd}</td><td class="num">${money(v.aberto)}</td><td class="num">${money(v.pago)}</td><td class="num">${money(v.total)}</td></tr>`).join('')+
+      `</tbody></table></div>`
+    : '<div class="empty" style="padding:16px">Sem lançamentos.</div>';
+  box.innerHTML = `<div class="chart" style="margin-top:8px"><h3><i data-lucide="users" class="i-sm"></i> Por pessoa</h3>${corpo}</div>`;
 }
 function renderKpis(){
   const abertos=emAberto(), at=atrasados(), pv=proxVencIso();
@@ -1291,70 +1278,6 @@ async function excluirFornecedor(f){
     carregando(false); renderFornecedores();
     toast('Fornecedor excluído');
   }catch(e){ carregando(false); console.warn(e); toast('Não foi possível excluir. '+(e.message||''),'erro'); }
-}
-
-/* ============================================================================
-   GESTÃO — painel consolidado (admin/financeiro)
-   ========================================================================== */
-/* Intervalo (AAAA-MM, AAAA-MM) a partir de um preset de período. '' = tudo. */
-function periodoRange(preset){
-  const ym=isoToday().slice(0,7);
-  if(preset==='mes')        return [ym, ym];
-  if(preset==='proxmes')    { const m=mesRel(ym,1);  return [m, m]; }
-  if(preset==='prox3meses') return [ym, mesRel(ym,2)];
-  if(preset==='mespassado') { const m=mesRel(ym,-1); return [m, m]; }
-  if(preset==='3meses')     return [mesRel(ym,-2), ym];
-  if(preset==='ano')        { const y=ym.slice(0,4); return [`${y}-01`, `${y}-12`]; }
-  return ['', ''];
-}
-function irGestao(){
-  if(!veTudo()){ toast('Sem acesso a este painel','erro'); return; }
-  tela('scGestao'); renderGestao();
-}
-function renderGestao(){
-  const [de,ate]=periodoRange(el('gestaoPeriodo').value);
-  let arr=lista.slice();
-  if(de)  arr=arr.filter(l=>l.vencimento && String(l.vencimento).slice(0,7)>=de);
-  if(ate) arr=arr.filter(l=>l.vencimento && String(l.vencimento).slice(0,7)<=ate);
-  const abertos=arr.filter(l=>l.status!=='pago'), pagos=arr.filter(l=>l.status==='pago');
-  const nPessoas=new Set(arr.map(l=>l.usuario).filter(Boolean)).size;
-  el('gestaoSub').textContent = `${arr.length} lançamento(s)`+(de?` · ${mesLabel(de)} a ${mesLabel(ate)}`:' · todo período');
-
-  const kpis=[
-    {lbl:'Total no período', ic:'sigma',       val:money(soma(arr)),     sub:arr.length+' lanç.',      cor:'var(--accent)'},
-    {lbl:'A pagar',          ic:'clock',        val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--info-fg)'},
-    {lbl:'Pago',             ic:'check-check',  val:money(soma(pagos)),   sub:pagos.length+' baixado(s)',  cor:'var(--money-in)'},
-    {lbl:'Pessoas',          ic:'users',        val:String(nPessoas),     sub:'com lançamentos',        cor:'var(--text-strong)'},
-  ];
-  el('gestaoKpis').innerHTML = kpis.map(k=>`<div class="kpi" style="border-top-color:${k.cor}">
-    <div class="k-lbl"><i data-lucide="${k.ic}" class="i-sm"></i> ${k.lbl}</div>
-    <div class="k-val num" style="color:${k.cor}">${k.val}</div>
-    <div class="k-sub">${esc(k.sub)}</div></div>`).join('');
-
-  // Por pessoa (ranking)
-  const pp={};
-  arr.forEach(l=>{ const p=l.usuario||'(sem nome)'; (pp[p]=pp[p]||{qtd:0,total:0,aberto:0,pago:0}); pp[p].qtd++; pp[p].total+=Number(l.valor_total); if(l.status==='pago') pp[p].pago+=Number(l.valor_total); else pp[p].aberto+=Number(l.valor_total); });
-  const pessoas=Object.entries(pp).sort((a,b)=>b[1].total-a[1].total);
-  const tabela = pessoas.length
-    ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pessoa</th><th class="num">Lançs.</th><th class="num">A pagar</th><th class="num">Pago</th><th class="num">Total</th></tr></thead><tbody>`+
-      pessoas.map(([p,v])=>`<tr><td>${esc(p)}</td><td class="num">${v.qtd}</td><td class="num">${money(v.aberto)}</td><td class="num">${money(v.pago)}</td><td class="num">${money(v.total)}</td></tr>`).join('')+
-      `</tbody></table></div>`
-    : '<div class="empty" style="padding:16px">Sem dados no período.</div>';
-  el('gestaoPessoas').innerHTML = `<div class="chart"><h3><i data-lucide="users" class="i-sm"></i> Por pessoa</h3>${tabela}</div>`;
-
-  // Gráficos
-  const grupo=(campo,rot)=>{ const o={}; arr.forEach(l=>{ const k=(campo(l)||rot); o[k]=(o[k]||0)+Number(l.valor_total); }); return Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([c,v])=>({rotulo:c,valor:v})); };
-  const cats=grupo(l=>l.categoria,'(sem categoria)');
-  const forns=grupo(l=>l.fornecedor,'(sem fornecedor)');
-  const porMes={}; arr.forEach(l=>{ if(!l.vencimento) return; const k=String(l.vencimento).slice(0,7); porMes[k]=(porMes[k]||0)+Number(l.valor_total); });
-  const meses=Object.entries(porMes).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>({rotulo:mesLabel(k),valor:v}));
-  const vz='<div class="empty" style="padding:16px">Sem dados.</div>';
-  el('gestaoCharts').innerHTML=`<div class="dashgrid">`+
-    `<div class="chart"><h3><i data-lucide="pie-chart" class="i-sm"></i> Por categoria</h3>${cats.length?barras(cats):vz}</div>`+
-    `<div class="chart"><h3><i data-lucide="building-2" class="i-sm"></i> Top fornecedores</h3>${forns.length?barras(forns):vz}</div>`+
-    `<div class="chart"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> Evolução por mês</h3>${meses.length?barras(meses):vz}</div>`+
-    `</div>`;
-  icons();
 }
 
 /* HTML de um item da lista (com botões de ação) */

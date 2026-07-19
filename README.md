@@ -98,11 +98,10 @@ Pronto: o app abre em tela cheia, com ícone próprio, como um aplicativo nativo
   (foto/PDF do PIX/transferência, que pode cobrir vários lançamentos de uma vez)
   — e o menu **Relatórios** (PDF, balancete com comprovantes anexos e exportação
   em `.xlsx`), que respeita os filtros ativos.
-- **Gestão** (admin/financeiro): painel consolidado por período — total, a pagar,
-  pago, ranking **por pessoa**, e gráficos por categoria, fornecedor e mês. E o
-  **Fechamento do mês**: baixa o lote inteiro de uma vez, com um comprovante de
-  pagamento único e resumo por pessoa para o financeiro. Ambos no menu Relatórios
-  (e na barra lateral, no computador).
+- **Gestão** (admin/financeiro): o **Dashboard** mostra o ranking **por pessoa**
+  (lançamentos, a pagar, pago e total), além dos indicadores e gráficos gerais. O
+  **Fechamento do mês** fica em **Ajustes**: baixa o lote inteiro de uma vez, com
+  um comprovante de pagamento único e resumo por pessoa para o financeiro.
 - **Fornecedores:** cadastro (nome, CPF/CNPJ com máscara automática, telefone,
   e-mail e cidade/região). Cresce sozinho a cada lançamento com nota e também pode
   ser editado à mão. Mostra quantos lançamentos e o total de cada um. Criar novos
