@@ -182,6 +182,8 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .field .hint{font-size:11px;color:var(--text-4);margin-top:5px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;margin-bottom:16px}
 .row2 .field{margin-bottom:0}
+.chk-line{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;margin-top:2px}
+.chk-line input{width:auto;margin:0}
 
 /* ---- Toggle (segmented) ---- */
 .seg{display:flex;gap:6px}
@@ -786,6 +788,18 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="field"><label>Nome do favorecido</label><input type="text" id="cfgPixNome" placeholder="Nome completo"></div>
       <div class="field"><label>Banco</label><input type="text" id="cfgPixBanco" placeholder="Ex.: Nubank, Itaú"></div>
       <button class="btn btn-primary" onclick="salvarPix()"><i data-lucide="save" class="i-md"></i> Salvar dados</button>
+
+      <div class="divider"></div>
+      <div class="seclbl">Segurança</div>
+      <p class="pagesub" style="margin-top:-4px">Troque sua senha de acesso quando quiser.</p>
+      <div class="row2">
+        <div class="field"><label>Nova senha</label>
+          <input type="password" id="cfgSenha1" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
+        <div class="field"><label>Repita a nova senha</label>
+          <input type="password" id="cfgSenha2" placeholder="repita" autocomplete="new-password"></div>
+      </div>
+      <label class="chk-line"><input type="checkbox" id="cfgSenhaVer" onchange="verSenha(this.checked)"> Mostrar senha</label>
+      <button class="btn btn-primary mt10" onclick="alterarSenha()"><i data-lucide="key-round" class="i-md"></i> Alterar senha</button>
 
       <div class="divider"></div>
       <button class="btn btn-danger" onclick="sair()"><i data-lucide="log-out" class="i-md"></i> Sair da conta</button>
@@ -1933,6 +1947,23 @@ async function salvarPix(){
   carregando(false);
   if(error){ toast('Erro ao salvar','erro'); return; }
   perfil=Object.assign(perfil,payload); toast('Dados salvos','ok');
+}
+
+/* Trocar a senha de acesso (Supabase Auth). */
+function verSenha(mostrar){
+  const t = mostrar ? 'text' : 'password';
+  el('cfgSenha1').type=t; el('cfgSenha2').type=t;
+}
+async function alterarSenha(){
+  const s1=el('cfgSenha1').value, s2=el('cfgSenha2').value;
+  if(s1.length<6){ toast('A senha precisa de ao menos 6 caracteres','erro'); return; }
+  if(s1!==s2){ toast('As senhas não coincidem','erro'); return; }
+  carregando(true,'Alterando senha...');
+  const { error } = await sb.auth.updateUser({ password:s1 });
+  carregando(false);
+  if(error){ toast('Não foi possível alterar: '+(error.message||''),'erro'); return; }
+  el('cfgSenha1').value=''; el('cfgSenha2').value=''; el('cfgSenhaVer').checked=false; verSenha(false);
+  toast('Senha alterada com sucesso','ok');
 }
 
 /* ============================================================================

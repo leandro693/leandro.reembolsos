@@ -20,7 +20,9 @@ join (values
   ('adelson@maradel.com.br',             'Adelson',    'operador'),
   ('financeiro.contabil@maradel.com.br', 'Financeiro', 'financeiro')
 ) as v(email, nome, papel) on lower(u.email) = lower(v.email)
-on conflict (user_id) do update set papel = excluded.papel;
+on conflict (user_id) do update set
+  papel = excluded.papel,
+  nome  = case when perfis.nome is null or perfis.nome = '' then excluded.nome else perfis.nome end;
 
 -- Conferência: lista os papéis já aplicados.
 select p.papel, p.nome, u.email
