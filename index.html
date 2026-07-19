@@ -180,8 +180,11 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
   padding:12px;font-size:16px;color:var(--input-text);transition:.15s}
 .field textarea{resize:vertical;min-height:64px;font-weight:400}
 .field .hint{font-size:11px;color:var(--text-4);margin-top:5px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;margin-bottom:16px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:16px}
 .row2 .field{margin-bottom:0}
+/* rótulos da linha dupla numa só linha, para os campos alinharem sempre */
+.row2 .field>label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row2 .field .hint{position:static}
 .chk-line{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);cursor:pointer;margin-top:2px}
 .chk-line input{width:auto;margin:0}
 .numseq{font-family:'JetBrains Mono',monospace;color:var(--text-4);font-weight:600;font-size:.9em}
@@ -746,7 +749,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       </div>
       <div class="row2">
         <div class="field"><label>Data do pagamento</label><input type="date" id="mData"></div>
-        <div class="field"><label>Comprovante de pagamento</label>
+        <div class="field"><label>Comprovante</label>
           <input type="file" id="mPagFile" accept="image/*,application/pdf" class="hidden" onchange="mPagSel(this)">
           <button type="button" class="btn btn-sec" id="mPagBtn" onclick="el('mPagFile').click()"><i data-lucide="paperclip" class="i-sm"></i> <span id="mPagLbl">Anexar (opcional)</span></button>
         </div>
@@ -817,7 +820,7 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       <div class="row2">
         <div class="field"><label>Nova senha</label>
           <input type="password" id="cfgSenha1" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
-        <div class="field"><label>Repita a nova senha</label>
+        <div class="field"><label>Repetir senha</label>
           <input type="password" id="cfgSenha2" placeholder="repita" autocomplete="new-password"></div>
       </div>
       <label class="chk-line"><input type="checkbox" id="cfgSenhaVer" onchange="verSenha(this.checked)"> Mostrar senha</label>
