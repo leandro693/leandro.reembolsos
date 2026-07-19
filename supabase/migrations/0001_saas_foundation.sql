@@ -382,21 +382,21 @@ create policy lanc_select on public.lancamentos for select using (
   deleted_at is null and (
     public.usuario_e_owner()
     or (empresa_id in (select public.empresas_do_usuario())
-        and (usuario_id = auth.uid() or public.meu_papel(empresa_id) in ('financeiro','gestor')))
+        and (user_id = auth.uid() or public.meu_papel(empresa_id) in ('financeiro','gestor')))
   )
 );
 create policy lanc_insert on public.lancamentos for insert with check (
-  empresa_id in (select public.empresas_do_usuario()) and usuario_id = auth.uid()
+  empresa_id in (select public.empresas_do_usuario()) and user_id = auth.uid()
 );
 create policy lanc_update on public.lancamentos for update using (
   public.usuario_e_owner()
   or (empresa_id in (select public.empresas_do_usuario())
-      and (usuario_id = auth.uid() or public.meu_papel(empresa_id) in ('financeiro','gestor')))
+      and (user_id = auth.uid() or public.meu_papel(empresa_id) in ('financeiro','gestor')))
 );
 create policy lanc_delete on public.lancamentos for delete using (
   public.usuario_e_owner()
   or (empresa_id in (select public.empresas_do_usuario())
-      and (usuario_id = auth.uid() or public.meu_papel(empresa_id) = 'gestor'))
+      and (user_id = auth.uid() or public.meu_papel(empresa_id) = 'gestor'))
 );
 
 -- FORNECEDORES: leitura/inserção pela empresa; edição/exclusão por gestor/owner.
