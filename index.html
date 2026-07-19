@@ -792,6 +792,11 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
         <div class="seclbl mt12">Fechamento</div>
         <p class="pagesub" style="margin-top:-4px">Baixe o lote de pagamentos do mês, com o comprovante.</p>
         <button class="btn btn-sec" onclick="irMarcar()"><i data-lucide="calendar-check" class="i-md"></i> Fechamento do mês</button>
+        <div id="secAdminBtn" class="hidden">
+          <div class="seclbl mt12">Administração</div>
+          <p class="pagesub" style="margin-top:-4px">Plano e consumo de IA, papéis, alertas e segurança.</p>
+          <button class="btn btn-sec" onclick="irAdmin()"><i data-lucide="shield" class="i-md"></i> Painel de administração</button>
+        </div>
       </div>
 
       <div class="divider"></div>
@@ -830,6 +835,19 @@ body[data-density="reforcado"] .panel .row:last-child{border-bottom:none}
       </div>
       <div class="field"><input type="text" id="fornBusca" placeholder="Buscar por nome ou CNPJ" oninput="renderFornecedores()"></div>
       <div id="fornLista"><div class="empty">Carregando...</div></div>
+    </section>
+
+    <!-- ADMINISTRAÇÃO (gestor/dono) -->
+    <section id="scAdmin" class="screen hidden">
+      <div class="page-head">
+        <div><h2 class="pagetitle">Administração</h2><p class="pagesub" id="adminSub">-</p></div>
+        <button class="btn-compact" onclick="renderAdmin()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
+      </div>
+      <div id="adminConsumo"></div>
+      <div id="adminUsuarios" class="mt12"></div>
+      <div id="adminAlertas" class="mt12"></div>
+      <div id="adminSeguranca" class="mt12"></div>
+      <button class="btn btn-ghost mt12" onclick="voltar()">Voltar</button>
     </section>
 
   </main>
@@ -911,6 +929,9 @@ let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
 let modoForm = 'manual';
+let empresaId = null;            // empresa (tenant) do usuário logado
+let empresaNome = '';
+let empresaPapel = 'operador';   // papel no vínculo empresa_usuarios
 
 /* ===== Categorias (keys iguais às da planilha antiga, sem emoji) ===== */
 const CATEGORIAS = [
@@ -976,7 +997,7 @@ function toggleTemaLogin(){ toggleTema(); }
 /* ============================================================================
    NAVEGAÇÃO
    ========================================================================== */
-const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores'];
+const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores','scAdmin'];
 const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
@@ -1020,6 +1041,7 @@ function mostrarLogin(){
 async function entrar(session){
   user = session.user;
   await garantirPerfil();
+  await carregarEmpresa();
   el('scLogin').classList.add('hidden');
   el('app').classList.remove('hidden');
   const nome = perfil.nome || (user.email||'').split('@')[0];
@@ -1046,8 +1068,19 @@ async function garantirPerfil(){
   }
   perfil = Object.assign({nome:'',papel:'operador',pix_tipo:'CPF',pix_chave:'',pix_nome:'',pix_banco:''}, data);
 }
+/* Carrega a empresa (tenant) do usuário logado — multiempresa. */
+async function carregarEmpresa(){
+  try{
+    const { data } = await sb.from('empresa_usuarios')
+      .select('empresa_id, papel, empresas(razao_social, nome_fantasia)')
+      .eq('usuario_id', user.id).eq('ativo', true).limit(1).maybeSingle();
+    if(data){ empresaId=data.empresa_id; empresaPapel=data.papel||'operador';
+      empresaNome=(data.empresas&&(data.empresas.nome_fantasia||data.empresas.razao_social))||''; }
+  }catch(e){ empresaId=null; }
+}
 /* true quando o usuário pode ver os lançamentos de todos (financeiro ou admin) */
 function veTudo(){ return perfil.papel==='admin' || perfil.papel==='financeiro'; }
+function ehGestor(){ return perfil.papel==='admin'; }
 function rotuloPapel(){ return {admin:'Administrador',financeiro:'Financeiro',operador:'Operador'}[perfil.papel]||'Operador'; }
 
 el('loginForm').addEventListener('submit', async (e)=>{
@@ -1462,14 +1495,17 @@ async function analisarFoto(){
   try{
     const imageBase64 = await fileToBase64(fotoFile);
     const { data, error } = await sb.functions.invoke('ler-comprovante', {
-      body:{ imageBase64, mimeType:fotoFile.type }
+      body:{ imageBase64, mimeType:fotoFile.type, empresa_id:empresaId, usuario_id:user.id, nomeArquivo:fotoFile.name }
     });
     carregando(false);
+    if(data && data.erro==='cota'){ toast(data.motivo||'Cota de IA esgotada. Lance manualmente.','erro'); return; }
+    if(data && (data.erro==='quarentena'||data.quarentena)){ toast(data.motivo||'Comprovante em quarentena de segurança. Preencha manual.','erro'); return; }
     if(error || !data || data.erro) throw (error || new Error(data && data.erro));
     if(data.legivel===false){
       toast('Não consegui ler este comprovante com segurança. Preencha manual.','erro');
       return;
     }
+    if(data.revisao) toast('Atenção: '+data.revisao,'erro');
     aplicarIA(data);
     toast('Campos preenchidos pela IA. Confira e ajuste.','ok');
   }catch(e){
@@ -2018,6 +2054,7 @@ function prepararAjustes(){
   const most=veTudo();
   el('secVisual').classList.toggle('hidden', !most);
   el('secVisualDiv').classList.toggle('hidden', !most);
+  el('secAdminBtn').classList.toggle('hidden', !ehGestor());
   marcarEscopo();
   el('cfgPixTipo').value=perfil.pix_tipo||'CPF';
   el('cfgPixChave').value=perfil.pix_chave||'';
@@ -2051,6 +2088,82 @@ async function alterarSenha(){
   if(error){ toast('Não foi possível alterar: '+(error.message||''),'erro'); return; }
   el('cfgSenha1').value=''; el('cfgSenha2').value=''; el('cfgSenhaVer').checked=false; verSenha(false);
   toast('Senha alterada com sucesso','ok');
+}
+
+/* ============================================================================
+   ADMINISTRAÇÃO (gestor/dono) — plano/consumo, papéis, alertas, segurança
+   ========================================================================== */
+function irAdmin(){
+  if(!ehGestor()){ toast('Sem acesso à administração','erro'); return; }
+  tela('scAdmin','scAjustes'); renderAdmin();
+}
+const PAPEIS_LABEL={operador:'Operador',financeiro:'Financeiro',gestor:'Gestor'};
+async function renderAdmin(){
+  el('adminSub').textContent = empresaNome ? ('Empresa: '+empresaNome) : 'Empresa atual';
+  el('adminConsumo').innerHTML   = '<div class="chart"><h3><i data-lucide="cpu" class="i-sm"></i> Plano e consumo de IA</h3><div class="empty" style="padding:14px">Carregando...</div></div>';
+  el('adminUsuarios').innerHTML  = '';
+  el('adminAlertas').innerHTML   = '';
+  el('adminSeguranca').innerHTML = '';
+  icons();
+  // Consumo de IA (cota do plano no mês)
+  try{
+    const { data } = await sb.rpc('consumo_ia', { p_empresa: empresaId });
+    const row = Array.isArray(data)?data[0]:data;
+    const usado=Number(row?.consumidas||0), cota=Number(row?.cota||0);
+    const pct = cota>0 ? Math.min(100, Math.round(usado/cota*100)) : 0;
+    el('adminConsumo').innerHTML = `<div class="chart"><h3><i data-lucide="cpu" class="i-sm"></i> Plano e consumo de IA (mês)</h3>
+      <div class="bar"><div class="top"><span class="lbl">Leituras por IA</span><span class="v">${usado} / ${cota||'∞'}</span></div>
+      <div class="line"><span style="width:${pct}%"></span></div></div>
+      <p class="pagesub" style="margin:8px 2px 0">Lançamento manual não consome cota. Ao esgotar, a leitura por IA é bloqueada e o manual continua liberado.</p></div>`;
+  }catch(e){ el('adminConsumo').innerHTML = `<div class="chart"><h3><i data-lucide="cpu" class="i-sm"></i> Plano e consumo de IA</h3><div class="empty" style="padding:14px">Sem dados de consumo ainda.</div></div>`; }
+  // Usuários e papéis
+  try{
+    const { data } = await sb.from('empresa_usuarios')
+      .select('id, papel, usuario_id, usuarios(nome, email)').eq('empresa_id', empresaId);
+    const arr=data||[];
+    const linhas = arr.map(v=>{
+      const u=v.usuarios||{};
+      const sel=['operador','financeiro','gestor'].map(p=>`<option value="${p}"${v.papel===p?' selected':''}>${PAPEIS_LABEL[p]}</option>`).join('');
+      return `<tr><td>${esc(u.nome||'')}</td><td>${esc(u.email||'')}</td>
+        <td><select class="ctl-sm" onchange="mudarPapel('${v.id}',this.value)">${sel}</select></td></tr>`;
+    }).join('');
+    el('adminUsuarios').innerHTML = `<div class="chart"><h3><i data-lucide="users" class="i-sm"></i> Usuários e papéis</h3>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th></tr></thead>
+      <tbody>${linhas||'<tr><td colspan="3">—</td></tr>'}</tbody></table></div></div>`;
+  }catch(e){ el('adminUsuarios').innerHTML=''; }
+  // Alertas em aberto
+  try{
+    const { data } = await sb.from('alertas').select('*').eq('empresa_id', empresaId).eq('resolvido', false).order('criado_em',{ascending:false}).limit(20);
+    const arr=data||[];
+    const linhas = arr.map(a=>`<div class="item"><div class="l1"><span class="cat">${a.tipo==='duplicata'?'Possível duplicata':'Fora da política'}</span>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="resolverAlerta('${a.id}')"><i data-lucide="check" class="i-sm"></i> Resolver</button></div>
+      <div class="l2"><span>${esc(JSON.stringify(a.detalhe||{}).slice(0,80))}</span><span>${brDate(a.criado_em)}</span></div></div>`).join('');
+    el('adminAlertas').innerHTML = `<div class="chart"><h3><i data-lucide="alert-triangle" class="i-sm"></i> Alertas em aberto</h3>${arr.length?linhas:'<div class="empty" style="padding:14px">Nenhum alerta em aberto.</div>'}</div>`;
+  }catch(e){ el('adminAlertas').innerHTML=''; }
+  // Segurança (quarentena)
+  try{
+    const { data } = await sb.from('eventos_seguranca').select('*').eq('empresa_id', empresaId).eq('status','quarentena').order('created_at',{ascending:false}).limit(20);
+    const arr=data||[];
+    const linhas = arr.map(s=>`<div class="item"><div class="l1"><span class="cat">${esc(s.tipo||'')}</span>
+      <button class="btn btn-sec" style="width:auto;flex:none" onclick="revisarSeguranca('${s.id}')"><i data-lucide="shield-check" class="i-sm"></i> Revisado</button></div>
+      <div class="l2"><span>sev: ${esc(s.severidade||'')}</span><span>${brDate(s.created_at)}</span></div></div>`).join('');
+    el('adminSeguranca').innerHTML = `<div class="chart"><h3><i data-lucide="shield" class="i-sm"></i> Segurança — quarentena de IA</h3>${arr.length?linhas:'<div class="empty" style="padding:14px">Nada em quarentena.</div>'}</div>`;
+  }catch(e){ el('adminSeguranca').innerHTML=''; }
+  icons();
+}
+async function mudarPapel(id, papel){
+  carregando(true,'Salvando papel...');
+  const { error } = await sb.from('empresa_usuarios').update({papel}).eq('id', id);
+  carregando(false);
+  toast(error?'Não foi possível alterar':'Papel atualizado', error?'erro':'ok');
+}
+async function resolverAlerta(id){
+  const { error } = await sb.from('alertas').update({resolvido:true}).eq('id', id);
+  if(!error) renderAdmin(); else toast('Não foi possível resolver','erro');
+}
+async function revisarSeguranca(id){
+  const { error } = await sb.from('eventos_seguranca').update({status:'revisado'}).eq('id', id);
+  if(!error) renderAdmin(); else toast('Não foi possível marcar','erro');
 }
 
 /* ============================================================================
