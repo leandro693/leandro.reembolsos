@@ -1216,7 +1216,8 @@ async function sair(){
    DADOS — carregar/computar
    ========================================================================== */
 async function carregarLista(){
-  const { data, error } = await sb.from('lancamentos').select('*').order('vencimento',{ascending:true});
+  // 0008: a RLS não esconde mais excluídos; o operacional filtra deleted_at no front.
+  const { data, error } = await sb.from('lancamentos').select('*').is('deleted_at', null).order('vencimento',{ascending:true});
   if(error){ toast('Erro ao carregar dados','erro'); lista=[]; return; }
   lista = (data||[]).map(l=>({...l, valor_total:Number(l.valor_total)||0,
     km_total:Number(l.km_total)||0, pedagio:Number(l.pedagio)||0, estacionamento:Number(l.estacionamento)||0}));
@@ -1727,8 +1728,10 @@ async function uploadPagamento(file){ return uploadArquivo(file, 'pagamentos'); 
 async function possivelDuplicata(dataEmissao, valor, numeroNota){
   if(!dataEmissao) return null;
   try{
+    // 0008: ignora excluídos — relançar item igual a um excluído não deve acusar duplicata.
     const { data } = await sb.from('lancamentos')
       .select('*')
+      .is('deleted_at', null)
       .eq('user_id', user.id).eq('data_emissao', dataEmissao);
     if(!data || !data.length) return null;
     if(numeroNota) return data.find(x=>String(x.numero_nota||'').trim()===String(numeroNota).trim()) || null;
