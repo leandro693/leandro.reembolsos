@@ -610,7 +610,7 @@ body.nav-open .nav-backdrop{display:block}
       <p class="pagesub">Campos com * são obrigatórios.</p>
 
       <div class="note ok hidden" id="revisaoBox"><i data-lucide="sparkles" class="i-md"></i>
-        <div>A IA preencheu os campos a partir do comprovante. Confira, ajuste se precisar e lance.</div></div>
+        <div id="revisaoTxt">A IA preencheu os campos a partir do comprovante. Confira, ajuste se precisar e lance.</div></div>
 
       <div class="field" id="boxFotoBtn">
         <input type="file" id="inputFotoCam" accept="image/*" capture="environment" class="hidden" onchange="aoEscolherFoto(event)">
@@ -629,8 +629,9 @@ body.nav-open .nav-backdrop{display:block}
         </div>
         <img id="fotoPreview" class="preview-img hidden" alt="Comprovante" style="margin-top:12px">
         <div id="lblFoto" class="dz-file hidden"></div>
+        <!-- Bloco 3: fallback escondido; so aparece se a leitura automatica falhar -->
         <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
-          <i data-lucide="sparkles" class="i-md"></i> Ler comprovante com IA
+          <i data-lucide="sparkles" class="i-md"></i> Ler novamente
         </button>
       </div>
 
@@ -988,6 +989,7 @@ let telaAtual = 'scInicio';
 let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
+let lendoIA = false;        // Bloco 3: trava de reentrada da leitura por IA (evita duplo-envio)
 let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
 let empresaNome = '';
@@ -1525,8 +1527,10 @@ function limparForm(){
   el('boxKm').classList.add('hidden'); el('boxBenef').classList.add('hidden'); el('boxValor').classList.remove('hidden');
   el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent=''; el('lblFoto').classList.add('hidden');
   el('dropzone').classList.remove('over');
-  el('btnAnalisar').classList.add('hidden'); el('revisaoBox').classList.add('hidden');
-  fotoFile=null; fecharViewer(); setKmModo('trecho'); setParcelado(false);
+  el('btnAnalisar').classList.add('hidden');
+  // Bloco 3: esconde a nota e volta ao estado 'ok' (limpa eventual 'warn' anterior).
+  el('revisaoBox').classList.add('hidden'); el('revisaoBox').classList.remove('warn'); el('revisaoBox').classList.add('ok');
+  fotoFile=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
 }
 function aoMudarCategoria(){
   const cat=el('fCategoria').value;
@@ -1582,14 +1586,17 @@ function atualizarVenc(){
   if(parcelado) calcParcelas();
 }
 function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
+/* Bloco 3: ao anexar/fotografar, a leitura por IA dispara sozinha (sem toque
+   manual). O botao "Ler novamente" fica escondido, so aparece se a leitura falhar. */
 function handleFile(f){
   fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
   const lbl=el('lblFoto'); lbl.classList.remove('hidden');
   if(f.type==='application/pdf'){ img.classList.add('hidden'); lbl.textContent='PDF anexado: '+f.name; }
   else{ img.src=url; img.classList.remove('hidden'); lbl.textContent='Comprovante anexado. Toque em anexar para trocar.'; }
-  el('btnAnalisar').classList.remove('hidden');
-  abrirViewer(url, f.type);   // no computador, mostra grande à direita
+  el('btnAnalisar').classList.add('hidden');   // fallback fica escondido no fluxo normal
+  abrirViewer(url, f.type);   // no computador, mostra grande a direita
   icons();
+  analisarFoto();             // Bloco 3: disparo automatico da leitura
 }
 function dzOver(e){ e.preventDefault(); el('dropzone').classList.add('over'); }
 function dzLeave(e){ e.preventDefault(); el('dropzone').classList.remove('over'); }
@@ -1623,30 +1630,53 @@ async function sha256Hex(file){
 }
 
 /* Chama a Edge Function do Supabase (Gemini) e preenche o formulário */
+/* Bloco 3: leitura por IA. Dispara automaticamente após a foto (handleFile) ou
+   manualmente pelo fallback "Ler novamente". A trava lendoIA evita duplo-envio.
+   A IA NUNCA salva nem deriva ação: só preenche campos para conferência humana.
+   Falha/quarentena/cota caem na conferência com nota persistente, sem travar o Lançar. */
 async function analisarFoto(){
   if(!fotoFile){ toast('Anexe um comprovante primeiro','erro'); return; }
-  carregando(true,'IA lendo o comprovante...');
+  if(lendoIA) return;                            // trava de reentrada (duplo-envio)
+  lendoIA=true;
+  el('btnAnalisar').classList.add('hidden');     // esconde o fallback durante a leitura
+  carregando(true,'Lendo comprovante...');
   try{
     const imageBase64 = await fileToBase64(fotoFile);
     const { data, error } = await sb.functions.invoke('ler-comprovante', {
       body:{ imageBase64, mimeType:fotoFile.type, empresa_id:empresaId, usuario_id:user.id, nomeArquivo:fotoFile.name }
     });
-    carregando(false);
-    if(data && data.erro==='cota'){ toast(data.motivo||'Cota de IA esgotada. Lance manualmente.','erro'); return; }
-    if(data && (data.erro==='quarentena'||data.quarentena)){ toast(data.motivo||'Comprovante em quarentena de segurança. Preencha manual.','erro'); return; }
-    if(error || !data || data.erro) throw (error || new Error(data && data.erro));
-    if(data.legivel===false){
-      toast('Não consegui ler este comprovante com segurança. Preencha manual.','erro');
-      return;
-    }
-    if(data.revisao) toast('Atenção: '+data.revisao,'erro');
+    // Caminhos de falha/baixa confiança: nota de atenção + fallback, NUNCA travam.
+    if(data && data.erro==='cota'){ falhaLeitura(data.motivo||'Cota de IA esgotada. Preencha manualmente.'); return; }
+    if(data && (data.erro==='quarentena'||data.quarentena)){ falhaLeitura(data.motivo||'Comprovante em quarentena de segurança. Preencha manualmente.'); return; }
+    if(error || !data || data.erro){ falhaLeitura('Não consegui ler com a IA agora. Preencha manualmente.'); return; }
+    if(data.legivel===false){ falhaLeitura('Não consegui ler este comprovante com segurança. Preencha manualmente.'); return; }
     aplicarIA(data);
-    toast('Campos preenchidos pela IA. Confira e ajuste.','ok');
+    // Sucesso: nota de conferência (ou de atenção se veio incompleto/acima do teto).
+    const incompleto = !el('fValor').value || !el('fCategoria').value;
+    if(data.revisao) notaRevisao('warn', 'Atenção: '+data.revisao);
+    else if(incompleto) notaRevisao('warn', 'Não consegui ler tudo — confira e complete os campos.');
+    else notaRevisao('ok', 'A IA preencheu os campos. Confira, ajuste se precisar e lance.');
   }catch(e){
-    carregando(false);
-    toast('Não consegui ler com a IA agora. Preencha manual.','erro');
+    falhaLeitura('Não consegui ler com a IA agora. Preencha manualmente.');
     console.warn('IA:', e);
+  }finally{
+    carregando(false);
+    lendoIA=false;
   }
+}
+/* Bloco 3: leitura falhou/veio vazia — mostra nota de atenção persistente e revela
+   o fallback "Ler novamente" (retentar sem re-anexar). Não bloqueia o lançamento. */
+function falhaLeitura(msg){
+  notaRevisao('warn', msg);
+  el('btnAnalisar').classList.remove('hidden');
+  icons();
+}
+/* Bloco 3: nota persistente na conferência — 'ok' (verde) ou 'warn' (atenção). */
+function notaRevisao(tipo, msg){
+  const box=el('revisaoBox');
+  box.classList.remove('hidden','ok','warn');
+  box.classList.add(tipo);
+  el('revisaoTxt').textContent=msg;
 }
 
 /* Aplica o que a IA extraiu nos campos do formulário */
