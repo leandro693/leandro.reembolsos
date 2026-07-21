@@ -1683,7 +1683,10 @@ function notaRevisao(tipo, msg){
 /* Aplica o que a IA extraiu nos campos do formulário */
 function aplicarIA(d){
   el('revisaoBox').classList.remove('hidden');
-  if(d.categoria && listaCategorias().includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
+  // Bloco 4: a IA agora sugere da lista REAL da empresa; se vier fora dela, cai em "Outros" (nunca texto livre).
+  if(d.categoria){ const cats=listaCategorias();
+    if(cats.includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
+    else if(cats.includes('Outros')){ el('fCategoria').value='Outros'; aoMudarCategoria(); } }
   if(d.fornecedor) el('fFornecedor').value=d.fornecedor;
   if(d.numero_nota) el('fNumeroNota').value=d.numero_nota;
   if(d.cnpj) el('fCnpj').value=d.cnpj;
@@ -1740,17 +1743,60 @@ async function possivelDuplicata(dataEmissao, valor, numeroNota){
 }
 
 /* Acha um fornecedor pelo CNPJ (ou nome) ou cria um novo. Devolve o id. */
+/* Bloco 4: normaliza nome de fornecedor como TEXTO PURO (sem acento, caixa, sem
+   sufixos societários LTDA/ME/EPP/EIRELI/S.A., sem pontuação). Nada é executado. */
+function normNome(s){
+  let x = String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  x = x.replace(/\b(ltda|me|epp|eireli)\b/g,' ');
+  x = x.replace(/\bs[.\/ ]?a\b/g,' ');        // S.A. / S/A / SA
+  x = x.replace(/[^a-z0-9 ]/g,' ');           // demais pontuações viram espaço
+  return x.replace(/\s+/g,' ').trim();
+}
+/* Bloco 4: similaridade de nomes por coeficiente de Dice (bigramas) — cálculo puro. */
+function similaridade(a, b){
+  a=String(a||''); b=String(b||'');
+  if(a===b) return 1;
+  if(a.length<2 || b.length<2) return 0;
+  const big=s=>{ const m=new Map(); for(let i=0;i<s.length-1;i++){ const g=s.slice(i,i+2); m.set(g,(m.get(g)||0)+1); } return m; };
+  const A=big(a), B=big(b); let inter=0, total=0;
+  for(const [g,c] of A){ total+=c; if(B.has(g)) inter+=Math.min(c,B.get(g)); }
+  for(const [,c] of B) total+=c;
+  return total? (2*inter)/total : 0;
+}
+async function criarFornecedor(nome, cnpj){
+  const { data:novo, error } = await sb.from('fornecedores').insert({ nome, cnpj:cnpj||'' }).select('id').single();
+  if(error){ console.warn(error); return null; }
+  return novo.id;
+}
+/* Bloco 4: rede em camadas conservadora. Automático só com CERTEZA (CNPJ ou nome
+   normalizado exato); zona cinzenta (Dice>=0,88) PERGUNTA; senão cria novo. Nunca
+   funde empresas diferentes: com CNPJ, casa só por CNPJ (CNPJ novo = fornecedor novo). */
 async function acharOuCriarFornecedor(nome, cnpj){
+  const nomeLimpo=(nome||'').trim();
+  const soDigitos=(cnpj||'').replace(/\D/g,'');
   try{
-    const soDigitos = (cnpj||'').replace(/\D/g,'');
-    let q = sb.from('fornecedores').select('id').limit(1);
-    q = soDigitos ? q.eq('cnpj', cnpj) : q.ilike('nome', nome);
-    const { data } = await q;
-    if(data && data.length) return data[0].id;
-    const { data:novo, error } = await sb.from('fornecedores')
-      .insert({ nome, cnpj:cnpj||'' }).select('id').single();
-    if(error){ console.warn(error); return null; }
-    return novo.id;
+    const { data:existentes } = await sb.from('fornecedores').select('id, nome, cnpj');
+    const lista=existentes||[];
+    // (a) CNPJ = verdade absoluta: casa só por CNPJ; jamais funde por nome quando há CNPJ.
+    if(soDigitos){
+      const porCnpj=lista.find(f=>(f.cnpj||'').replace(/\D/g,'')===soDigitos);
+      return porCnpj ? porCnpj.id : await criarFornecedor(nomeLimpo, cnpj);
+    }
+    // (b) Sem CNPJ: normaliza e compara só com fornecedores TAMBÉM sem CNPJ.
+    const alvo=normNome(nomeLimpo);
+    if(!alvo) return await criarFornecedor(nomeLimpo, '');
+    const candidatos=lista.filter(f=>!((f.cnpj||'').replace(/\D/g,'')));
+    // (c) nome normalizado EXATO → automático (certeza).
+    const exato=candidatos.find(f=>normNome(f.nome)===alvo);
+    if(exato) return exato.id;
+    // (d) zona cinzenta (alta similaridade, não exato) → PERGUNTA; não funde no chute.
+    let melhor=null, melhorSim=0;
+    for(const f of candidatos){ const s=similaridade(alvo, normNome(f.nome)); if(s>melhorSim){ melhorSim=s; melhor=f; } }
+    if(melhor && melhorSim>=0.88){
+      if(confirm(`"${nomeLimpo}" parece ser o mesmo que "${melhor.nome}" já cadastrado.\n\nOK = usar o existente\nCancelar = criar um novo`)) return melhor.id;
+    }
+    // (e) sem certeza → cria novo (erra para criar, nunca para fundir).
+    return await criarFornecedor(nomeLimpo, '');
   }catch(e){ console.warn(e); return null; }
 }
 
