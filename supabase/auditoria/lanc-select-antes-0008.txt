@@ -1,0 +1,45 @@
+ESTADO ANTES DA MIGRATION 0008  (registro de reversão)
+===========================================================================
+Capturado em produção (fwoupyqojfxpipvidvsx) via pg_policies, SOMENTE LEITURA,
+antes de aplicar 0008 (remoção do gate `deleted_at is null` da lanc_select).
+
+Consulta usada: supabase/auditoria/lanc-select-antes-0008.sql
+
+POLICIES ATUAIS DE public.lancamentos
+---------------------------------------------------------------------------
+lanc_select  SELECT  roles={public}
+  USING:
+    ((deleted_at IS NULL) AND (usuario_e_owner() OR ((empresa_id IN (
+       SELECT empresas_do_usuario())) AND ((user_id = auth.uid()) OR
+       (meu_papel(empresa_id) = ANY (ARRAY['financeiro','gestor']))))))
+
+lanc_insert  INSERT  roles={public}
+  WITH CHECK:
+    ((empresa_id IN (SELECT empresas_do_usuario())) AND (user_id = auth.uid()))
+
+lanc_update  UPDATE  roles={public}
+  USING:
+    (usuario_e_owner() OR ((empresa_id IN (SELECT empresas_do_usuario())) AND
+     ((user_id = auth.uid()) OR (meu_papel(empresa_id) = ANY (ARRAY['financeiro','gestor'])))))
+  WITH CHECK: null  (herda o USING)
+
+lanc_delete  DELETE  roles={public}
+  USING:
+    (usuario_e_owner() OR ((empresa_id IN (SELECT empresas_do_usuario())) AND
+     ((user_id = auth.uid()) OR (meu_papel(empresa_id) = 'gestor'))))
+
+MUDANÇA DA 0008 (só lanc_select)
+---------------------------------------------------------------------------
+Remove o prefixo "(deleted_at IS NULL) AND" — o restante da expressão fica igual.
+lanc_insert / lanc_update / lanc_delete: INALTERADAS.
+
+REVERSÃO (se necessário) — restaurar a lanc_select original:
+  drop policy if exists lanc_select on public.lancamentos;
+  create policy lanc_select on public.lancamentos for select using (
+    deleted_at is null and (
+      public.usuario_e_owner()
+      or (empresa_id in (select public.empresas_do_usuario())
+          and (user_id = auth.uid() or public.meu_papel(empresa_id) in ('financeiro','gestor')))
+    )
+  );
+(E reverter o filtro deleted_at do front, se preciso.)
