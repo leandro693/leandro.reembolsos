@@ -78,7 +78,8 @@ antifraude, migração do modelo de parcelas, criar login de gestor pelo app.
   a gaveta usa `toggleGaveta`).
 - **Acesso a dados** sempre via `sb` (cliente Supabase); nunca embutir chave de
   serviço no front. Ler/escrever respeitando RLS (empresa atual).
-- **Dinheiro:** `R$ 1.234,56`. **Datas:** `DD/MM/AAAA`. Use os helpers `money()`,
+- **Dinheiro:** `1.234,56` (sem prefixo "R$", ver §11.2). **Datas:** `DD/MM/AAAA`.
+  Use os helpers `money()`,
   `brDate()`, `esc()`, `el()`, `icons()`, `toast()`, `carregando()`.
 - **Ícones** Lucide (`data-lucide=...`); após injetar HTML novo, chame `icons()`
   (`lucide.createIcons()`), senão o ícone fica em branco.
@@ -162,7 +163,7 @@ Segredos ficam em **GitHub → Settings → Secrets and variables → Actions**
 - **Tipografia:** **Raleway** (texto) e **JetBrains Mono** (números/códigos,
   `font-variant-numeric: tabular-nums`).
 - **Ícones:** Lucide. **Sem emojis.**
-- **Formatos:** dinheiro `R$ 1.234,56`; datas `DD/MM/AAAA`.
+- **Formatos:** dinheiro `1.234,56` (sem "R$", ver §11.2); datas `DD/MM/AAAA`.
 - **Padrões de UI:** cartões (`.card`/`.chart`), tabelas (`.tbl`), selos de status
   (`.st`), menu lateral, alternadores (`.switch`), listas compactas (`.crow`).
 
@@ -190,3 +191,22 @@ Nunca editar o banco pela interface do Supabase — a fonte de verdade é
 `supabase/migrations/`. Os `.sql` na raiz (`supabase-setup.sql`, `-v2/-v3/-v4`) são
 **legado**, ignorar. Exceção: `supabase-usuarios.sql` não é legado — ainda é usado
 pelo workflow de criação de usuários (`create-users.yml`).
+
+## 11. Regras permanentes (produção e exibição)
+
+### 11.1 Proteção de produção (não temos banco DEV)
+
+- **Não existe banco DEV.** O desenvolvimento roda contra o Supabase de
+  **produção** (`fwoupyqojfxpipvidvsx`), que tem **dados reais de cliente**.
+- **Nenhuma migration destrutiva** (`drop`, `truncate`, `delete` em massa, `alter`
+  que remova coluna com dado) roda sem: (a) **backup confirmado** e (b) **meu OK
+  explícito**.
+- **Antes de qualquer migration que altere dados existentes**, avise e espere minha
+  aprovação. Migrations de criação/adição idempotentes seguem o fluxo normal
+  (seção 10).
+
+### 11.2 Padrão de exibição de valores (marca Maradel)
+
+- Valores monetários são exibidos **sem o prefixo "R$"**, só o número formatado
+  (ex.: `7.578,26`). Alinhado ao padrão geral da marca. Vale para **telas,
+  relatórios e exportações**.
