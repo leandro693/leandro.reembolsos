@@ -566,14 +566,14 @@ body.nav-open .nav-backdrop{display:block}
       <button class="sb-dup" data-nav="scInicio" onclick="irInicio()" title="Dashboard"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
       <button class="sb-dup" data-nav="scForm" onclick="irForm('foto')" title="Novo lançamento"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
       <button class="sb-dup" data-nav="scConsultas" onclick="irConsultas()" title="Lançamentos"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
-      <button data-nav="scFornecedores" onclick="irFornecedores()" title="Fornecedores"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
+      <button data-nav="scFornecedores" id="navFornecedores" onclick="irFornecedores()" title="Fornecedores" style="display:none"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scMarcar" id="navFechamento" onclick="irMarcar()" title="Fechamento do mês" style="display:none"><i data-lucide="calendar-check" class="i-md"></i><span>Fechamento</span></button>
       <button data-nav="scAdmin" id="navAdmin" onclick="irAdmin()" title="Administração" style="display:none"><i data-lucide="shield" class="i-md"></i><span>Administração</span></button>
       <a class="sb-navlink" id="navConsole" href="./console.html" title="Console de Gestão" style="display:none"><i data-lucide="monitor" class="i-md"></i><span>Console de Gestão</span></a>
       <button class="sb-dup" data-nav="scAjustes" onclick="irAjustes()" title="Ajustes"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
     </nav>
     <div class="sb-foot">
-      <button class="sb-mini" onclick="toggleTema()" title="Tema"><i data-lucide="sun-moon" class="i-md"></i><span>Tema</span></button>
+      <!-- Bloco enxugar: tema removido daqui; fica só dentro de Ajustes (um lugar). -->
       <div class="sb-user"><span class="av" id="uAvSb">?</span><div><div class="nm" id="uNomeSb">-</div><div class="pp" id="uPapelSb"></div></div></div>
     </div>
   </aside>
@@ -584,7 +584,8 @@ body.nav-open .nav-backdrop{display:block}
     <button class="iconbtn back" id="btnBack" onclick="voltar()" title="Voltar"><i data-lucide="arrow-left" class="i-md"></i></button>
     <div class="markbadge"><img src="icons/symbol.png" alt="Maradel"></div>
     <div class="brand"><span class="mk">MARADEL</span><span class="pd">Reembolsos</span></div>
-    <button class="iconbtn" onclick="toggleTema()" title="Tema" id="btnTema"><i data-lucide="sun-moon" class="i-md"></i></button>
+    <!-- Bloco enxugar: Ajustes vira engrenagem sempre visível no header (um toque). Tema só dentro de Ajustes. -->
+    <button class="iconbtn" onclick="irAjustes()" title="Ajustes" aria-label="Ajustes"><i data-lucide="settings" class="i-md"></i></button>
     <div class="who" onclick="irAjustes()"><span class="av" id="uAv">?</span><span id="uNome">-</span></div>
   </header>
 
@@ -595,12 +596,7 @@ body.nav-open .nav-backdrop{display:block}
       <p class="pagesub" id="dashSub">Visão geral dos seus reembolsos.</p>
       <div class="kpis" id="dashKpis"></div>
       <div id="dashCharts"></div>
-
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:24px 0 10px">
-        <h3 class="seclbl" style="margin:0">Vencendo em breve</h3>
-        <button class="btn btn-ghost sm" onclick="irConsultas('proximo')">Ver todos</button>
-      </div>
-      <div id="inicioUltimos"><div class="empty">Carregando...</div></div>
+      <!-- Bloco enxugar: "Vencendo em breve" removido (redundante com Lançamentos). -->
       <div id="dashPessoas" class="mt12"></div>
     </section>
 
@@ -921,13 +917,12 @@ body.nav-open .nav-backdrop{display:block}
     </div>
   </aside>
 
+  <!-- Bloco enxugar: barra com 3 itens e FAB central (Dashboard · Lançar · Lançamentos).
+       Recebidos virou o card "Recebido mês" no dashboard; Ajustes foi para o header. -->
   <nav class="bottom">
     <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
-    <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançam.</span></button>
     <button class="fab" onclick="irForm('foto')"><span class="fabic"><span class="fabplus">+</span></span><span>Lançar</span></button>
-    <!-- Bloco 2: atalho para Lancamentos filtrado em recebidos (sem data-nav: o realce fica em Lancamentos). Fornecedores agora vive na gaveta. -->
-    <button onclick="irConsultas('recebidos')"><i data-lucide="check-check" class="i-md"></i><span>Recebidos</span></button>
-    <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
+    <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
   </nav>
 </div>
 
@@ -1088,9 +1083,20 @@ function irAjustes(){ tela('scAjustes'); prepararAjustes(); }
    computador e abre/fecha como gaveta no celular. */
 function aplicarNavPapel(){
   const set=(id,mostrar)=>{ const e=el(id); if(e) e.style.display=mostrar?'':'none'; };
-  set('navFechamento', veTudo());
-  set('navAdmin', ehGestor());
-  set('navConsole', ehGestor());
+  // Bloco enxugar: gaveta = SÓ menu de gestão. Cada item é liberado por sua regra;
+  // temGestao é a soma (>=1 item), NÃO papel hardcoded — se um operador ganhar
+  // qualquer item de gestão no futuro, a gaveta e o botão de menu reaparecem sozinhos.
+  const podeFornecedores = veTudo();   // financeiro/gestor/dono (operador não gerencia fornecedor)
+  const podeFechamento   = veTudo();
+  const podeAdmin        = ehGestor();
+  const podeConsole      = ehGestor();
+  set('navFornecedores', podeFornecedores);
+  set('navFechamento',   podeFechamento);
+  set('navAdmin',        podeAdmin);
+  set('navConsole',      podeConsole);
+  const temGestao = podeFornecedores || podeFechamento || podeAdmin || podeConsole;
+  set('btnMenu', temGestao);   // sem gestão (operador puro) -> sem botão de menu -> sem gaveta
+  if(!temGestao) toggleGaveta(false);   // garante que a gaveta não fique aberta
   try{ if(localStorage.getItem('sbColapsado')==='1') document.body.classList.add('sb-collapsed'); }catch(e){}
 }
 function toggleColapso(){
@@ -1244,12 +1250,7 @@ function renderInicio(){
   el('dashSub').innerHTML = (empresaNome?`<span class="empresa-chip">${esc(empresaNome)}</span> · `:'') + esc(base);
   renderKpis();
   renderDashCharts();
-  // Vencendo em breve: em aberto, por vencimento crescente
-  const prox = emAberto().filter(l=>l.vencimento).sort((a,b)=>a.vencimento.localeCompare(b.vencimento)).slice(0,6);
-  el('inicioUltimos').innerHTML = prox.length
-    ? (ehDesktop()?tabelaLancamentos(prox):prox.map(itemHtml).join(''))
-    : vazio('check-check','Nada a receber no momento.');
-  bindAcoes('inicioUltimos');
+  // Bloco enxugar: "Vencendo em breve" saiu (redundante com Lançamentos). Mantém ranking.
   renderDashPessoas();
   icons();
 }
