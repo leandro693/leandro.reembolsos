@@ -1174,10 +1174,15 @@ function listaCategorias(){
   const ativas = categoriasDB.filter(c=>c.ativo!==false).map(c=>c.nome);
   return ativas.length ? ativas : CATEGORIAS;
 }
-/* true quando o usuário pode ver os lançamentos de todos (financeiro ou admin) */
-function veTudo(){ return perfil.papel==='admin' || perfil.papel==='financeiro'; }
-function ehGestor(){ return perfil.papel==='admin'; }
-function rotuloPapel(){ return {admin:'Administrador',financeiro:'Financeiro',operador:'Operador'}[perfil.papel]||'Operador'; }
+/* Fonte única de papel (Bloco 1): o acesso é regido por empresa_usuarios
+   (gestor/financeiro/operador); o dono do SaaS vem de is_owner, acima de
+   qualquer empresa. perfil.papel (tabela perfis) não rege mais acesso. */
+/* true quando o usuário pode ver os lançamentos de todos (dono, gestor ou financeiro) */
+function veTudo(){ return isOwner || empresaPapel==='gestor' || empresaPapel==='financeiro'; }
+/* true para quem administra a empresa: gestor do vínculo ou o dono do SaaS */
+function ehGestor(){ return isOwner || empresaPapel==='gestor'; }
+/* rótulo exibido do papel; o dono aparece como "Dono", acima do papel de empresa */
+function rotuloPapel(){ return isOwner ? 'Dono' : ({gestor:'Gestor',financeiro:'Financeiro',operador:'Operador'}[empresaPapel]||'Operador'); }
 
 el('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -1316,7 +1321,7 @@ function renderDashCharts(){
 let fornecedores = [];
 async function irFornecedores(){
   tela('scFornecedores');
-  el('btnNovoForn').classList.toggle('hidden', perfil.papel==='financeiro'); // financeiro é só leitura
+  el('btnNovoForn').classList.toggle('hidden', empresaPapel==='financeiro'); // Bloco 1: papel de empresa_usuarios; financeiro é só leitura
   el('fornLista').innerHTML = '<div class="empty">Carregando...</div>';
   await recarregarFornecedores();
   renderFornecedores();
@@ -1335,7 +1340,7 @@ function renderFornecedores(){
   // total e quantidade por fornecedor (a partir dos lançamentos carregados)
   const totalPorForn={}, qtdPorForn={};
   lista.forEach(l=>{ if(l.fornecedor_id){ totalPorForn[l.fornecedor_id]=(totalPorForn[l.fornecedor_id]||0)+Number(l.valor_total); qtdPorForn[l.fornecedor_id]=(qtdPorForn[l.fornecedor_id]||0)+1; } });
-  const admin = perfil.papel==='admin';
+  const admin = ehGestor(); // Bloco 1: editar/excluir fornecedor é do gestor/dono
   el('fornLista').innerHTML = arr.map(f=>{
     const q=qtdPorForn[f.id]||0;
     const meta = [ f.cnpj?('CPF/CNPJ '+esc(f.cnpj)):'sem CPF/CNPJ', q?`${q} lanç.`:'' ].filter(Boolean).join(' · ');
@@ -1427,7 +1432,7 @@ function itemHtml(l){
       (l.pedagio>0?`<span>Pedágio ${money(l.pedagio)}</span>`:'')+
       (l.estacionamento>0?`<span>Estac. ${money(l.estacionamento)}</span>`:'')+`</div>`;
   }
-  const podeAgir = perfil.papel!=='financeiro'; // financeiro é somente leitura
+  const podeAgir = empresaPapel!=='financeiro'; // Bloco 1: só financeiro é leitura (papel de empresa_usuarios)
   const acts=[];
   if(podeAgir){
     if(l.comprovante) acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
@@ -1959,7 +1964,8 @@ function setConsulta(f){
   document.querySelectorAll('#consultaChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-f')===f));
   renderConsulta();
 }
-function podeSelecionar(){ return ['proximo','aberto','atraso','parcelados'].includes(consultaFiltro) && perfil.papel!=='financeiro'; }
+/* Bloco 1: seleção para fechamento — bloqueada só para financeiro (papel de empresa_usuarios). */
+function podeSelecionar(){ return ['proximo','aberto','atraso','parcelados'].includes(consultaFiltro) && empresaPapel!=='financeiro'; }
 /* Aplica os filtros de pessoa e período (vencimento) sobre um conjunto. */
 function filtrarPessoaPeriodo(arr){
   if(veTudo() && escopoVer==='todos' && pessoaFiltro) arr=arr.filter(l=>(l.usuario||'')===pessoaFiltro);
@@ -2004,7 +2010,7 @@ function tabelaLancamentos(arr, comCheck){
     if(l.aprovacao==='pendente') st=`<span class="st pend">Pendente</span>`+st;
     else if(l.aprovacao==='rejeitado') st=`<span class="st atraso">Rejeitado</span>`;
     const tag=/\(\d+\/\d+\)/.test(l.observacoes||'')?' '+l.observacoes.match(/\(\d+\/\d+\)/)[0]:'';
-    const podeAgir=perfil.papel!=='financeiro';
+    const podeAgir=empresaPapel!=='financeiro'; // Bloco 1: papel de empresa_usuarios
     let acts='';
     if(l.comprovante) acts+=`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`;
     if(l.comprovante_pagamento) acts+=`<button class="ic-btn" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i></button>`;
