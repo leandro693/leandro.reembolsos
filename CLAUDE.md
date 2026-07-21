@@ -173,3 +173,20 @@ Segredos ficam em **GitHub → Settings → Secrets and variables → Actions**
 - Commits em português, descritivos. Ao terminar uma tarefa de UI, subir a versão
   do cache do `sw.js`.
 - Manter `docs/STATUS-SAAS.md` atualizado ao concluir fases.
+
+## 10. Rotina: aplicar uma migration nova
+
+As migrations **não** sobem no push — precisam ser disparadas manualmente. Sempre
+que criar ou alterar um arquivo em `supabase/migrations/`:
+
+1. Commit e push do arquivo na branch atual.
+2. Leia o `.github/workflows/run-sql-migration.yml` para pegar o **nome exato** do
+   input e dispare o workflow com `gh`
+   (`gh workflow run run-sql-migration.yml -f <input>=<caminho>`).
+3. Acompanhe com `gh run watch` até concluir com sucesso.
+4. Confirme no banco que aplicou (as migrations são idempotentes).
+
+Nunca editar o banco pela interface do Supabase — a fonte de verdade é
+`supabase/migrations/`. Os `.sql` na raiz (`supabase-setup.sql`, `-v2/-v3/-v4`) são
+**legado**, ignorar. Exceção: `supabase-usuarios.sql` não é legado — ainda é usado
+pelo workflow de criação de usuários (`create-users.yml`).
