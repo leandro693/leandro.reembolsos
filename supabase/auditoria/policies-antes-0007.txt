@@ -1,0 +1,57 @@
+ESTADO ANTES DA MIGRATION 0007  (registro de reversão / rede de segurança)
+===========================================================================
+Capturado em produção (fwoupyqojfxpipvidvsx) via pg_policies, SOMENTE LEITURA,
+antes de aplicar 0007_rls_insert_logs_sistema.sql.
+
+Consulta usada: supabase/auditoria/dump-policies-antes-0007.sql
+  select tablename, policyname, cmd, roles, qual, with_check
+  from pg_policies where schemaname='public'
+   and tablename in ('eventos_auditoria','eventos_seguranca','uso_ia',
+                     'consumo_mensal','alertas','contadores');
+
+RESULTADO (policies existentes ANTES da 0007)
+---------------------------------------------------------------------------
+alertas
+  - alertas_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+  - alertas_upd   UPDATE  roles={public}
+      USING: (usuario_e_owner() OR (meu_papel(empresa_id) = ANY (ARRAY['gestor','financeiro'])))
+
+consumo_mensal
+  - consumo_mensal_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+contadores
+  - contadores_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+eventos_auditoria
+  - eventos_auditoria_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+eventos_seguranca
+  - eventos_seguranca_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+uso_ia
+  - uso_ia_sel   SELECT  roles={public}
+      USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+OBSERVAÇÕES
+---------------------------------------------------------------------------
+- NENHUMA das 6 tabelas tinha policy de INSERT (confirma o bug: o trigger de
+  auditoria, dono postgres/sem BYPASSRLS, era negado ao inserir).
+- Todas com with_check = null (as existentes são só SELECT/UPDATE).
+- A 0007 cria SOMENTE policies novas `<tabela>_sys_ins` (INSERT, to postgres),
+  sem colisão de nome e sem tocar nas policies acima.
+
+REVERSÃO (se algum dia necessário)
+---------------------------------------------------------------------------
+A 0007 é aditiva; para reverter basta remover as policies criadas:
+  drop policy if exists eventos_auditoria_sys_ins on public.eventos_auditoria;
+  drop policy if exists eventos_seguranca_sys_ins on public.eventos_seguranca;
+  drop policy if exists uso_ia_sys_ins           on public.uso_ia;
+  drop policy if exists consumo_mensal_sys_ins    on public.consumo_mensal;
+  drop policy if exists alertas_sys_ins           on public.alertas;
+  drop policy if exists contadores_sys_ins        on public.contadores;
+(As policies de SELECT/UPDATE acima permanecem intactas — nada a restaurar.)
