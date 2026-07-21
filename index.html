@@ -474,6 +474,10 @@ body.nav-open .nav-backdrop{display:block}
 .sb-nav button:hover,.sb-navlink:hover{background:rgba(255,255,255,.08);color:#fff}
 .sb-nav button.on{background:var(--accent);color:#fff}
 .sb-nav [data-lucide],.sb-navlink [data-lucide]{flex:none}
+/* Bloco 2: no celular a gaveta vira menu de gestao — esconde os itens que ja
+   estao na barra inferior (Dashboard, Novo lancamento, Lancamentos, Ajustes).
+   No desktop (>=980px) a sidebar segue mostrando tudo. */
+@media(max-width:979px){ .sb-nav .sb-dup{display:none} }
 .sb-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}
 .sb-mini{display:flex;align-items:center;gap:11px;background:transparent;border:none;color:rgba(255,255,255,.74);
   font-size:13px;font-weight:600;padding:9px 12px;border-radius:8px;cursor:pointer}
@@ -557,14 +561,16 @@ body.nav-open .nav-backdrop{display:block}
       <button class="sb-burger" onclick="toggleColapso()" title="Recolher menu" aria-label="Recolher menu"><i data-lucide="menu" class="i-md"></i></button>
     </div>
     <nav class="sb-nav">
-      <button data-nav="scInicio" onclick="irInicio()" title="Dashboard"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
-      <button data-nav="scForm" onclick="irForm('foto')" title="Novo lançamento"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
-      <button data-nav="scConsultas" onclick="irConsultas()" title="Lançamentos"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
+      <!-- Bloco 2: itens .sb-dup ja estao na barra inferior do celular; a regra @media
+           os esconde na gaveta no celular (no desktop a sidebar mostra tudo). -->
+      <button class="sb-dup" data-nav="scInicio" onclick="irInicio()" title="Dashboard"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
+      <button class="sb-dup" data-nav="scForm" onclick="irForm('foto')" title="Novo lançamento"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
+      <button class="sb-dup" data-nav="scConsultas" onclick="irConsultas()" title="Lançamentos"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
       <button data-nav="scFornecedores" onclick="irFornecedores()" title="Fornecedores"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scMarcar" id="navFechamento" onclick="irMarcar()" title="Fechamento do mês" style="display:none"><i data-lucide="calendar-check" class="i-md"></i><span>Fechamento</span></button>
       <button data-nav="scAdmin" id="navAdmin" onclick="irAdmin()" title="Administração" style="display:none"><i data-lucide="shield" class="i-md"></i><span>Administração</span></button>
       <a class="sb-navlink" id="navConsole" href="./console.html" title="Console de Gestão" style="display:none"><i data-lucide="monitor" class="i-md"></i><span>Console de Gestão</span></a>
-      <button data-nav="scAjustes" onclick="irAjustes()" title="Ajustes"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
+      <button class="sb-dup" data-nav="scAjustes" onclick="irAjustes()" title="Ajustes"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
     </nav>
     <div class="sb-foot">
       <button class="sb-mini" onclick="toggleTema()" title="Tema"><i data-lucide="sun-moon" class="i-md"></i><span>Tema</span></button>
@@ -918,7 +924,8 @@ body.nav-open .nav-backdrop{display:block}
     <button data-nav="scInicio" class="on" onclick="irInicio()"><i data-lucide="layout-dashboard" class="i-md"></i><span>Dashboard</span></button>
     <button data-nav="scConsultas" onclick="irConsultas()"><i data-lucide="list" class="i-md"></i><span>Lançam.</span></button>
     <button class="fab" onclick="irForm('foto')"><span class="fabic"><span class="fabplus">+</span></span><span>Lançar</span></button>
-    <button data-nav="scFornecedores" onclick="irFornecedores()"><i data-lucide="building-2" class="i-md"></i><span>Fornec.</span></button>
+    <!-- Bloco 2: atalho para Lancamentos filtrado em recebidos (sem data-nav: o realce fica em Lancamentos). Fornecedores agora vive na gaveta. -->
+    <button onclick="irConsultas('recebidos')"><i data-lucide="check-check" class="i-md"></i><span>Recebidos</span></button>
     <button data-nav="scAjustes" onclick="irAjustes()"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
   </nav>
 </div>
