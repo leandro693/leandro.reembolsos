@@ -275,6 +275,26 @@ function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split(
 function icons(){ if(window.lucide) lucide.createIcons(); }
 function carregando(v,txt){ el('load').classList.toggle('hidden',!v); if(txt) el('loadTxt').textContent=txt; }
 function toast(msg,tipo){ const d=document.createElement('div'); d.className='tmsg '+(tipo||'ok'); d.textContent=msg; el('toast').appendChild(d); setTimeout(()=>d.remove(),3200); }
+/* Tratador central de erros (regra da casa): detalhe técnico só no console.error;
+   a tela mostra frase amigável em PT + código curto. Nunca vaza texto cru. */
+function mostrarErro(erro, contexto){
+  const m = String((erro && (erro.message || erro.error_description || erro.msg)) || erro || '').toLowerCase();
+  const code = erro && (erro.code || (erro.error && erro.error.code) || erro.status);
+  let frase, cod;
+  if(code===42501 || code==='42501' || m.includes('row-level security') || m.includes('permission denied')){
+    frase='Você não tem permissão para esta ação.'; cod='ERR-1042';
+  } else if(code===401 || code==='401' || code==='PGRST301' || m.includes('jwt') || m.includes('not authenticated') || m.includes('invalid token')){
+    frase='Sua sessão expirou. Entre novamente.'; cod='ERR-1401';
+  } else if(code===23505 || code==='23505' || m.includes('duplicate key') || m.includes('unique constraint')){
+    frase='Este lançamento parece já existir.'; cod='ERR-1023';
+  } else if((erro && erro.name==='TypeError') || m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request failed') || m.includes('load failed')){
+    frase='Sem conexão. Verifique a internet e tente novamente.'; cod='ERR-1000';
+  } else {
+    frase='Não foi possível concluir. Tente novamente.'; cod='ERR-1500';
+  }
+  console.error('['+cod+'] '+(contexto||''), erro);
+  toast(frase+' ('+cod+')','erro');
+}
 
 /* ---------- tema ---------- */
 function toggleTema(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
@@ -297,7 +317,7 @@ async function entrar(e){
   carregando(true,'Entrando...');
   const { data, error } = await sb.auth.signInWithPassword({ email, password:senha });
   carregando(false);
-  if(error){ toast('E-mail ou senha inválidos','erro'); return; }
+  if(error){ console.error('[login]', error); toast('E-mail ou senha inválidos','erro'); return; }
   user=data.user; await apos_login();
 }
 async function sair(){ await sb.auth.signOut(); location.reload(); }
@@ -402,7 +422,7 @@ async function criarEmpresa(){
     if(error) throw error;
     empresas.push({id:novaId,nome:fant||razao,exige_aprovacao:false});
     carregando(false); toast('Empresa criada','ok'); renderEmpresaSel(); renderEmpresas();
-  }catch(e){ carregando(false); toast('Não foi possível criar (só o dono do SaaS pode)','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'criar empresa (console)'); }
 }
 async function vincularUsuario(){
   const emp=el('vincEmp').value, email=(el('vincEmail').value||'').trim(), papel=el('vincPapel').value;
@@ -414,7 +434,7 @@ async function vincularUsuario(){
     carregando(false);
     if(data==='usuario_nao_encontrado'){ toast('Esse e-mail ainda não tem login no sistema','erro'); return; }
     el('vincEmail').value=''; toast('Usuário vinculado','ok');
-  }catch(e){ carregando(false); toast('Não foi possível vincular','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'vincular usuário'); }
 }
 
 /* ---- Usuários e papéis ---- */
@@ -435,7 +455,7 @@ async function renderUsuarios(){
 async function mudarPapel(id,papel){
   carregando(true,'Salvando papel...');
   const { error } = await sb.from('empresa_usuarios').update({papel}).eq('id',id);
-  carregando(false); toast(error?'Não foi possível alterar':'Papel atualizado', error?'erro':'ok');
+  carregando(false); if(error){ mostrarErro(error,'mudar papel'); } else toast('Papel atualizado','ok');
 }
 
 /* ---- Categorias e setores ---- */
@@ -467,16 +487,16 @@ function crow(x,rot,tipo){
 }
 async function addCategoria(){ const n=(el('novaCat').value||'').trim(); if(!n){toast('Informe o nome','erro');return;}
   carregando(true,'Adicionando...'); const {error}=await sb.from('categorias').insert({empresa_id:ctxId,nome:n,tipo_calculo:'valor'}); carregando(false);
-  if(error){toast('Não foi possível adicionar','erro');return;} renderCategorias(); }
+  if(error){ mostrarErro(error,'adicionar categoria'); return; } renderCategorias(); }
 async function addSetor(){ const n=(el('novoSet').value||'').trim(); if(!n){toast('Informe o nome','erro');return;}
   carregando(true,'Adicionando...'); const {error}=await sb.from('setores').insert({empresa_id:ctxId,nome:n}); carregando(false);
-  if(error){toast('Não foi possível adicionar','erro');return;} renderCategorias(); }
+  if(error){ mostrarErro(error,'adicionar setor'); return; } renderCategorias(); }
 async function toggleItem(tipo,id,ativo){ const tab=tipo==='cat'?'categorias':'setores';
-  const {error}=await sb.from(tab).update({ativo:!!ativo}).eq('id',id); if(error){toast('Não foi possível alterar','erro'); renderCategorias();} }
+  const {error}=await sb.from(tab).update({ativo:!!ativo}).eq('id',id); if(error){ mostrarErro(error,'ativar/desativar item'); renderCategorias(); } }
 async function renomear(tipo,id){ const tab=tipo==='cat'?'categorias':'setores';
   const nome=prompt('Novo nome:'); if(nome===null) return; const n=nome.trim(); if(!n){toast('Nome inválido','erro');return;}
   carregando(true,'Renomeando...'); const {error}=await sb.from(tab).update({nome:n}).eq('id',id); carregando(false);
-  if(error){toast('Não foi possível renomear','erro');return;} toast('Renomeado','ok'); renderCategorias(); }
+  if(error){ mostrarErro(error,'renomear item'); return; } toast('Renomeado','ok'); renderCategorias(); }
 
 /* ---- Integrações (ERP / Omie) ---- */
 async function renderIntegracoes(){
@@ -502,11 +522,11 @@ async function salvarIntegracao(){
   const payload={ empresa_id:ctxId, provedor:'omie', app_key };
   if(app_secret){ payload.app_secret=app_secret; payload.secret_set=true; }
   carregando(true,'Salvando...'); const {error}=await sb.from('integracoes_erp').upsert(payload,{onConflict:'empresa_id,provedor'}); carregando(false);
-  if(error){ toast('Não foi possível salvar','erro'); return; } toast('Credenciais salvas','ok'); renderIntegracoes();
+  if(error){ mostrarErro(error,'salvar integração ERP'); return; } toast('Credenciais salvas','ok'); renderIntegracoes();
 }
 async function toggleIntegracao(ativo){
   const {error}=await sb.from('integracoes_erp').upsert({empresa_id:ctxId,provedor:'omie',ativo:!!ativo},{onConflict:'empresa_id,provedor'});
-  if(error){ toast('Não foi possível alterar','erro'); return; } renderIntegracoes();
+  if(error){ mostrarErro(error,'ativar/desativar integração'); return; } renderIntegracoes();
 }
 async function importarCategorias(){
   carregando(true,'Importando do ERP...');
@@ -515,7 +535,7 @@ async function importarCategorias(){
     if(error) throw error;
     if(data&&data.erro){ carregando(false); toast(data.erro,'erro'); return; }
     carregando(false); toast(`Importado: ${data?.criadas||0} novas, ${data?.atualizadas||0} atualizadas`,'ok'); renderIntegracoes();
-  }catch(e){ carregando(false); toast('Falha ao importar do ERP','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'importar categorias do ERP'); }
 }
 
 /* ---- Políticas de limite ---- */
@@ -537,10 +557,10 @@ async function renderPoliticas(){
 async function addPolitica(){
   const v=parseFloat((el('polValor').value||'0').replace(',','.'))||0; if(v<=0){ toast('Informe o valor','erro'); return; }
   carregando(true,'Adicionando...'); const {error}=await sb.from('politicas_limite').insert({empresa_id:ctxId,valor_limite:v,periodo:el('polPeriodo').value}); carregando(false);
-  if(error){ toast('Não foi possível adicionar','erro'); return; } renderPoliticas();
+  if(error){ mostrarErro(error,'adicionar política'); return; } renderPoliticas();
 }
 async function excluirPolitica(id){ if(!confirm('Remover esta política?')) return;
-  const {error}=await sb.from('politicas_limite').delete().eq('id',id); if(!error) renderPoliticas(); else toast('Não foi possível remover','erro'); }
+  const {error}=await sb.from('politicas_limite').delete().eq('id',id); if(!error) renderPoliticas(); else mostrarErro(error,'remover política'); }
 
 /* ---- Aprovação ---- */
 async function renderAprovacao(){
@@ -564,13 +584,13 @@ async function renderAprovacao(){
 }
 async function setExigeAprovacao(v){
   const {error}=await sb.from('empresas').update({exige_aprovacao:v}).eq('id',ctxId);
-  if(error){ toast('Não foi possível alterar','erro'); return; }
+  if(error){ mostrarErro(error,'alterar exigencia de aprovacao'); return; }
   const emp=empresas.find(e=>e.id===ctxId); if(emp) emp.exige_aprovacao=v;
   toast(v?'Aprovação passa a ser exigida':'Aprovação desativada','ok');
 }
 async function decidir(id,decisao){
   carregando(true,'Salvando...'); const {error}=await sb.from('lancamentos').update({aprovacao:decisao}).eq('id',id); carregando(false);
-  if(error){ toast('Não foi possível decidir','erro'); return; } toast(decisao==='aprovado'?'Aprovado':'Rejeitado','ok'); renderAprovacao();
+  if(error){ mostrarErro(error,'decidir aprovação'); return; } toast(decisao==='aprovado'?'Aprovado':'Rejeitado','ok'); renderAprovacao();
 }
 
 /* ---- Consumo de IA ---- */
@@ -614,8 +634,8 @@ async function renderAuditoria(){
       <tbody>${audRows||'<tr><td colspan="3" class="empty">Sem eventos registrados.</td></tr>'}</tbody></table></div></div>`;
   icons();
 }
-async function revisarSeg(id){ const {error}=await sb.from('eventos_seguranca').update({status:'revisado'}).eq('id',id); if(!error) renderAuditoria(); else toast('Não foi possível marcar','erro'); }
-async function resolverAlerta(id){ const {error}=await sb.from('alertas').update({resolvido:true}).eq('id',id); if(!error) renderAuditoria(); else toast('Não foi possível resolver','erro'); }
+async function revisarSeg(id){ const {error}=await sb.from('eventos_seguranca').update({status:'revisado'}).eq('id',id); if(!error) renderAuditoria(); else mostrarErro(error,'revisar evento de segurança'); }
+async function resolverAlerta(id){ const {error}=await sb.from('alertas').update({resolvido:true}).eq('id',id); if(!error) renderAuditoria(); else mostrarErro(error,'resolver alerta'); }
 
 /* ---- Relatórios (Fase B) ---- */
 function renderRelatorios(){

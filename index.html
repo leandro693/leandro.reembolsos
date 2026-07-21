@@ -1201,7 +1201,7 @@ el('loginForm').addEventListener('submit', async (e)=>{
   carregando(true,'Entrando...');
   const { data, error } = await sb.auth.signInWithPassword({ email, password:senha });
   carregando(false);
-  if(error){ toast('E-mail ou senha inválidos','erro'); return; }
+  if(error){ console.error('[login]', error); toast('E-mail ou senha inválidos','erro'); return; }
   await entrar(data.session);
 });
 
@@ -1218,7 +1218,7 @@ async function sair(){
 async function carregarLista(){
   // 0008: a RLS não esconde mais excluídos; o operacional filtra deleted_at no front.
   const { data, error } = await sb.from('lancamentos').select('*').is('deleted_at', null).order('vencimento',{ascending:true});
-  if(error){ toast('Erro ao carregar dados','erro'); lista=[]; return; }
+  if(error){ mostrarErro(error,'carregar lancamentos'); lista=[]; return; }
   lista = (data||[]).map(l=>({...l, valor_total:Number(l.valor_total)||0,
     km_total:Number(l.km_total)||0, pedagio:Number(l.pedagio)||0, estacionamento:Number(l.estacionamento)||0}));
   recarregarFornecedores(); // para o autocomplete do formulário (não bloqueia a lista)
@@ -1409,7 +1409,7 @@ async function salvarFornecedor(){
     await recarregarFornecedores();
     carregando(false); fecharFornModal(); renderFornecedores();
     toast(id?'Fornecedor atualizado':'Fornecedor cadastrado');
-  }catch(e){ carregando(false); console.warn(e); toast('Não foi possível salvar. '+(e.message||''),'erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'salvar fornecedor'); }  // erro amigável + código; detalhe no console
 }
 
 async function excluirFornecedor(f){
@@ -1423,7 +1423,7 @@ async function excluirFornecedor(f){
     await recarregarFornecedores();
     carregando(false); renderFornecedores();
     toast('Fornecedor excluído');
-  }catch(e){ carregando(false); console.warn(e); toast('Não foi possível excluir. '+(e.message||''),'erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'excluir fornecedor'); }  // erro amigável + código
 }
 
 /* HTML de um item da lista (com botões de ação) */
@@ -1847,7 +1847,7 @@ async function lancar(){
     carregando(false);
     toast(rows.length>1?`${rows.length} parcelas lançadas`:'Reembolso lançado','ok');
     irInicio();
-  }catch(e){ carregando(false); toast('Erro ao lançar: '+(e.message||'falha'),'erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'lancar reembolso'); }  // erro amigável + código
 }
 
 /* ============================================================================
@@ -1880,7 +1880,7 @@ async function excluir(l){
 }
 async function after(error, msgOk){
   await carregarLista(); carregando(false);
-  if(error){ toast('Erro: '+(error.message||'falha'),'erro'); return; }
+  if(error){ mostrarErro(error,'gravar lancamento'); return; }  // cobre soft-delete/marcar; erro amigável + código
   toast(msgOk,'ok');
   if(telaAtual==='scInicio') renderInicio();
   else if(telaAtual==='scConsultas') renderConsulta();
@@ -1923,7 +1923,7 @@ async function salvarEdicao(){
   carregando(true,'Salvando...');
   const { error } = await sb.from('lancamentos').update(payload).eq('id', edicaoAtual.id);
   await carregarLista(); carregando(false);
-  if(error){ toast('Erro ao salvar','erro'); return; }
+  if(error){ mostrarErro(error,'salvar edicao de lancamento'); return; }
   toast('Lançamento atualizado','ok'); voltar();
   if(stackAnterior==='scConsultas') renderConsulta(); else renderInicio();
 }
@@ -1932,7 +1932,7 @@ async function verComprovante(l){
   const path = typeof l==='string' ? l : (l&&l.comprovante);
   if(!path){ toast('Sem comprovante','erro'); return; }
   const { data, error } = await sb.storage.from('comprovantes').createSignedUrl(path, 300);
-  if(error||!data){ toast('Não foi possível abrir a nota','erro'); return; }
+  if(error||!data){ mostrarErro(error,'abrir comprovante'); return; }
   const img=el('ovImg'), fr=el('ovFrame');
   if(/\.pdf$/i.test(path)){ fr.src=data.signedUrl; fr.classList.remove('hidden'); img.classList.add('hidden'); }
   else{ img.src=data.signedUrl; img.classList.remove('hidden'); fr.classList.add('hidden'); fr.removeAttribute('src'); }
@@ -2278,7 +2278,7 @@ async function salvarPix(){
   carregando(true,'Salvando...');
   const { error } = await sb.from('perfis').upsert(payload);
   carregando(false);
-  if(error){ toast('Erro ao salvar','erro'); return; }
+  if(error){ mostrarErro(error,'salvar dados PIX'); return; }
   perfil=Object.assign(perfil,payload); toast('Dados salvos','ok');
 }
 
@@ -2294,7 +2294,7 @@ async function alterarSenha(){
   carregando(true,'Alterando senha...');
   const { error } = await sb.auth.updateUser({ password:s1 });
   carregando(false);
-  if(error){ toast('Não foi possível alterar: '+(error.message||''),'erro'); return; }
+  if(error){ mostrarErro(error,'alterar senha'); return; }  // erro amigável + código
   el('cfgSenha1').value=''; el('cfgSenha2').value=''; el('cfgSenhaVer').checked=false; verSenha(false);
   toast('Senha alterada com sucesso','ok');
 }
@@ -2382,7 +2382,7 @@ function renderAdminAprovacao(){
 }
 async function setExigeAprovacao(v){
   const { error } = await sb.from('empresas').update({ exige_aprovacao:v }).eq('id', empresaId);
-  if(error){ toast('Não foi possível alterar','erro'); return; }
+  if(error){ mostrarErro(error,'alterar exigencia de aprovacao'); return; }
   exigeAprovacao=v; toast(v?'Aprovação passa a ser exigida':'Aprovação desativada','ok');
 }
 /* --- Onboarding: dono cria nova empresa e vincula o gestor --- */
@@ -2409,7 +2409,7 @@ async function criarEmpresa(){
     }
     carregando(false); el('novaEmpRazao').value=''; el('novaEmpFant').value=''; el('novaEmpGestor').value='';
     toast(msg,'ok');
-  }catch(e){ carregando(false); toast('Não foi possível criar a empresa','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'criar empresa (dono)'); }
 }
 /* --- Setores (cadastro por empresa) --- */
 let cacheSetores=[];
@@ -2433,12 +2433,12 @@ async function addSetor(){
   carregando(true,'Adicionando...');
   const { error } = await sb.from('setores').insert({ empresa_id:empresaId, nome });
   carregando(false);
-  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  if(error){ mostrarErro(error,'adicionar setor'); return; }
   el('novoSetor').value=''; await carregarSetoresDB(); renderAdminSetores();
 }
 async function toggleSetor(id, ativo){
   const { error } = await sb.from('setores').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
-  if(!error){ await carregarSetoresDB(); renderAdminSetores(); } else toast('Não foi possível alterar','erro');
+  if(!error){ await carregarSetoresDB(); renderAdminSetores(); } else mostrarErro(error,'ativar/desativar setor');
 }
 /* --- Integração com ERP (Omie e, no futuro, outros) --- */
 let integracaoErp=null;
@@ -2474,12 +2474,12 @@ async function salvarIntegracao(){
   carregando(true,'Salvando...');
   const { error } = await sb.from('integracoes_erp').upsert(payload, { onConflict:'empresa_id,provedor' });
   carregando(false);
-  if(error){ toast('Não foi possível salvar','erro'); return; }
+  if(error){ mostrarErro(error,'salvar integração ERP'); return; }
   toast('Credenciais salvas','ok'); renderAdminIntegracao();
 }
 async function toggleIntegracao(ativo){
   const { error } = await sb.from('integracoes_erp').upsert({ empresa_id:empresaId, provedor:'omie', ativo:!!ativo }, { onConflict:'empresa_id,provedor' });
-  if(error){ toast('Não foi possível alterar','erro'); return; }
+  if(error){ mostrarErro(error,'ativar/desativar integração'); return; }
   renderAdminIntegracao();
 }
 async function importarCategoriasERP(){
@@ -2492,7 +2492,7 @@ async function importarCategoriasERP(){
     carregando(false);
     toast(`Importado: ${data?.criadas||0} novas, ${data?.atualizadas||0} atualizadas`,'ok');
     renderAdminCategorias(); renderAdminIntegracao();
-  }catch(e){ carregando(false); toast('Falha ao importar do ERP','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'importar categorias do ERP'); }
 }
 async function renomearSetor(id){
   const s=cacheSetores.find(x=>String(x.id)===String(id)); if(!s) return;
@@ -2501,7 +2501,7 @@ async function renomearSetor(id){
   carregando(true,'Renomeando...');
   const { error } = await sb.from('setores').update({ nome }).eq('id', id);
   carregando(false);
-  if(!error){ await carregarSetoresDB(); renderAdminSetores(); toast('Setor renomeado','ok'); } else toast('Não foi possível renomear','erro');
+  if(!error){ await carregarSetoresDB(); renderAdminSetores(); toast('Setor renomeado','ok'); } else mostrarErro(error,'renomear setor');
 }
 let cacheCategorias=[];
 async function renderAdminCategorias(){
@@ -2524,12 +2524,12 @@ async function addCategoria(){
   carregando(true,'Adicionando...');
   const { error } = await sb.from('categorias').insert({ empresa_id:empresaId, nome, tipo_calculo:'valor' });
   carregando(false);
-  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  if(error){ mostrarErro(error,'adicionar categoria'); return; }
   el('novaCat').value=''; await carregarCategoriasDB(); renderAdminCategorias();
 }
 async function toggleCategoria(id, ativo){
   const { error } = await sb.from('categorias').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
-  if(!error){ await carregarCategoriasDB(); renderAdminCategorias(); } else toast('Não foi possível alterar','erro');
+  if(!error){ await carregarCategoriasDB(); renderAdminCategorias(); } else mostrarErro(error,'ativar/desativar categoria');
 }
 async function renomearCategoria(id){
   const c = cacheCategorias.find(x=>String(x.id)===String(id)); if(!c) return;
@@ -2547,7 +2547,7 @@ async function renomearCategoria(id){
     await carregarCategoriasDB(); await carregarLista();
     carregando(false); renderAdminCategorias();
     toast('Categoria renomeada','ok');
-  }catch(e){ carregando(false); toast('Não foi possível renomear','erro'); }
+  }catch(e){ carregando(false); mostrarErro(e,'renomear categoria'); }
 }
 async function renderAdminPoliticas(){
   try{
@@ -2567,27 +2567,27 @@ async function addPolitica(){
   carregando(true,'Adicionando...');
   const { error } = await sb.from('politicas_limite').insert({ empresa_id:empresaId, valor_limite:v, periodo:el('polPeriodo').value });
   carregando(false);
-  if(error){ toast('Não foi possível adicionar','erro'); return; }
+  if(error){ mostrarErro(error,'adicionar política'); return; }
   el('polValor').value=''; renderAdminPoliticas();
 }
 async function excluirPolitica(id){
   if(!confirm('Remover esta política?')) return;
   const { error } = await sb.from('politicas_limite').delete().eq('id', id);
-  if(!error) renderAdminPoliticas(); else toast('Não foi possível remover','erro');
+  if(!error) renderAdminPoliticas(); else mostrarErro(error,'remover política');
 }
 async function mudarPapel(id, papel){
   carregando(true,'Salvando papel...');
   const { error } = await sb.from('empresa_usuarios').update({papel}).eq('id', id);
   carregando(false);
-  toast(error?'Não foi possível alterar':'Papel atualizado', error?'erro':'ok');
+  if(error){ mostrarErro(error,'mudar papel'); } else toast('Papel atualizado','ok');
 }
 async function resolverAlerta(id){
   const { error } = await sb.from('alertas').update({resolvido:true}).eq('id', id);
-  if(!error) renderAdmin(); else toast('Não foi possível resolver','erro');
+  if(!error) renderAdmin(); else mostrarErro(error,'resolver alerta');
 }
 async function revisarSeguranca(id){
   const { error } = await sb.from('eventos_seguranca').update({status:'revisado'}).eq('id', id);
-  if(!error) renderAdmin(); else toast('Não foi possível marcar','erro');
+  if(!error) renderAdmin(); else mostrarErro(error,'revisar evento de segurança');
 }
 
 /* ============================================================================
@@ -2772,6 +2772,28 @@ function toast(msg,tipo){
   const ic=tipo==='ok'?'check-circle-2':tipo==='erro'?'alert-circle':'info';
   t.innerHTML=`<i data-lucide="${ic}" class="i-sm ic"></i><span>${esc(msg)}</span>`;
   document.body.appendChild(t); icons(); setTimeout(()=>t.remove(),3200);
+}
+
+/* Tratador central de erros (regra da casa): o detalhe técnico vai SÓ para o
+   console.error; a tela mostra apenas uma frase amigável em PT + código curto de
+   suporte. Nunca vaza texto cru do Postgres/Supabase. `contexto` é só para o log. */
+function mostrarErro(erro, contexto){
+  const m = String((erro && (erro.message || erro.error_description || erro.msg)) || erro || '').toLowerCase();
+  const code = erro && (erro.code || (erro.error && erro.error.code) || erro.status);
+  let frase, cod;
+  if(code===42501 || code==='42501' || m.includes('row-level security') || m.includes('permission denied')){
+    frase='Você não tem permissão para esta ação.'; cod='ERR-1042';
+  } else if(code===401 || code==='401' || code==='PGRST301' || m.includes('jwt') || m.includes('not authenticated') || m.includes('invalid token')){
+    frase='Sua sessão expirou. Entre novamente.'; cod='ERR-1401';
+  } else if(code===23505 || code==='23505' || m.includes('duplicate key') || m.includes('unique constraint')){
+    frase='Este lançamento parece já existir.'; cod='ERR-1023';
+  } else if((erro && erro.name==='TypeError') || m.includes('failed to fetch') || m.includes('networkerror') || m.includes('network request failed') || m.includes('load failed')){
+    frase='Sem conexão. Verifique a internet e tente novamente.'; cod='ERR-1000';
+  } else {
+    frase='Não foi possível concluir. Tente novamente.'; cod='ERR-1500';
+  }
+  console.error('['+cod+'] '+(contexto||''), erro);
+  toast(frase+' ('+cod+')','erro');
 }
 
 /* Ao cruzar o limite celular/computador, re-renderiza a tela ativa (tabela x cartões) */
