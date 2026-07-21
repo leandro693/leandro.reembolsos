@@ -100,6 +100,26 @@ Criado (aditivo, sem quebrar o app atual):
 - [ ] Criar o **login** do gestor de uma nova empresa direto pelo app (hoje o
       usuário é criado pelo fluxo de convite/painel Supabase e depois vinculado).
 
+## Console de Gestão (desktop) — Fase A ✅
+Decisão de produto: **celular = operação**, **computador = gestão**. Nasceu o
+`console.html` — um "software" separado, mesmo login/backend Supabase, só para
+**gestor/dono** (operador/financeiro são mandados ao app).
+- Shell com **menu lateral** e **seletor de empresa** (o dono troca entre clientes).
+- Seções: **Empresas** (criar/vincular usuário — dono), **Usuários e papéis**,
+  **Categorias e setores**, **Integrações (Omie)**, **Políticas de limite**,
+  **Aprovação**, **Consumo de IA**, **Auditoria e segurança**. **Relatórios**
+  entra na Fase B (placeholder).
+- No app, a tela "Administração" ganhou um atalho **"Console de Gestão"** para o
+  computador. `sw.js` v12 cacheia cada documento pela própria URL (corrige o
+  cache que sobrescrevia index.html) e inclui o console no shell.
+- Testes: nova suíte `console.test.mjs` (9 verificações) verde.
+
+### Próximas fases do console
+- **B** — Relatórios e indicadores gerenciais amplos + exportação (PDF/XLSX/CSV) e fechamento.
+- **C** — Enxugar o app do celular (operação + poucos indicadores) e transformar
+  "Administração" em atalho puro para o computador.
+- **D** — Onboarding completo de empresas e gestão multiempresa aprofundada.
+
 ## Fase 2/3 (do doc) — ainda não iniciado
 Aprovação multinível, relatórios customizáveis, e-mails de evolução, onboarding
 de empresas, cobrança/assinatura, API genérica (Omie), antifraude avançado.

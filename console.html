@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#39393B">
+<title>Console de Gestão — Maradel Reembolsos</title>
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+:root, [data-theme="light"]{
+  --bg-page:#F5F4F2; --surface:#FFFFFF; --surface-2:#FAF9F7;
+  --row-hover:#FCFBFA; --row-hover-strong:#F2EFEB; --zebra:#FAF9F7;
+  --text:#2B2B2D; --text-strong:#39393B; --text-2:#5C5C5E; --text-3:#7A6F6B; --text-4:#8E8783;
+  --border-faint:rgba(57,57,59,.06); --border:rgba(57,57,59,.10);
+  --border-2:rgba(57,57,59,.14); --border-strong:rgba(57,57,59,.18);
+  --sidebar:#39393B; --btn-dark:#39393B; --btn-dark-hover:#2B2B2D;
+  --accent:#DB8438; --accent-hover:#B96C28; --accent-subtle:#FBF0E5;
+  --neutral:#EEEDEB; --track:#F0EDE9;
+  --money-in:#2E7D53; --money-out:#B04040;
+  --input-text:#39393B; --input-bg:#FFFFFF;
+  --ok-bg:#F4FAF5;  --ok-border:rgba(74,124,89,.30);  --ok-fg:#4A7C59;
+  --warn-bg:#FBF6EC; --warn-border:rgba(196,154,26,.35); --warn-fg:#8A6D12;
+  --err-bg:#FCEEEC; --err-border:rgba(176,64,64,.35);  --err-fg:#B04040;
+  --scroll:rgba(57,57,59,.22); --scroll-hover:rgba(57,57,59,.36);
+  --shadow:0 1px 3px rgba(57,57,59,.07);
+}
+[data-theme="dark"]{
+  --bg-page:#2E2E30; --surface:#47474A; --surface-2:#404043;
+  --row-hover:#4D4D51; --row-hover-strong:#54545A; --zebra:#3F3F42;
+  --text:#F1EFED; --text-strong:#FFFFFF; --text-2:#DAD7D3; --text-3:#C3BEBA; --text-4:#ADA8A4;
+  --border-faint:rgba(255,255,255,.09); --border:rgba(255,255,255,.13);
+  --border-2:rgba(255,255,255,.18); --border-strong:rgba(255,255,255,.28);
+  --sidebar:#252527; --btn-dark:#55555A; --btn-dark-hover:#616167;
+  --accent:#DB8438; --accent-hover:#B96C28; --accent-subtle:#4A3B2C;
+  --neutral:#4E4E52; --track:#2B2B2D;
+  --money-in:#4ADE80; --money-out:#F87171;
+  --input-text:#F7F6F4; --input-bg:#3C3C3F;
+  --ok-bg:#233229;  --ok-border:rgba(122,200,150,.30); --ok-fg:#8FD6A8;
+  --warn-bg:#3A331F; --warn-border:rgba(230,190,80,.32); --warn-fg:#E6C878;
+  --err-bg:#3E2626; --err-border:rgba(248,113,113,.35); --err-fg:#F1948B;
+  --scroll:rgba(255,255,255,.20); --scroll-hover:rgba(255,255,255,.34);
+  --shadow:0 1px 3px rgba(0,0,0,.28);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg-page);color:var(--text);font-family:'Raleway',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{color:var(--text-strong);font-weight:600;letter-spacing:-.01em}
+.num,.code{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{color:var(--input-text);font-weight:500;font-family:inherit}
+input:not([type=checkbox]),textarea,select{background-color:var(--input-bg)}
+input::placeholder,textarea::placeholder{color:var(--text-4);font-weight:400;opacity:1}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(219,132,56,.12)}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:var(--scroll);border-radius:9999px}
+*::-webkit-scrollbar-thumb:hover{background:var(--scroll-hover)}
+.i-sm{width:16px;height:16px}.i-md{width:20px;height:20px}.i-lg{width:22px;height:22px}
+[data-lucide]{stroke-width:1.7}
+
+/* ---- Login ---- */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+#login .box{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:380px;padding:30px}
+#login .mk{font-weight:200;letter-spacing:.24em;font-size:12px;color:var(--text-strong)}
+#login .pd{font-weight:500;letter-spacing:.2em;font-size:13px;color:var(--accent);text-transform:uppercase;margin-top:4px}
+#login h1{font-size:18px;margin:18px 0 4px}
+#login p.sub{color:var(--text-3);font-size:13px;margin-bottom:20px}
+
+/* ---- Shell ---- */
+#shell{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+aside.nav{background:var(--sidebar);color:#EDEBE9;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;padding:18px 12px}
+aside.nav .brand{display:flex;flex-direction:column;padding:6px 10px 18px}
+aside.nav .brand .mk{font-weight:200;letter-spacing:.24em;font-size:11px;color:#EDEBE9}
+aside.nav .brand .pd{font-weight:500;letter-spacing:.2em;font-size:11.5px;color:var(--accent);text-transform:uppercase;margin-top:3px}
+aside.nav .brand .cs{font-size:11px;color:#B7B2AE;margin-top:6px;letter-spacing:.02em}
+aside.nav .navlist{display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;margin-top:6px}
+aside.nav .navitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;color:#CFCBC7;font-size:14px;font-weight:500;border:none;background:transparent;text-align:left;transition:.14s}
+aside.nav .navitem:hover{background:rgba(255,255,255,.06);color:#fff}
+aside.nav .navitem.on{background:var(--accent);color:#fff}
+aside.nav .navitem.on [data-lucide]{color:#fff}
+aside.nav .navitem[disabled]{opacity:.45;cursor:default}
+aside.nav .navitem .soon{margin-left:auto;font-size:9.5px;letter-spacing:.06em;background:rgba(255,255,255,.12);padding:2px 6px;border-radius:5px;text-transform:uppercase}
+aside.nav .foot{border-top:1px solid rgba(255,255,255,.10);padding-top:12px;margin-top:8px;display:flex;flex-direction:column;gap:8px}
+aside.nav .foot .u{font-size:12px;color:#B7B2AE;padding:0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+aside.nav .foot .fbtns{display:flex;gap:8px;padding:0 4px}
+aside.nav .foot .fbtns button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#CFCBC7;border-radius:8px;padding:8px;font-size:12px;font-weight:600}
+aside.nav .foot .fbtns button:hover{background:rgba(255,255,255,.12);color:#fff}
+
+main.work{min-width:0;padding:0 0 60px}
+.topbar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;gap:16px}
+.topbar h2{font-size:17px}
+.topbar .empresa-sel{margin-left:auto;display:flex;align-items:center;gap:8px}
+.topbar .empresa-sel label{font-size:11px;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em}
+.topbar select{border:1px solid var(--border-strong);border-radius:9px;padding:8px 12px;font-size:13.5px;font-weight:600;min-width:220px}
+.content{padding:24px 28px;max-width:1180px}
+
+/* ---- Cards ---- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px}
+.card h3{font-size:15px;display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.card h3 [data-lucide]{color:var(--accent)}
+.card .desc{font-size:12.5px;color:var(--text-4);margin:-8px 0 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:1000px){#shell{grid-template-columns:1fr}aside.nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap}aside.nav .navlist{flex-direction:row;flex-wrap:wrap}aside.nav .foot{display:none}.grid2{grid-template-columns:1fr}}
+
+/* ---- Form controls ---- */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field label{font-size:12px;color:var(--text-3);font-weight:600}
+.field input,.field select{border:1px solid var(--border-strong);border-radius:9px;padding:9px 12px;font-size:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:9px;padding:9px 15px;font-size:13.5px;font-weight:600;transition:.14s}
+.btn:hover{background:var(--surface-2)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn.dark{background:var(--btn-dark);border-color:var(--btn-dark);color:#fff}
+.btn.danger{border-color:var(--err-border);color:var(--err-fg)}
+.btn.danger:hover{background:var(--err-bg)}
+.ic-btn{background:transparent;border:1px solid var(--border-strong);color:var(--text-2);width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex:none;transition:.14s}
+.ic-btn:hover{background:var(--surface-2);color:var(--text-strong)}
+.ic-btn.danger{border-color:var(--err-border);color:var(--err-fg)}
+.ctl-sm{border:1px solid var(--border-strong);border-radius:8px;padding:6px 9px;font-size:13px;font-weight:600}
+
+/* ---- Tables ---- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tbl th{text-align:left;background:var(--surface-2);color:var(--text-3);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px;border-bottom:1px solid var(--border)}
+table.tbl td{padding:11px 14px;border-bottom:1px solid var(--border-faint);color:var(--text)}
+table.tbl tr:last-child td{border-bottom:none}
+table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
+
+/* ---- Compact list (categorias/setores) ---- */
+.lista{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.crow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border)}
+.crow:first-child{border-top:none}
+.crow .cnome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;background:var(--neutral);color:var(--text-3);padding:1px 7px;border-radius:6px;margin-left:6px;font-family:'JetBrains Mono',monospace}
+.st{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:9999px}
+.st.pend{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-border)}
+.st.ok{background:var(--ok-bg);color:var(--ok-fg);border:1px solid var(--ok-border)}
+
+/* switch */
+.switch{position:relative;display:inline-block;width:40px;height:23px;flex:none}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;inset:0;background:var(--border-strong);border-radius:9999px;transition:.2s;cursor:pointer}
+.switch .slider:before{content:"";position:absolute;height:17px;width:17px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--accent)}
+.switch input:checked+.slider:before{transform:translateX(17px)}
+.chk-line{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--text-2)}
+
+.empty{color:var(--text-4);font-size:13px;text-align:center;padding:22px}
+.seclbl{font-size:11.5px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
+.bar .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.bar .top .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent)}
+.bar .line{height:9px;background:var(--track);border-radius:9999px;overflow:hidden}
+.bar .line span{display:block;height:100%;background:var(--accent);border-radius:9999px}
+
+/* toast + loading */
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
+.tmsg{background:var(--surface);border:1px solid var(--border-strong);border-left-width:4px;box-shadow:0 6px 24px rgba(0,0,0,.16);border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:600;color:var(--text)}
+.tmsg.ok{border-left-color:var(--ok-fg)} .tmsg.erro{border-left-color:var(--err-fg)}
+#load{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
+#load .card{display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text)}
+.spin{width:20px;height:20px;border:2.5px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="login">
+  <form class="box" id="loginForm">
+    <div class="mk">M A R A D E L</div>
+    <div class="pd">Reembolsos · Console</div>
+    <h1>Console de Gestão</h1>
+    <p class="sub">Área de administração (para computador). Acesso de gestor ou dono.</p>
+    <div class="field"><label>E-mail</label><input type="email" id="loginEmail" autocomplete="username" placeholder="voce@empresa.com"></div>
+    <div class="field"><label>Senha</label><input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••"></div>
+    <button class="btn primary" type="submit" style="width:100%;margin-top:6px"><i data-lucide="log-in" class="i-sm"></i> Entrar</button>
+  </form>
+</section>
+
+<!-- SEM ACESSO -->
+<section id="semacesso" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div class="card" style="max-width:440px;text-align:center">
+    <h3 style="justify-content:center"><i data-lucide="lock" class="i-sm"></i> Console restrito à gestão</h3>
+    <p class="desc" style="margin-bottom:16px">Este console é para gestores e para o dono do sistema. Para lançar reembolsos e dar baixa, use o aplicativo no celular.</p>
+    <a class="btn" href="./index.html"><i data-lucide="smartphone" class="i-sm"></i> Abrir o aplicativo</a>
+    <button class="btn danger" style="margin-left:8px" onclick="sair()"><i data-lucide="log-out" class="i-sm"></i> Sair</button>
+  </div>
+</section>
+
+<!-- SHELL -->
+<div id="shell" class="hidden">
+  <aside class="nav">
+    <div class="brand">
+      <span class="mk">M A R A D E L</span>
+      <span class="pd">Reembolsos · Console</span>
+      <span class="cs">Gestão &amp; administração</span>
+    </div>
+    <div class="navlist" id="navlist"></div>
+    <div class="foot">
+      <div class="u" id="navUser">-</div>
+      <div class="fbtns">
+        <button onclick="toggleTema()"><i data-lucide="sun-moon" class="i-sm"></i> Tema</button>
+        <button onclick="sair()"><i data-lucide="log-out" class="i-sm"></i> Sair</button>
+      </div>
+    </div>
+  </aside>
+  <main class="work">
+    <div class="topbar">
+      <h2 id="secTitulo">Console</h2>
+      <div class="empresa-sel" id="empresaSel"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </main>
+</div>
+
+<div id="toast"></div>
+<div id="load" class="hidden"><div class="card"><span class="spin"></span><span id="loadTxt">Carregando...</span></div></div>
+
+<script>
+const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
+let sb=null, user=null, isOwner=false;
+let empresas=[];        // empresas que o usuário administra
+let ctxId=null, ctxNome='';
+let secao='empresas';
+
+const PAPEIS={operador:'Operador',financeiro:'Financeiro',gestor:'Gestor'};
+const SECOES=[
+  {id:'empresas',   nome:'Empresas',            icon:'building-2', ownerOnly:true},
+  {id:'usuarios',   nome:'Usuários e papéis',   icon:'users'},
+  {id:'categorias', nome:'Categorias e setores',icon:'tags'},
+  {id:'integracoes',nome:'Integrações (ERP)',   icon:'plug'},
+  {id:'politicas',  nome:'Políticas de limite', icon:'gauge'},
+  {id:'aprovacao',  nome:'Aprovação',           icon:'check-check'},
+  {id:'consumo',    nome:'Consumo de IA',       icon:'cpu'},
+  {id:'auditoria',  nome:'Auditoria e segurança',icon:'shield'},
+  {id:'relatorios', nome:'Relatórios',          icon:'bar-chart-3', soon:true},
+];
+
+/* ---------- helpers ---------- */
+function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n){ n=Number(n)||0; const s=Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return 'R$ '+s; }
+function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
+function icons(){ if(window.lucide) lucide.createIcons(); }
+function carregando(v,txt){ el('load').classList.toggle('hidden',!v); if(txt) el('loadTxt').textContent=txt; }
+function toast(msg,tipo){ const d=document.createElement('div'); d.className='tmsg '+(tipo||'ok'); d.textContent=msg; el('toast').appendChild(d); setTimeout(()=>d.remove(),3200); }
+
+/* ---------- tema ---------- */
+function toggleTema(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',cur); try{localStorage.setItem('tema',cur);}catch(e){} }
+(function(){ try{ const t=localStorage.getItem('tema'); if(t) document.documentElement.setAttribute('data-theme',t); }catch(e){} })();
+
+/* ---------- boot ---------- */
+window.addEventListener('DOMContentLoaded', async ()=>{
+  icons();
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  el('loginForm').addEventListener('submit', entrar);
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){ user=data.session.user; await apos_login(); }
+});
+
+async function entrar(e){
+  if(e) e.preventDefault();
+  const email=el('loginEmail').value.trim(), senha=el('loginSenha').value;
+  if(!email||!senha){ toast('Informe e-mail e senha','erro'); return; }
+  carregando(true,'Entrando...');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password:senha });
+  carregando(false);
+  if(error){ toast('E-mail ou senha inválidos','erro'); return; }
+  user=data.user; await apos_login();
+}
+async function sair(){ await sb.auth.signOut(); location.reload(); }
+
+async function apos_login(){
+  carregando(true,'Carregando...');
+  try{
+    const { data:u } = await sb.from('usuarios').select('is_owner').eq('id',user.id).maybeSingle();
+    isOwner=!!(u&&u.is_owner);
+  }catch(e){ isOwner=false; }
+  // empresas que administra
+  empresas=[];
+  try{
+    if(isOwner){
+      const { data } = await sb.from('empresas').select('id,razao_social,nome_fantasia,exige_aprovacao').order('razao_social',{ascending:true});
+      empresas=(data||[]).map(e=>({id:e.id,nome:e.nome_fantasia||e.razao_social,exige_aprovacao:e.exige_aprovacao}));
+    }else{
+      const { data } = await sb.from('empresa_usuarios')
+        .select('papel, empresa_id, empresas(id,razao_social,nome_fantasia,exige_aprovacao)')
+        .eq('usuario_id',user.id).eq('ativo',true);
+      empresas=(data||[]).filter(v=>v.papel==='gestor'&&v.empresas)
+        .map(v=>({id:v.empresas.id,nome:v.empresas.nome_fantasia||v.empresas.razao_social,exige_aprovacao:v.empresas.exige_aprovacao}));
+    }
+  }catch(e){ empresas=[]; }
+  carregando(false);
+
+  el('login').classList.add('hidden');
+  if(!isOwner && empresas.length===0){ el('semacesso').classList.remove('hidden'); icons(); return; }
+  if(empresas.length){ ctxId=empresas[0].id; ctxNome=empresas[0].nome; }
+  el('navUser').textContent=user.email||'';
+  el('shell').classList.remove('hidden');
+  secao = isOwner ? 'empresas' : 'categorias';
+  renderNav(); renderEmpresaSel(); irSecao(secao);
+}
+
+/* ---------- shell ---------- */
+function renderNav(){
+  el('navlist').innerHTML = SECOES.filter(s=>!s.ownerOnly||isOwner).map(s=>
+    `<button class="navitem${s.id===secao?' on':''}" ${s.soon?'disabled':''} onclick="irSecao('${s.id}')">
+      <i data-lucide="${s.icon}" class="i-sm"></i> <span>${s.nome}</span>${s.soon?'<span class="soon">em breve</span>':''}</button>`).join('');
+  icons();
+}
+function renderEmpresaSel(){
+  if(isOwner && empresas.length){
+    el('empresaSel').innerHTML = `<label>Empresa</label><select onchange="trocarEmpresa(this.value)">`+
+      empresas.map(e=>`<option value="${e.id}"${e.id===ctxId?' selected':''}>${esc(e.nome)}</option>`).join('')+`</select>`;
+  }else{
+    el('empresaSel').innerHTML = ctxNome?`<span class="tag" style="font-size:12px">${esc(ctxNome)}</span>`:'';
+  }
+}
+function trocarEmpresa(id){ const e=empresas.find(x=>String(x.id)===String(id)); if(!e) return; ctxId=e.id; ctxNome=e.nome; irSecao(secao); }
+function irSecao(id){
+  secao=id;
+  document.querySelectorAll('.navitem').forEach(b=>b.classList.remove('on'));
+  const sec=SECOES.find(s=>s.id===id); el('secTitulo').textContent=sec?sec.nome:'Console';
+  renderNav();
+  const fn={empresas:renderEmpresas,usuarios:renderUsuarios,categorias:renderCategorias,integracoes:renderIntegracoes,
+    politicas:renderPoliticas,aprovacao:renderAprovacao,consumo:renderConsumo,auditoria:renderAuditoria,relatorios:renderRelatorios}[id];
+  el('content').innerHTML='<div class="card"><div class="empty">Carregando...</div></div>';
+  if(fn) fn();
+}
+
+/* ============================ SEÇÕES ============================ */
+
+/* ---- Empresas (dono) ---- */
+async function renderEmpresas(){
+  let linhas='';
+  try{
+    const { data } = await sb.from('empresas').select('id,razao_social,nome_fantasia,exige_aprovacao').order('razao_social',{ascending:true});
+    linhas=(data||[]).map(e=>`<tr><td>${esc(e.nome_fantasia||e.razao_social)}</td><td>${esc(e.razao_social)}</td>
+      <td>${e.exige_aprovacao?'<span class="st pend">Exige aprovação</span>':'<span class="st ok">Direto</span>'}</td></tr>`).join('');
+  }catch(e){}
+  el('content').innerHTML = `
+    <div class="card"><h3><i data-lucide="building-2" class="i-sm"></i> Empresas no sistema</h3>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Empresa</th><th>Razão social</th><th>Fluxo</th></tr></thead>
+      <tbody>${linhas||'<tr><td colspan="3" class="empty">Nenhuma empresa.</td></tr>'}</tbody></table></div></div>
+
+    <div class="grid2">
+      <div class="card"><h3><i data-lucide="plus-circle" class="i-sm"></i> Nova empresa</h3>
+        <p class="desc">Cria a empresa com plano, categorias e setor padrão.</p>
+        <div class="field"><label>Razão social</label><input type="text" id="empRazao" placeholder="Empresa Cliente LTDA"></div>
+        <div class="field"><label>Nome fantasia (opcional)</label><input type="text" id="empFant" placeholder="Cliente"></div>
+        <button class="btn primary" onclick="criarEmpresa()"><i data-lucide="plus" class="i-sm"></i> Criar empresa</button></div>
+
+      <div class="card"><h3><i data-lucide="user-plus" class="i-sm"></i> Vincular usuário a uma empresa</h3>
+        <p class="desc">O usuário precisa já ter login. Define o papel dele na empresa.</p>
+        <div class="field"><label>Empresa</label><select id="vincEmp">${empresas.map(e=>`<option value="${e.id}">${esc(e.nome)}</option>`).join('')}</select></div>
+        <div class="row2"><div class="field"><label>E-mail do usuário</label><input type="email" id="vincEmail" placeholder="pessoa@cliente.com"></div>
+          <div class="field"><label>Papel</label><select id="vincPapel"><option value="gestor">Gestor</option><option value="financeiro">Financeiro</option><option value="operador">Operador</option></select></div></div>
+        <button class="btn" onclick="vincularUsuario()"><i data-lucide="link" class="i-sm"></i> Vincular</button></div>
+    </div>`;
+  icons();
+}
+async function criarEmpresa(){
+  const razao=(el('empRazao').value||'').trim(); if(!razao){ toast('Informe a razão social','erro'); return; }
+  const fant=(el('empFant').value||'').trim();
+  carregando(true,'Criando empresa...');
+  try{
+    const { data:novaId, error } = await sb.rpc('criar_empresa',{ p_razao:razao, p_fantasia:fant });
+    if(error) throw error;
+    empresas.push({id:novaId,nome:fant||razao,exige_aprovacao:false});
+    carregando(false); toast('Empresa criada','ok'); renderEmpresaSel(); renderEmpresas();
+  }catch(e){ carregando(false); toast('Não foi possível criar (só o dono do SaaS pode)','erro'); }
+}
+async function vincularUsuario(){
+  const emp=el('vincEmp').value, email=(el('vincEmail').value||'').trim(), papel=el('vincPapel').value;
+  if(!email){ toast('Informe o e-mail','erro'); return; }
+  carregando(true,'Vinculando...');
+  try{
+    const { data, error } = await sb.rpc('vincular_usuario_empresa',{ p_empresa:emp, p_email:email, p_papel:papel });
+    if(error) throw error;
+    carregando(false);
+    if(data==='usuario_nao_encontrado'){ toast('Esse e-mail ainda não tem login no sistema','erro'); return; }
+    el('vincEmail').value=''; toast('Usuário vinculado','ok');
+  }catch(e){ carregando(false); toast('Não foi possível vincular','erro'); }
+}
+
+/* ---- Usuários e papéis ---- */
+async function renderUsuarios(){
+  let linhas='';
+  try{
+    const { data } = await sb.from('empresa_usuarios').select('id, papel, usuario_id, usuarios(nome,email)').eq('empresa_id',ctxId);
+    linhas=(data||[]).map(v=>{ const u=v.usuarios||{};
+      const sel=['operador','financeiro','gestor'].map(p=>`<option value="${p}"${v.papel===p?' selected':''}>${PAPEIS[p]}</option>`).join('');
+      return `<tr><td>${esc(u.nome||'—')}</td><td>${esc(u.email||'')}</td>
+        <td><select class="ctl-sm" onchange="mudarPapel('${v.id}',this.value)">${sel}</select></td></tr>`;}).join('');
+  }catch(e){}
+  el('content').innerHTML = `<div class="card"><h3><i data-lucide="users" class="i-sm"></i> Usuários e papéis — ${esc(ctxNome)}</h3>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="3" class="empty">Nenhum usuário vinculado.</td></tr>'}</tbody></table></div></div>`;
+  icons();
+}
+async function mudarPapel(id,papel){
+  carregando(true,'Salvando papel...');
+  const { error } = await sb.from('empresa_usuarios').update({papel}).eq('id',id);
+  carregando(false); toast(error?'Não foi possível alterar':'Papel atualizado', error?'erro':'ok');
+}
+
+/* ---- Categorias e setores ---- */
+async function renderCategorias(){
+  const [cats,sets] = await Promise.all([
+    sb.from('categorias').select('*').eq('empresa_id',ctxId).order('nome',{ascending:true}),
+    sb.from('setores').select('*').eq('empresa_id',ctxId).order('nome',{ascending:true}),
+  ]);
+  const lc=(cats.data||[]).map(c=>crow(c,'Categoria','cat')).join('');
+  const ls=(sets.data||[]).map(s=>crow(s,'Setor','set')).join('');
+  el('content').innerHTML = `<div class="grid2">
+    <div class="card"><h3><i data-lucide="tags" class="i-sm"></i> Categorias</h3>
+      <div class="row2" style="margin-bottom:12px"><input class="ctl-sm" id="novaCat" placeholder="Nova categoria" style="width:100%">
+        <button class="btn" onclick="addCategoria()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div>
+      <div class="lista">${lc||'<div class="empty">Sem categorias.</div>'}</div></div>
+    <div class="card"><h3><i data-lucide="network" class="i-sm"></i> Setores</h3>
+      <div class="row2" style="margin-bottom:12px"><input class="ctl-sm" id="novoSet" placeholder="Novo setor" style="width:100%">
+        <button class="btn" onclick="addSetor()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div>
+      <div class="lista">${ls||'<div class="empty">Sem setores.</div>'}</div></div>
+  </div>`;
+  icons();
+}
+function crow(x,rot,tipo){
+  const codigo=x.codigo_externo?` <span class="tag">${esc(x.codigo_externo)}</span>`:'';
+  const km=(x.tipo_calculo==='km')?' <span class="tag">km</span>':'';
+  return `<div class="crow"><span class="cnome" title="${esc(x.nome)}">${esc(x.nome)}${km}${codigo}</span>
+    <button class="ic-btn" title="Renomear" onclick="renomear('${tipo}','${x.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
+    <label class="switch" title="${x.ativo?'Ativo':'Inativo'}"><input type="checkbox" ${x.ativo?'checked':''} onchange="toggleItem('${tipo}','${x.id}',this.checked)"><span class="slider"></span></label></div>`;
+}
+async function addCategoria(){ const n=(el('novaCat').value||'').trim(); if(!n){toast('Informe o nome','erro');return;}
+  carregando(true,'Adicionando...'); const {error}=await sb.from('categorias').insert({empresa_id:ctxId,nome:n,tipo_calculo:'valor'}); carregando(false);
+  if(error){toast('Não foi possível adicionar','erro');return;} renderCategorias(); }
+async function addSetor(){ const n=(el('novoSet').value||'').trim(); if(!n){toast('Informe o nome','erro');return;}
+  carregando(true,'Adicionando...'); const {error}=await sb.from('setores').insert({empresa_id:ctxId,nome:n}); carregando(false);
+  if(error){toast('Não foi possível adicionar','erro');return;} renderCategorias(); }
+async function toggleItem(tipo,id,ativo){ const tab=tipo==='cat'?'categorias':'setores';
+  const {error}=await sb.from(tab).update({ativo:!!ativo}).eq('id',id); if(error){toast('Não foi possível alterar','erro'); renderCategorias();} }
+async function renomear(tipo,id){ const tab=tipo==='cat'?'categorias':'setores';
+  const nome=prompt('Novo nome:'); if(nome===null) return; const n=nome.trim(); if(!n){toast('Nome inválido','erro');return;}
+  carregando(true,'Renomeando...'); const {error}=await sb.from(tab).update({nome:n}).eq('id',id); carregando(false);
+  if(error){toast('Não foi possível renomear','erro');return;} toast('Renomeado','ok'); renderCategorias(); }
+
+/* ---- Integrações (ERP / Omie) ---- */
+async function renderIntegracoes(){
+  let cfg=null;
+  try{ const { data } = await sb.from('integracoes_erp').select('provedor,app_key,ativo,secret_set,ultima_sync').eq('empresa_id',ctxId).eq('provedor','omie').maybeSingle(); cfg=data; }catch(e){}
+  const ativo=!!(cfg&&cfg.ativo), temSecret=!!(cfg&&cfg.secret_set), temKey=!!(cfg&&cfg.app_key), pronta=ativo&&temKey&&temSecret;
+  const ultima=cfg&&cfg.ultima_sync?brDate(cfg.ultima_sync):'—';
+  el('content').innerHTML = `<div class="card" style="max-width:640px"><h3><i data-lucide="plug" class="i-sm"></i> Integração com ERP — ${esc(ctxNome)}</h3>
+    <p class="desc">Conecte um sistema de gestão para importar as categorias de lá. Hoje: Omie (outros em breve). As credenciais ficam no servidor.</p>
+    <div class="row2"><div class="field"><label>Sistema</label><select id="erpProv"><option value="omie" selected>Omie</option></select></div>
+      <div class="field"><label>App Key</label><input type="text" id="erpKey" value="${esc(cfg?.app_key||'')}" placeholder="App Key do Omie"></div></div>
+    <div class="row2"><div class="field"><label>App Secret</label><input type="password" id="erpSecret" placeholder="${temSecret?'•••••••• (guardado)':'App Secret do Omie'}"></div>
+      <div class="field"><label>&nbsp;</label><button class="btn" onclick="salvarIntegracao()"><i data-lucide="save" class="i-sm"></i> Salvar credenciais</button></div></div>
+    <div class="chk-line" style="margin:6px 0 14px"><label class="switch"><input type="checkbox" ${ativo?'checked':''} onchange="toggleIntegracao(this.checked)"><span class="slider"></span></label>
+      <span>Integração ${ativo?'ativa':'desativada'}</span></div>
+    <button class="btn primary" ${pronta?'':'disabled'} onclick="importarCategorias()"><i data-lucide="download-cloud" class="i-sm"></i> Importar categorias do ERP</button>
+    <p class="desc" style="margin:10px 0 0">${pronta?('Última importação: '+ultima+'.'):'Preencha as credenciais e ative para liberar a importação.'}</p></div>`;
+  icons();
+}
+async function salvarIntegracao(){
+  const app_key=(el('erpKey').value||'').trim(), app_secret=(el('erpSecret').value||'').trim();
+  if(!app_key){ toast('Informe a App Key','erro'); return; }
+  const payload={ empresa_id:ctxId, provedor:'omie', app_key };
+  if(app_secret){ payload.app_secret=app_secret; payload.secret_set=true; }
+  carregando(true,'Salvando...'); const {error}=await sb.from('integracoes_erp').upsert(payload,{onConflict:'empresa_id,provedor'}); carregando(false);
+  if(error){ toast('Não foi possível salvar','erro'); return; } toast('Credenciais salvas','ok'); renderIntegracoes();
+}
+async function toggleIntegracao(ativo){
+  const {error}=await sb.from('integracoes_erp').upsert({empresa_id:ctxId,provedor:'omie',ativo:!!ativo},{onConflict:'empresa_id,provedor'});
+  if(error){ toast('Não foi possível alterar','erro'); return; } renderIntegracoes();
+}
+async function importarCategorias(){
+  carregando(true,'Importando do ERP...');
+  try{
+    const { data, error } = await sb.functions.invoke('importar-erp',{ body:{ empresa_id:ctxId, provedor:'omie', tipo:'categorias' } });
+    if(error) throw error;
+    if(data&&data.erro){ carregando(false); toast(data.erro,'erro'); return; }
+    carregando(false); toast(`Importado: ${data?.criadas||0} novas, ${data?.atualizadas||0} atualizadas`,'ok'); renderIntegracoes();
+  }catch(e){ carregando(false); toast('Falha ao importar do ERP','erro'); }
+}
+
+/* ---- Políticas de limite ---- */
+async function renderPoliticas(){
+  let linhas='';
+  try{ const { data } = await sb.from('politicas_limite').select('*').eq('empresa_id',ctxId).order('criado_em',{ascending:false});
+    linhas=(data||[]).map(p=>`<div class="crow"><span class="cnome">${money(p.valor_limite)} <span class="tag">${p.periodo==='mensal'?'por mês':'por lançamento'}</span></span>
+      <button class="ic-btn danger" title="Remover" onclick="excluirPolitica('${p.id}')"><i data-lucide="trash-2" class="i-sm"></i></button></div>`).join('');
+  }catch(e){}
+  el('content').innerHTML = `<div class="card" style="max-width:640px"><h3><i data-lucide="gauge" class="i-sm"></i> Políticas de limite — ${esc(ctxNome)}</h3>
+    <p class="desc">As políticas geram alerta, nunca bloqueiam o lançamento.</p>
+    <div class="row3" style="margin-bottom:12px;align-items:end">
+      <div class="field" style="margin:0"><label>Valor limite (R$)</label><input type="number" id="polValor" placeholder="0,00" inputmode="decimal"></div>
+      <div class="field" style="margin:0"><label>Período</label><select id="polPeriodo"><option value="por_lancamento">Por lançamento</option><option value="mensal">Mensal</option></select></div>
+      <button class="btn" onclick="addPolitica()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div>
+    <div class="lista">${linhas||'<div class="empty">Sem políticas definidas.</div>'}</div></div>`;
+  icons();
+}
+async function addPolitica(){
+  const v=parseFloat((el('polValor').value||'0').replace(',','.'))||0; if(v<=0){ toast('Informe o valor','erro'); return; }
+  carregando(true,'Adicionando...'); const {error}=await sb.from('politicas_limite').insert({empresa_id:ctxId,valor_limite:v,periodo:el('polPeriodo').value}); carregando(false);
+  if(error){ toast('Não foi possível adicionar','erro'); return; } renderPoliticas();
+}
+async function excluirPolitica(id){ if(!confirm('Remover esta política?')) return;
+  const {error}=await sb.from('politicas_limite').delete().eq('id',id); if(!error) renderPoliticas(); else toast('Não foi possível remover','erro'); }
+
+/* ---- Aprovação ---- */
+async function renderAprovacao(){
+  const emp=empresas.find(e=>e.id===ctxId); const exige=!!(emp&&emp.exige_aprovacao);
+  let linhas='', n=0;
+  try{
+    const { data } = await sb.from('lancamentos').select('*').eq('empresa_id',ctxId).eq('aprovacao','pendente').order('vencimento',{ascending:true}).limit(50);
+    const arr=data||[]; n=arr.length;
+    linhas=arr.map(l=>`<tr><td>${esc(l.usuario||'')}</td><td>${esc(l.categoria||'')}</td><td>${esc(l.fornecedor||'')}</td>
+      <td class="num">${money(l.valor_total)}</td><td>${brDate(l.vencimento)}</td>
+      <td style="white-space:nowrap"><button class="btn" style="padding:5px 10px" onclick="decidir('${l.id}','aprovado')"><i data-lucide="check" class="i-sm"></i></button>
+        <button class="btn danger" style="padding:5px 10px" onclick="decidir('${l.id}','rejeitado')"><i data-lucide="x" class="i-sm"></i></button></td></tr>`).join('');
+  }catch(e){}
+  el('content').innerHTML = `<div class="card"><h3><i data-lucide="check-check" class="i-sm"></i> Aprovação de lançamentos — ${esc(ctxNome)}</h3>
+    <label class="chk-line" style="margin-bottom:14px"><label class="switch"><input type="checkbox" ${exige?'checked':''} onchange="setExigeAprovacao(this.checked)"><span class="slider"></span></label>
+      <span>Exigir aprovação dos lançamentos dos operadores</span></label>
+    <div class="seclbl">Pendentes (${n})</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pessoa</th><th>Categoria</th><th>Fornecedor</th><th>Valor</th><th>Vencimento</th><th></th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="6" class="empty">Nada pendente.</td></tr>'}</tbody></table></div></div>`;
+  icons();
+}
+async function setExigeAprovacao(v){
+  const {error}=await sb.from('empresas').update({exige_aprovacao:v}).eq('id',ctxId);
+  if(error){ toast('Não foi possível alterar','erro'); return; }
+  const emp=empresas.find(e=>e.id===ctxId); if(emp) emp.exige_aprovacao=v;
+  toast(v?'Aprovação passa a ser exigida':'Aprovação desativada','ok');
+}
+async function decidir(id,decisao){
+  carregando(true,'Salvando...'); const {error}=await sb.from('lancamentos').update({aprovacao:decisao}).eq('id',id); carregando(false);
+  if(error){ toast('Não foi possível decidir','erro'); return; } toast(decisao==='aprovado'?'Aprovado':'Rejeitado','ok'); renderAprovacao();
+}
+
+/* ---- Consumo de IA ---- */
+async function renderConsumo(){
+  let usado=0, cota=0, ok=false;
+  try{ const { data } = await sb.rpc('consumo_ia',{ p_empresa:ctxId }); const r=Array.isArray(data)?data[0]:data;
+    usado=Number(r?.consumidas||0); cota=Number(r?.cota||0); ok=true; }catch(e){}
+  const pct=cota>0?Math.min(100,Math.round(usado/cota*100)):0;
+  el('content').innerHTML = `<div class="card" style="max-width:560px"><h3><i data-lucide="cpu" class="i-sm"></i> Plano e consumo de IA (mês) — ${esc(ctxNome)}</h3>
+    ${ok?`<div class="bar"><div class="top"><span>Leituras por IA</span><span class="v">${usado} / ${cota||'∞'}</span></div>
+      <div class="line"><span style="width:${pct}%"></span></div></div>
+      <p class="desc" style="margin-top:12px">Lançamento manual não consome cota. Ao esgotar, a leitura por IA é bloqueada e o manual continua liberado.</p>`
+    :'<div class="empty">Sem dados de consumo ainda.</div>'}</div>`;
+  icons();
+}
+
+/* ---- Auditoria e segurança ---- */
+async function renderAuditoria(){
+  const [aud,seg,ale] = await Promise.all([
+    sb.from('eventos_auditoria').select('*').eq('empresa_id',ctxId).order('criado_em',{ascending:false}).limit(40).then(r=>r,()=>({data:[]})),
+    sb.from('eventos_seguranca').select('*').eq('empresa_id',ctxId).eq('status','quarentena').order('created_at',{ascending:false}).limit(20).then(r=>r,()=>({data:[]})),
+    sb.from('alertas').select('*').eq('empresa_id',ctxId).eq('resolvido',false).order('criado_em',{ascending:false}).limit(20).then(r=>r,()=>({data:[]})),
+  ]);
+  const audRows=(aud.data||[]).map(a=>{ const q=a.criado_em||a.created_at;
+    return `<tr><td>${esc(a.acao||'')}</td><td>${esc(a.entidade||'')} ${a.entidade_id?('#'+String(a.entidade_id).slice(0,6)):''}</td><td>${brDate(q)}</td></tr>`;}).join('');
+  const segRows=(seg.data||[]).map(s=>`<div class="crow"><span class="cnome">${esc(s.tipo||'evento')} <span class="tag">${esc(s.severidade||'')}</span></span>
+    <span style="font-size:12px;color:var(--text-4);margin-right:8px">${brDate(s.created_at)}</span>
+    <button class="btn" style="padding:5px 10px" onclick="revisarSeg('${s.id}')"><i data-lucide="shield-check" class="i-sm"></i> Revisado</button></div>`).join('');
+  const aleRows=(ale.data||[]).map(a=>`<div class="crow"><span class="cnome">${a.tipo==='duplicata'?'Possível duplicata':'Fora da política'}</span>
+    <span style="font-size:12px;color:var(--text-4);margin-right:8px">${brDate(a.criado_em)}</span>
+    <button class="btn" style="padding:5px 10px" onclick="resolverAlerta('${a.id}')"><i data-lucide="check" class="i-sm"></i> Resolver</button></div>`).join('');
+  el('content').innerHTML = `
+    <div class="grid2">
+      <div class="card"><h3><i data-lucide="shield-alert" class="i-sm"></i> Segurança — quarentena de IA</h3>
+        <div class="lista">${segRows||'<div class="empty">Nada em quarentena.</div>'}</div></div>
+      <div class="card"><h3><i data-lucide="alert-triangle" class="i-sm"></i> Alertas em aberto</h3>
+        <div class="lista">${aleRows||'<div class="empty">Nenhum alerta em aberto.</div>'}</div></div>
+    </div>
+    <div class="card"><h3><i data-lucide="history" class="i-sm"></i> Auditoria (últimos eventos) — ${esc(ctxNome)}</h3>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Ação</th><th>Entidade</th><th>Quando</th></tr></thead>
+      <tbody>${audRows||'<tr><td colspan="3" class="empty">Sem eventos registrados.</td></tr>'}</tbody></table></div></div>`;
+  icons();
+}
+async function revisarSeg(id){ const {error}=await sb.from('eventos_seguranca').update({status:'revisado'}).eq('id',id); if(!error) renderAuditoria(); else toast('Não foi possível marcar','erro'); }
+async function resolverAlerta(id){ const {error}=await sb.from('alertas').update({resolvido:true}).eq('id',id); if(!error) renderAuditoria(); else toast('Não foi possível resolver','erro'); }
+
+/* ---- Relatórios (Fase B) ---- */
+function renderRelatorios(){
+  el('content').innerHTML = `<div class="card"><h3><i data-lucide="bar-chart-3" class="i-sm"></i> Relatórios gerenciais</h3>
+    <p class="desc">Em breve (Fase B): visões amplas por empresa, setor, pessoa e período, com exportação em PDF, XLSX e CSV, e o fechamento mensal completo.</p></div>`;
+  icons();
+}
+</script>
+</body>
+</html>
