@@ -114,10 +114,18 @@ Decisão de produto: **celular = operação**, **computador = gestão**. Nasceu 
   cache que sobrescrevia index.html) e inclui o console no shell.
 - Testes: nova suíte `console.test.mjs` (9 verificações) verde.
 
+### Navegação por módulos no app (Fase C — em andamento)
+- **Fechamento do mês**, **Administração** e **Console de Gestão** saíram de dentro
+  de Ajustes e viraram **itens próprios no menu lateral** (aparecem por papel:
+  Fechamento p/ quem vê tudo; Administração e Console p/ gestor/dono).
+- O menu lateral ganhou **botão hambúrguer**: no **computador** recolhe para uma
+  barra só de ícones (estado lembrado); no **celular** o menu virou uma **gaveta**
+  que abre/fecha pelo hambúrguer do topo (com fundo escurecido) e fecha ao navegar.
+- `sw.js` v14.
+
 ### Próximas fases do console
 - **B** — Relatórios e indicadores gerenciais amplos + exportação (PDF/XLSX/CSV) e fechamento.
-- **C** — Enxugar o app do celular (operação + poucos indicadores) e transformar
-  "Administração" em atalho puro para o computador.
+- **C (resto)** — Definir os poucos indicadores que ficam no celular; enxugar o operacional.
 - **D** — Onboarding completo de empresas e gestão multiempresa aprofundada.
 
 ## Fase 2/3 (do doc) — ainda não iniciado
