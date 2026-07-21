@@ -101,6 +101,11 @@ main.work{min-width:0;padding:0 0 60px}
 .topbar .empresa-sel label{font-size:11px;color:var(--text-4);text-transform:uppercase;letter-spacing:.05em}
 .topbar select{border:1px solid var(--border-strong);border-radius:9px;padding:8px 12px;font-size:13.5px;font-weight:600;min-width:220px}
 .content{padding:24px 28px;max-width:1180px}
+.hamb{display:none;background:transparent;border:1px solid var(--border-strong);color:var(--text-2);width:38px;height:38px;border-radius:9px;align-items:center;justify-content:center;flex:none}
+.hamb:hover{background:var(--surface-2)}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:29}
+aside.nav .foot .voltar{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:9px;padding:9px;font-size:12.5px;font-weight:600;text-decoration:none;margin-bottom:2px}
+aside.nav .foot .voltar:hover{background:var(--accent-hover)}
 
 /* ---- Cards ---- */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px}
@@ -108,7 +113,18 @@ main.work{min-width:0;padding:0 0 60px}
 .card h3 [data-lucide]{color:var(--accent)}
 .card .desc{font-size:12.5px;color:var(--text-4);margin:-8px 0 14px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-@media(max-width:1000px){#shell{grid-template-columns:1fr}aside.nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap}aside.nav .navlist{flex-direction:row;flex-wrap:wrap}aside.nav .foot{display:none}.grid2{grid-template-columns:1fr}}
+@media(max-width:1000px){
+  #shell{grid-template-columns:1fr}
+  aside.nav{position:fixed;top:0;left:0;height:100vh;width:274px;z-index:30;transform:translateX(-100%);transition:transform .22s ease;box-shadow:0 0 40px rgba(0,0,0,.32)}
+  #shell.nav-open aside.nav{transform:translateX(0)}
+  #shell.nav-open .backdrop{display:block}
+  .hamb{display:inline-flex}
+  .topbar{padding:12px 16px}
+  .content{padding:18px 16px}
+  .grid2{grid-template-columns:1fr}
+  .topbar select{min-width:150px}
+  .topbar .empresa-sel label{display:none}
+}
 
 /* ---- Form controls ---- */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
@@ -208,6 +224,7 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
     </div>
     <div class="navlist" id="navlist"></div>
     <div class="foot">
+      <a class="voltar" href="./index.html"><i data-lucide="arrow-left" class="i-sm"></i> Sistema de Reembolsos</a>
       <div class="u" id="navUser">-</div>
       <div class="fbtns">
         <button onclick="toggleTema()"><i data-lucide="sun-moon" class="i-sm"></i> Tema</button>
@@ -217,11 +234,13 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
   </aside>
   <main class="work">
     <div class="topbar">
+      <button class="hamb" onclick="toggleNav()" aria-label="Menu"><i data-lucide="menu" class="i-md"></i></button>
       <h2 id="secTitulo">Console</h2>
       <div class="empresa-sel" id="empresaSel"></div>
     </div>
     <div class="content" id="content"></div>
   </main>
+  <div class="backdrop" onclick="toggleNav(false)"></div>
 </div>
 
 <div id="toast"></div>
@@ -330,8 +349,10 @@ function renderEmpresaSel(){
   }
 }
 function trocarEmpresa(id){ const e=empresas.find(x=>String(x.id)===String(id)); if(!e) return; ctxId=e.id; ctxNome=e.nome; irSecao(secao); }
+function toggleNav(forcar){ const s=el('shell'); const abrir = (forcar===undefined) ? !s.classList.contains('nav-open') : !!forcar; s.classList.toggle('nav-open', abrir); }
 function irSecao(id){
   secao=id;
+  toggleNav(false); // fecha a gaveta no celular ao escolher um módulo
   document.querySelectorAll('.navitem').forEach(b=>b.classList.remove('on'));
   const sec=SECOES.find(s=>s.id===id); el('secTitulo').textContent=sec?sec.nome:'Console';
   renderNav();
