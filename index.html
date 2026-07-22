@@ -637,9 +637,11 @@ body.nav-open .nav-backdrop{display:block}
         </div>
         <img id="fotoPreview" class="preview-img hidden" alt="Comprovante" style="margin-top:12px">
         <div id="lblFoto" class="dz-file hidden"></div>
-        <!-- Recorte (opcional): aparece já ao anexar imagem; a IA dispara ~1s depois se nao tocar. -->
+        <!-- Recorte (opcional, so imagem). A leitura NAO dispara por tempo: e acao do usuario. -->
         <button type="button" class="btn btn-sec mt8 hidden" id="btnRecortar" onclick="abrirRecorte()"><i data-lucide="crop" class="i-md"></i> Recortar</button>
-        <!-- Bloco 3: fallback escondido; so aparece se a leitura automatica falhar -->
+        <!-- Acao principal: o usuario decide quando ler o comprovante. -->
+        <button type="button" class="btn btn-primary mt8 hidden" id="btnLer" onclick="lerComprovante()"><i data-lucide="sparkles" class="i-md"></i> Ler comprovante</button>
+        <!-- Bloco 3: fallback escondido; so aparece se a leitura falhar -->
         <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
           <i data-lucide="sparkles" class="i-md"></i> Ler novamente
         </button>
@@ -1017,7 +1019,6 @@ let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
 let lendoIA = false;        // Bloco 3: trava de reentrada da leitura por IA (evita duplo-envio)
-let recorteTimer = null;    // Recorte: agendamento da leitura (carência ~1s antes da IA)
 let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
 let empresaNome = '';
@@ -1564,7 +1565,7 @@ function limparForm(){
   el('dropzone').classList.remove('over');
   el('btnAnalisar').classList.add('hidden');
   // Recorte: cancela agendamento, esconde botão e fecha o editor se estiver aberto.
-  clearTimeout(recorteTimer); el('btnRecortar').classList.add('hidden'); el('cropOverlay').classList.add('hidden');
+  el('btnRecortar').classList.add('hidden'); el('btnLer').classList.add('hidden'); el('cropOverlay').classList.add('hidden');
   // Bloco 3: esconde a nota e volta ao estado 'ok' (limpa eventual 'warn' anterior).
   el('revisaoBox').classList.add('hidden'); el('revisaoBox').classList.remove('warn'); el('revisaoBox').classList.add('ok');
   fotoFile=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
@@ -1623,11 +1624,10 @@ function atualizarVenc(){
   if(parcelado) calcParcelas();
 }
 function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
-/* Bloco 3 + Recorte: ao anexar/fotografar, mostra o preview JA e a leitura por IA
-   dispara sozinha. Para IMAGEM, oferece "Recortar" e dá ~1s de carência antes da IA;
-   se o usuário não tocar, a leitura dispara (leitura ÚNICA). PDF lê na hora, como antes. */
+/* Ao anexar/fotografar: mostra o preview e os botões de ação. A leitura por IA NÃO
+   dispara sozinha (sem timer/carência) — quem decide é o usuário, tocando em
+   "Ler comprovante" ou aplicando um recorte. "Recortar" só faz sentido em imagem. */
 function handleFile(f){
-  clearTimeout(recorteTimer);
   fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
   const lbl=el('lblFoto'); lbl.classList.remove('hidden');
   const ehImagem = !!(f.type && f.type.indexOf('image/')===0);
@@ -1635,20 +1635,20 @@ function handleFile(f){
   else{ img.src=url; img.classList.remove('hidden'); lbl.textContent='Comprovante anexado. Toque em anexar para trocar.'; }
   el('btnAnalisar').classList.add('hidden');   // fallback fica escondido no fluxo normal
   abrirViewer(url, f.type);   // no computador, mostra grande a direita
+  el('btnRecortar').classList.toggle('hidden', !ehImagem);  // recorte só para imagem
+  el('btnLer').classList.remove('hidden');                  // ação principal, sempre
   icons();
-  if(ehImagem){
-    // Carência ~1s: preview + "Recortar" na hora; a IA dispara sozinha se não recortar.
-    el('btnRecortar').classList.remove('hidden'); icons();
-    recorteTimer = setTimeout(()=>{ el('btnRecortar').classList.add('hidden'); analisarFoto(); }, 1000);
-  } else {
-    el('btnRecortar').classList.add('hidden');
-    analisarFoto();           // PDF: leitura imediata como hoje
-  }
+}
+/* Ação principal: o usuário pediu para ler. Esconde os botões e chama a IA uma vez. */
+function lerComprovante(){
+  el('btnRecortar').classList.add('hidden');
+  el('btnLer').classList.add('hidden');
+  analisarFoto();
 }
 /* ---- Recorte manual (moldura livre, canvas puro, LOCAL — sem libs, sem servidor) ---- */
 function abrirRecorte(){
-  clearTimeout(recorteTimer);                 // cancela o disparo agendado da IA
   el('btnRecortar').classList.add('hidden');
+  el('btnLer').classList.add('hidden');       // some enquanto o editor está aberto
   const im=el('cropImg');
   im.onload=()=>prepararMoldura();
   im.src=URL.createObjectURL(fotoFile);
@@ -1705,8 +1705,15 @@ function aplicarRecorte(){
     analisarFoto();                                          // IA lê a recortada (uma vez)
   }, 'image/jpeg', 0.9);
 }
-/* Cancela: mantém a foto ORIGINAL intacta e segue a leitura dela (uma vez). */
-function cancelarRecorte(){ fecharRecorte(); analisarFoto(); }
+/* Cancela: mantém a foto ORIGINAL intacta e volta aos botões — NÃO lê (quem decide
+   quando ler é o usuário, tocando em "Ler comprovante"). */
+function cancelarRecorte(){
+  fecharRecorte();
+  const ehImagem = !!(fotoFile && fotoFile.type && fotoFile.type.indexOf('image/')===0);
+  el('btnRecortar').classList.toggle('hidden', !ehImagem);
+  el('btnLer').classList.remove('hidden');
+  icons();
+}
 function fecharRecorte(){ el('cropOverlay').classList.add('hidden'); const im=el('cropImg'); im.onload=null; im.removeAttribute('src'); }
 function dzOver(e){ e.preventDefault(); el('dropzone').classList.add('over'); }
 function dzLeave(e){ e.preventDefault(); el('dropzone').classList.remove('over'); }
@@ -1779,6 +1786,9 @@ async function analisarFoto(){
 function falhaLeitura(msg){
   notaRevisao('warn', msg);
   el('btnAnalisar').classList.remove('hidden');
+  // Reexibe o "Recortar" (se for imagem) para o usuário recortar e tentar de novo.
+  const ehImagem = !!(fotoFile && fotoFile.type && fotoFile.type.indexOf('image/')===0);
+  el('btnRecortar').classList.toggle('hidden', !ehImagem);
   icons();
 }
 /* Bloco 3: nota persistente na conferência — 'ok' (verde) ou 'warn' (atenção). */
