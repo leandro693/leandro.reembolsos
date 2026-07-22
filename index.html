@@ -1013,8 +1013,10 @@ let sb = null;
 let user = null;                 // usuário autenticado (Supabase)
 let perfil = { nome:'', pix_tipo:'CPF', pix_chave:'', pix_nome:'', pix_banco:'' };
 let lista = [];                  // todos os lançamentos do usuário (cache)
-let stackAnterior = 'scInicio';  // tela para o botão voltar
+let stackAnterior = 'scInicio';  // tela de origem (usada por fluxos que a leem)
 let telaAtual = 'scInicio';
+let pilhaTelas = [];             // Voltar: histórico interno de telas (a real "tela anterior")
+let voltandoTela = false;        // true enquanto o voltar navega (evita re-empilhar)
 let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
@@ -1095,6 +1097,9 @@ function toggleTemaLogin(){ toggleTema(); }
 const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores','scAdmin'];
 const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
+  // Voltar: empilha a tela que estava ativa (só em navegação "para frente";
+  // quando o voltar navega, voltandoTela=true e a pilha não é realimentada).
+  if(!voltandoTela && telaAtual && telaAtual!==id) pilhaTelas.push(telaAtual);
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
   el(id).classList.remove('hidden');
   telaAtual=id;
@@ -1109,7 +1114,40 @@ function tela(id, origem){
   window.scrollTo(0,0);
   icons();
 }
-function voltar(){ tela(stackAnterior); }
+/* Voltar (botão do header e voltar físico): desempilha a tela anterior real.
+   Sem pilha, cai no Dashboard. Não re-empilha (voltandoTela). */
+function voltar(){
+  const destino = pilhaTelas.pop() || 'scInicio';
+  voltandoTela = true;
+  try{ tela(destino); } finally { voltandoTela = false; }
+}
+/* ============================================================================
+   VOLTAR FÍSICO (Android) — padrão SENTINELA: o app mantém apenas 1 entrada
+   extra no histórico; quem decide o destino é a pilha interna. Cada "voltar"
+   consome a sentinela e o handler a re-arma → o histórico nunca cresce.
+   A URL não muda (sem rota/hash), então atualizar a página segue funcionando.
+   ========================================================================== */
+function armarHistorico(){
+  try{ history.replaceState({app:1},''); history.pushState({app:1},''); }catch(e){}
+}
+/* Fecha o primeiro overlay/modal aberto, por prioridade. Devolve true se fechou. */
+function fecharOverlayAberto(){
+  const aberto = id => { const e=el(id); return !!e && !e.classList.contains('hidden'); };
+  if(aberto('cropOverlay')){ cancelarRecorte(); return true; }   // preserva a foto, NÃO lê
+  if(aberto('compOverlay')){ fecharComprovante(); return true; }
+  if(aberto('fornModal')){ fecharFornModal(); return true; }
+  if(document.body.classList.contains('nav-open')){ toggleGaveta(false); return true; }
+  if(document.querySelector('.menu:not(.hidden)')){ fecharMenus(); return true; }
+  return false;
+}
+/* Hierarquia: 1) fecha overlay; 2) volta à tela anterior; 3) confirma a saída. */
+function voltarFisico(){
+  if(fecharOverlayAberto()){ armarHistorico(); return; }        // só fecha, não troca de tela
+  if(telaAtual!=='scInicio'){ voltar(); armarHistorico(); return; }
+  if(confirm('Sair do sistema?')){ history.back(); return; }    // sai de fato
+  armarHistorico();                                             // "Não": continua no app
+}
+window.addEventListener('popstate', voltarFisico);
 function irInicio(){ tela('scInicio'); renderInicio(); }
 function irAjustes(){ tela('scAjustes'); prepararAjustes(); }
 
@@ -1175,7 +1213,9 @@ async function entrar(session){
   el('uNomeSb').textContent = nome; el('uAvSb').textContent = inicial;
   el('uPapelSb').textContent = rotuloPapel();
   aplicarNavPapel();
+  pilhaTelas = [];      // sessão nova: pilha do voltar começa vazia
   tela('scInicio');
+  armarHistorico();     // arma a sentinela do voltar físico (Android)
   await carregarLista();
   renderInicio();
 }
