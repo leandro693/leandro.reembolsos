@@ -363,6 +363,18 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
   border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading p{color:#fff;font-size:13.5px;font-weight:500}
+/* Recorte manual: overlay + moldura livre (canvas puro, sem libs) */
+.crop-ov{position:fixed;inset:0;z-index:120;background:rgba(20,20,22,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px}
+.crop-top{color:#fff;font-size:13px;opacity:.85;text-align:center}
+.crop-stage{position:relative;line-height:0;touch-action:none;max-width:92vw;max-height:68vh}
+.crop-stage img{max-width:92vw;max-height:68vh;display:block;user-select:none;-webkit-user-drag:none}
+.crop-rect{position:absolute;left:10%;top:10%;width:80%;height:80%;border:2px solid var(--accent);box-shadow:0 0 0 9999px rgba(0,0,0,.45);cursor:move;touch-action:none}
+.crop-rect .ch{position:absolute;width:18px;height:18px;background:var(--accent);border-radius:3px;touch-action:none}
+.crop-rect .ch.nw{left:-9px;top:-9px;cursor:nwse-resize}
+.crop-rect .ch.ne{right:-9px;top:-9px;cursor:nesw-resize}
+.crop-rect .ch.sw{left:-9px;bottom:-9px;cursor:nesw-resize}
+.crop-rect .ch.se{right:-9px;bottom:-9px;cursor:nwse-resize}
+.crop-actions{display:flex;gap:10px}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
@@ -625,6 +637,8 @@ body.nav-open .nav-backdrop{display:block}
         </div>
         <img id="fotoPreview" class="preview-img hidden" alt="Comprovante" style="margin-top:12px">
         <div id="lblFoto" class="dz-file hidden"></div>
+        <!-- Recorte (opcional): aparece já ao anexar imagem; a IA dispara ~1s depois se nao tocar. -->
+        <button type="button" class="btn btn-sec mt8 hidden" id="btnRecortar" onclick="abrirRecorte()"><i data-lucide="crop" class="i-md"></i> Recortar</button>
         <!-- Bloco 3: fallback escondido; so aparece se a leitura automatica falhar -->
         <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
           <i data-lucide="sparkles" class="i-md"></i> Ler novamente
@@ -926,6 +940,24 @@ body.nav-open .nav-backdrop{display:block}
   </nav>
 </div>
 
+<!-- RECORTE (moldura livre, canvas puro, sem libs) -->
+<div id="cropOverlay" class="crop-ov hidden">
+  <div class="crop-top">Arraste a moldura para recortar o comprovante</div>
+  <div class="crop-stage" id="cropStage">
+    <img id="cropImg" alt="Comprovante para recorte">
+    <div class="crop-rect" id="cropRect" onpointerdown="cropPointerDown(event,'move')">
+      <span class="ch nw" onpointerdown="event.stopPropagation();cropPointerDown(event,'nw')"></span>
+      <span class="ch ne" onpointerdown="event.stopPropagation();cropPointerDown(event,'ne')"></span>
+      <span class="ch sw" onpointerdown="event.stopPropagation();cropPointerDown(event,'sw')"></span>
+      <span class="ch se" onpointerdown="event.stopPropagation();cropPointerDown(event,'se')"></span>
+    </div>
+  </div>
+  <div class="crop-actions">
+    <button type="button" class="btn btn-ghost" onclick="cancelarRecorte()">Cancelar</button>
+    <button type="button" class="btn btn-primary" onclick="aplicarRecorte()"><i data-lucide="check" class="i-sm"></i> Aplicar</button>
+  </div>
+</div>
+
 <!-- LOADING & TOAST -->
 <div id="loading" class="loading hidden"><div class="spinner"></div><p id="loadingMsg">Processando...</p></div>
 
@@ -985,6 +1017,7 @@ let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
 let lendoIA = false;        // Bloco 3: trava de reentrada da leitura por IA (evita duplo-envio)
+let recorteTimer = null;    // Recorte: agendamento da leitura (carência ~1s antes da IA)
 let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
 let empresaNome = '';
@@ -1530,6 +1563,8 @@ function limparForm(){
   el('fotoPreview').classList.add('hidden'); el('lblFoto').textContent=''; el('lblFoto').classList.add('hidden');
   el('dropzone').classList.remove('over');
   el('btnAnalisar').classList.add('hidden');
+  // Recorte: cancela agendamento, esconde botão e fecha o editor se estiver aberto.
+  clearTimeout(recorteTimer); el('btnRecortar').classList.add('hidden'); el('cropOverlay').classList.add('hidden');
   // Bloco 3: esconde a nota e volta ao estado 'ok' (limpa eventual 'warn' anterior).
   el('revisaoBox').classList.add('hidden'); el('revisaoBox').classList.remove('warn'); el('revisaoBox').classList.add('ok');
   fotoFile=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
@@ -1588,18 +1623,91 @@ function atualizarVenc(){
   if(parcelado) calcParcelas();
 }
 function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
-/* Bloco 3: ao anexar/fotografar, a leitura por IA dispara sozinha (sem toque
-   manual). O botao "Ler novamente" fica escondido, so aparece se a leitura falhar. */
+/* Bloco 3 + Recorte: ao anexar/fotografar, mostra o preview JA e a leitura por IA
+   dispara sozinha. Para IMAGEM, oferece "Recortar" e dá ~1s de carência antes da IA;
+   se o usuário não tocar, a leitura dispara (leitura ÚNICA). PDF lê na hora, como antes. */
 function handleFile(f){
+  clearTimeout(recorteTimer);
   fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
   const lbl=el('lblFoto'); lbl.classList.remove('hidden');
+  const ehImagem = !!(f.type && f.type.indexOf('image/')===0);
   if(f.type==='application/pdf'){ img.classList.add('hidden'); lbl.textContent='PDF anexado: '+f.name; }
   else{ img.src=url; img.classList.remove('hidden'); lbl.textContent='Comprovante anexado. Toque em anexar para trocar.'; }
   el('btnAnalisar').classList.add('hidden');   // fallback fica escondido no fluxo normal
   abrirViewer(url, f.type);   // no computador, mostra grande a direita
   icons();
-  analisarFoto();             // Bloco 3: disparo automatico da leitura
+  if(ehImagem){
+    // Carência ~1s: preview + "Recortar" na hora; a IA dispara sozinha se não recortar.
+    el('btnRecortar').classList.remove('hidden'); icons();
+    recorteTimer = setTimeout(()=>{ el('btnRecortar').classList.add('hidden'); analisarFoto(); }, 1000);
+  } else {
+    el('btnRecortar').classList.add('hidden');
+    analisarFoto();           // PDF: leitura imediata como hoje
+  }
 }
+/* ---- Recorte manual (moldura livre, canvas puro, LOCAL — sem libs, sem servidor) ---- */
+function abrirRecorte(){
+  clearTimeout(recorteTimer);                 // cancela o disparo agendado da IA
+  el('btnRecortar').classList.add('hidden');
+  const im=el('cropImg');
+  im.onload=()=>prepararMoldura();
+  im.src=URL.createObjectURL(fotoFile);
+  el('cropOverlay').classList.remove('hidden');
+  icons();
+}
+function prepararMoldura(){
+  const st=el('cropStage'), im=el('cropImg'), r=el('cropRect');
+  st.style.width=im.clientWidth+'px'; st.style.height=im.clientHeight+'px';
+  r.style.left=Math.round(im.clientWidth*0.1)+'px'; r.style.top=Math.round(im.clientHeight*0.1)+'px';
+  r.style.width=Math.round(im.clientWidth*0.8)+'px'; r.style.height=Math.round(im.clientHeight*0.8)+'px';
+}
+let cropDrag=null;
+function cropPointerDown(e, modo){
+  e.preventDefault(); const r=el('cropRect');
+  cropDrag={ modo, x:e.clientX, y:e.clientY, l:r.offsetLeft, t:r.offsetTop, w:r.offsetWidth, h:r.offsetHeight };
+  window.addEventListener('pointermove', cropPointerMove);
+  window.addEventListener('pointerup', cropPointerUp);
+}
+function cropPointerMove(e){
+  if(!cropDrag) return;
+  const st=el('cropStage'), SW=st.clientWidth, SH=st.clientHeight, MIN=30;
+  const dx=e.clientX-cropDrag.x, dy=e.clientY-cropDrag.y;
+  let {l,t,w,h,modo}=cropDrag;
+  if(modo==='move'){ l=Math.min(Math.max(0,l+dx), SW-w); t=Math.min(Math.max(0,t+dy), SH-h); }
+  else{
+    if(modo.indexOf('e')>=0) w=Math.max(MIN, Math.min(w+dx, SW-l));
+    if(modo.indexOf('s')>=0) h=Math.max(MIN, Math.min(h+dy, SH-t));
+    if(modo.indexOf('w')>=0){ const nl=Math.min(Math.max(0,l+dx), l+w-MIN); w=w+(l-nl); l=nl; }
+    if(modo.indexOf('n')>=0){ const nt=Math.min(Math.max(0,t+dy), t+h-MIN); h=h+(t-nt); t=nt; }
+  }
+  const r=el('cropRect'); r.style.left=l+'px'; r.style.top=t+'px'; r.style.width=w+'px'; r.style.height=h+'px';
+}
+function cropPointerUp(){ cropDrag=null; window.removeEventListener('pointermove', cropPointerMove); window.removeEventListener('pointerup', cropPointerUp); }
+/* Aplica: desenha a área selecionada num canvas (pixels naturais) e substitui fotoFile
+   pela versão recortada, com o MESMO nome. Depois segue para a IA — leitura ÚNICA. */
+function aplicarRecorte(){
+  const im=el('cropImg'), r=el('cropRect');
+  const dw=im.clientWidth||1, dh=im.clientHeight||1;
+  const kx=im.naturalWidth/dw, ky=im.naturalHeight/dh;
+  const sx=r.offsetLeft*kx, sy=r.offsetTop*ky, sw=r.offsetWidth*kx, sh=r.offsetHeight*ky;
+  let cw=sw, ch=sh; const MAX=2000, m=Math.max(cw,ch);       // não estourar tamanho
+  if(m>MAX){ const k=MAX/m; cw*=k; ch*=k; }
+  const cv=document.createElement('canvas'); cv.width=Math.max(1,Math.round(cw)); cv.height=Math.max(1,Math.round(ch));
+  cv.getContext('2d').drawImage(im, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+  cv.toBlob((blob)=>{
+    if(!blob){ cancelarRecorte(); return; }
+    const nome=(fotoFile&&fotoFile.name)||'comprovante.jpg';
+    fotoFile=new File([blob], nome, {type:'image/jpeg'});    // recortada substitui a original
+    const url=URL.createObjectURL(fotoFile);
+    el('fotoPreview').src=url; el('fotoPreview').classList.remove('hidden');
+    abrirViewer(url, 'image');
+    fecharRecorte();
+    analisarFoto();                                          // IA lê a recortada (uma vez)
+  }, 'image/jpeg', 0.9);
+}
+/* Cancela: mantém a foto ORIGINAL intacta e segue a leitura dela (uma vez). */
+function cancelarRecorte(){ fecharRecorte(); analisarFoto(); }
+function fecharRecorte(){ el('cropOverlay').classList.add('hidden'); const im=el('cropImg'); im.onload=null; im.removeAttribute('src'); }
 function dzOver(e){ e.preventDefault(); el('dropzone').classList.add('over'); }
 function dzLeave(e){ e.preventDefault(); el('dropzone').classList.remove('over'); }
 function dzDrop(e){ e.preventDefault(); el('dropzone').classList.remove('over'); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); }
