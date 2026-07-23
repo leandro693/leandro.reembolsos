@@ -101,9 +101,10 @@ header.top{
 header.top .markbadge{width:38px;height:38px;background:transparent;flex:none;
   display:flex;align-items:center;justify-content:center}
 header.top .markbadge img{width:38px;height:38px;object-fit:contain;display:block}
-header.top .brand{display:flex;flex-direction:column;line-height:1;flex:1;min-width:0}
-header.top .brand .mk{font-weight:200;letter-spacing:.24em;font-size:12px;color:var(--text-strong)}
-header.top .brand .pd{font-weight:500;letter-spacing:.22em;font-size:12.5px;color:var(--accent);text-transform:uppercase;margin-top:3px}
+/* LEVA 1: brand recorta (nunca invade a engrenagem); textos em uma linha. */
+header.top .brand{display:flex;flex-direction:column;line-height:1;flex:1;min-width:0;overflow:hidden}
+header.top .brand .mk{font-weight:200;letter-spacing:.24em;font-size:12px;color:var(--text-strong);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header.top .brand .pd{font-weight:500;letter-spacing:.22em;font-size:12.5px;color:var(--accent);text-transform:uppercase;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.top .iconbtn,.iconbtn{
   background:transparent;border:1px solid var(--border-strong);color:var(--text-2);
   width:38px;height:38px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;
@@ -112,10 +113,12 @@ header.top .iconbtn,.iconbtn{
 .iconbtn:active{transform:scale(.95)} .iconbtn:hover{background:var(--surface-2)}
 header.top .back{display:none}
 header.top .who{
-  display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);border:1px solid var(--border);
-  border-radius:9999px;padding:5px 10px 5px 6px;cursor:pointer;color:var(--text-2);font-size:13px;font-weight:600
+  display:inline-flex;align-items:center;gap:0;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:9999px;padding:4px;cursor:pointer;color:var(--text-2);font-size:13px;font-weight:600
 }
-header.top .who .av{width:26px;height:26px;border-radius:50%;background:var(--sidebar);color:#fff;
+/* LEVA 1: no celular o usuário é só a inicial no círculo (nome completo fica na sidebar, no desktop). */
+header.top .who #uNome{display:none}
+header.top .who .av{width:28px;height:28px;border-radius:50%;background:var(--sidebar);color:#fff;
   display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
 
 /* ---- Layout ---- */
@@ -154,7 +157,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .btn-danger{background:transparent;border:1px solid var(--err-border);color:var(--err-fg)}
 .btn:disabled{background:var(--neutral);color:var(--text-4);cursor:not-allowed}
 .btn.sm{padding:9px 12px;font-size:13px;width:auto;border-radius:8px}
-.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mb8{margin-bottom:8px}
 
 /* ---- Escolha de ação (Início) ---- */
 .choose{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -237,7 +240,9 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 /* Cabeçalho de página com ações à direita */
 .page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;flex-wrap:wrap}
 .ph-title{flex:1 1 220px;min-width:0}
-.head-actions{display:flex;gap:8px;flex:1 1 300px;max-width:440px}
+.head-actions{display:flex;gap:8px;flex:1 1 300px;max-width:480px}
+/* LEVA 1: três botões compactos (Filtro, Período, Relatórios) dividindo a linha igualmente. */
+.head-actions .menu-wrap{flex:1;min-width:0}
 .head-actions .menu-wrap{flex:1}
 .head-actions .btn-compact{width:100%;height:38px;justify-content:center}
 .head-actions .menu-wrap:first-child .menu{left:0;right:auto}
@@ -311,8 +316,10 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .item .l2 span:first-child{min-width:0;flex:1} .item .l2 span:last-child{flex:none}
 .item .l3{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-4);margin-top:3px}
 .item .l3 span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.item .acts .btn{flex:1;min-width:84px;padding:8px;font-size:12px}
+/* LEVA 1: ações numa única linha (ícones). Alvo de toque >=40px; rola na horizontal
+   no caso raro de muitas ações (ex.: pendente com aprovar/rejeitar), sem quebrar linha. */
+.item .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:nowrap;overflow-x:auto}
+.item .acts .ic-btn{width:40px;height:40px;flex:none}
 .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-3);
   background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 5px;margin-left:5px}
 
@@ -682,12 +689,12 @@ body.nav-open .nav-backdrop{display:block}
         <div class="field"><label>Fornecedor / estabelecimento</label>
           <input type="text" id="fFornecedor" placeholder="Ex.: Tenda Atacado" list="fornDatalist" autocomplete="off" onchange="autoPreencherForn()">
           <datalist id="fornDatalist"></datalist></div>
-        <div class="row2">
-          <div class="field"><label>Nº da nota / cupom</label>
-            <input type="text" id="fNumeroNota" placeholder="opcional"></div>
-          <div class="field"><label>CPF / CNPJ</label>
-            <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
-        </div>
+        <!-- LEVA 1: CPF/CNPJ em linha inteira (18 dígitos não cabem em meia coluna; a fonte
+             fica 16px de propósito, pois abaixo disso o iOS dá zoom ao focar o campo). -->
+        <div class="field"><label>Nº da nota / cupom</label>
+          <input type="text" id="fNumeroNota" placeholder="opcional"></div>
+        <div class="field"><label>CPF / CNPJ</label>
+          <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
         <div class="field">
           <label>Forma de pagamento</label>
           <div class="seg">
@@ -721,6 +728,18 @@ body.nav-open .nav-backdrop{display:block}
       <div class="page-head">
         <div class="ph-title"><h2 class="pagetitle">Lançamentos</h2><p class="pagesub" id="consultaResumo">-</p></div>
         <div class="head-actions">
+          <!-- LEVA 1: filtro de status unificado num único botão (era 2 linhas de chips). -->
+          <div class="menu-wrap">
+            <button class="btn-compact" id="btnFiltro" onclick="toggleMenu('menuFiltro',event)"><i data-lucide="filter" class="i-sm"></i> <span id="btnFiltroLbl">Próx. venc.</span><span id="btnFiltroClear" title="Limpar filtro" onclick="event.stopPropagation();setConsulta('proximo')" style="display:none;margin-left:2px;font-weight:700">&#10005;</span> <i data-lucide="chevron-down" class="i-sm"></i></button>
+            <div class="menu hidden" id="menuFiltro">
+              <button onclick="fecharMenus();setConsulta('proximo')">Próx. venc.</button>
+              <button onclick="fecharMenus();setConsulta('aberto')">Em aberto</button>
+              <button onclick="fecharMenus();setConsulta('atraso')">Em atraso</button>
+              <button onclick="fecharMenus();setConsulta('recebidos')">Recebidos</button>
+              <button onclick="fecharMenus();setConsulta('parcelados')">Parcelados</button>
+              <button onclick="fecharMenus();setConsulta('resumo')">Resumo</button>
+            </div>
+          </div>
           <div class="menu-wrap">
             <button class="btn-compact" id="btnData" onclick="toggleMenu('menuData',event)"><i data-lucide="calendar" class="i-sm"></i> <span id="btnDataLbl">Todo período</span> <i data-lucide="chevron-down" class="i-sm"></i></button>
             <div class="menu hidden" id="menuData">
@@ -748,17 +767,6 @@ body.nav-open .nav-backdrop{display:block}
           </div>
         </div>
       </div>
-      <div class="filtros">
-        <span class="filtros-lbl">Status</span>
-        <div class="chips" id="consultaChips">
-          <button class="chip c-accent on" data-f="proximo" onclick="setConsulta('proximo')">Próx. venc.</button>
-          <button class="chip c-warn" data-f="aberto" onclick="setConsulta('aberto')">Em aberto</button>
-          <button class="chip c-err" data-f="atraso" onclick="setConsulta('atraso')">Em atraso</button>
-          <button class="chip c-ok" data-f="recebidos" onclick="setConsulta('recebidos')">Recebidos</button>
-          <button class="chip c-neutral" data-f="parcelados" onclick="setConsulta('parcelados')">Parcelados</button>
-          <button class="chip c-neutral" data-f="resumo" onclick="setConsulta('resumo')">Resumo</button>
-        </div>
-      </div>
       <div class="filtros filtros2" id="filtros2">
         <div class="f2-grp" id="grpPessoa">
           <span class="filtros-lbl">Pessoa</span>
@@ -779,12 +787,13 @@ body.nav-open .nav-backdrop{display:block}
     <section id="scEditar" class="screen hidden">
       <h2 class="pagetitle">Editar lançamento</h2>
       <div class="note info"><i data-lucide="pencil-line" class="i-md"></i><div>Ajuste qualquer campo e salve.</div></div>
+      <!-- LEVA 1: ver o comprovante na edição (imagem e PDF), reusando o #compOverlay. -->
+      <button type="button" class="btn btn-sec mb8 hidden" id="btnVerCompEdit" onclick="verComprovante(edicaoAtual)"><i data-lucide="paperclip" class="i-md"></i> Ver comprovante</button>
       <div class="field"><label>Categoria</label><select id="eCategoria"></select></div>
       <div class="field"><label>Fornecedor / estabelecimento</label><input type="text" id="eFornecedor"></div>
-      <div class="row2">
-        <div class="field"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
-        <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
-      </div>
+      <!-- LEVA 1: CPF/CNPJ em linha inteira (mesma razão do formulário de novo lançamento). -->
+      <div class="field"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
+      <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
       <div class="field"><label>Valor (R$)</label><input type="number" id="eValor" inputmode="decimal"></div>
       <div class="row2">
         <div class="field"><label>Data de emissão</label><input type="date" id="eDataEmissao"></div>
@@ -1300,7 +1309,8 @@ async function sair(){
    ========================================================================== */
 async function carregarLista(){
   // 0008: a RLS não esconde mais excluídos; o operacional filtra deleted_at no front.
-  const { data, error } = await sb.from('lancamentos').select('*').is('deleted_at', null).order('vencimento',{ascending:true});
+  // LEVA 1: mais recente no topo (recência = criado_em desc). O filtro define QUAIS aparecem; a ordem é sempre por recência.
+  const { data, error } = await sb.from('lancamentos').select('*').is('deleted_at', null).order('criado_em',{ascending:false});
   if(error){ mostrarErro(error,'carregar lancamentos'); lista=[]; return; }
   lista = (data||[]).map(l=>({...l, valor_total:Number(l.valor_total)||0,
     km_total:Number(l.km_total)||0, pedagio:Number(l.pedagio)||0, estacionamento:Number(l.estacionamento)||0}));
@@ -1521,21 +1531,22 @@ function itemHtml(l){
       (l.estacionamento>0?`<span>Estac. ${money(l.estacionamento)}</span>`:'')+`</div>`;
   }
   const podeAgir = empresaPapel!=='financeiro'; // Bloco 1: só financeiro é leitura (papel de empresa_usuarios)
+  // LEVA 1: ações do card viram SÓ ÍCONES, numa única linha (title= para acessibilidade).
   const acts=[];
   if(podeAgir){
-    if(l.comprovante) acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
-    if(!pago) acts.push(`<button class="btn btn-sec" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i> Receber</button>`);
-    if(pago)  acts.push(`<button class="btn btn-sec" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i> Estornar</button>`);
-    acts.push(`<button class="btn btn-sec" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>`);
-    if(!pago) acts.push(`<button class="btn btn-danger" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`);
+    if(l.comprovante) acts.push(`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`);
+    if(!pago) acts.push(`<button class="ic-btn" title="Marcar recebido" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i></button>`);
+    if(pago)  acts.push(`<button class="ic-btn" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i></button>`);
+    acts.push(`<button class="ic-btn" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i></button>`);
+    if(!pago) acts.push(`<button class="ic-btn danger" title="Excluir" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`);
   } else if(l.comprovante){
-    acts.push(`<button class="btn btn-sec" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Ver nota</button>`);
+    acts.push(`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`);
   }
-  if(l.comprovante_pagamento) acts.push(`<button class="btn btn-sec" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
+  if(l.comprovante_pagamento) acts.push(`<button class="ic-btn" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i></button>`);
   // Aprovação: gestor/financeiro aprovam ou rejeitam pendentes.
   if(l.aprovacao==='pendente' && veTudo()){
-    acts.push(`<button class="btn btn-sec" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i> Aprovar</button>`);
-    acts.push(`<button class="btn btn-danger" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i></button>`);
+    acts.push(`<button class="ic-btn" title="Aprovar" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i></button>`);
+    acts.push(`<button class="ic-btn danger" title="Rejeitar" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i></button>`);
   }
   const apr = l.aprovacao==='pendente' ? '<span class="st pend"><i data-lucide="clock" class="i-sm"></i> Pendente</span> '
     : l.aprovacao==='rejeitado' ? '<span class="st atraso"><i data-lucide="x" class="i-sm"></i> Rejeitado</span> ' : '';
@@ -1543,8 +1554,8 @@ function itemHtml(l){
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
   const numSeq = l.numero_sequencial ? `<span class="numseq">#${String(l.numero_sequencial).padStart(4,'0')}</span> ` : '';
   return `<div class="item">
-    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="l1r">${apr}${st}<span class="val num">${money(l.valor_total)}</span></span></div>
-    <div class="l2"><span>${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
+    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="val num">${money(l.valor_total)}</span></div>
+    <div class="l2"><span>${apr}${st} ${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
     ${extras}${autor}
     ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
   </div>`;
@@ -2226,6 +2237,7 @@ function abrirEdicao(l, origem){
   el('eValor').value=l.valor_total; el('eObs').value=l.observacoes||'';
   el('eDataEmissao').value=l.data_emissao||''; el('eVenc').value=l.vencimento||'';
   tela('scEditar', origem||'scInicio');
+  el('btnVerCompEdit').classList.toggle('hidden', !l.comprovante);  // LEVA 1: botão de ver comprovante (celular)
   mostrarComprovanteViewer(l.comprovante);   // no computador, abre o comprovante à direita
 }
 
@@ -2331,7 +2343,10 @@ function setPessoa(v){ pessoaFiltro=v; renderConsulta(); }
 let selConsulta = new Set();
 function setConsulta(f){
   consultaFiltro=f; selConsulta.clear();
-  document.querySelectorAll('#consultaChips .chip').forEach(c=>c.classList.toggle('on', c.getAttribute('data-f')===f));
+  // LEVA 1: filtro unificado — atualiza o rótulo do botão e mostra o "x" quando não é o padrão.
+  const rot={proximo:'Próx. venc.',aberto:'Em aberto',atraso:'Em atraso',recebidos:'Recebidos',parcelados:'Parcelados',resumo:'Resumo'}[f]||'Filtro';
+  const lbl=el('btnFiltroLbl'); if(lbl) lbl.textContent=rot;
+  const clr=el('btnFiltroClear'); if(clr) clr.style.display = (f==='proximo') ? 'none' : '';
   renderConsulta();
 }
 /* Bloco 1: seleção para fechamento — bloqueada só para financeiro (papel de empresa_usuarios). */
@@ -2351,16 +2366,17 @@ function sufixoFiltros(){
 }
 function renderConsulta(){
   const f=consultaFiltro, hoje=isoToday(); let arr=[], tit='';
-  if(f==='proximo'){ const pv=proxVencIso(); arr=emAberto().filter(l=>l.vencimento===pv); tit='Próximo vencimento '+brDate(pv); }
+  if(f==='proximo'){ const pv=proxVencIso(); arr=emAberto().filter(l=>l.vencimento===pv); tit='Próx. venc. '+brDate(pv).slice(0,5); }  // LEVA 1: abreviado p/ caber em 1 linha
   else if(f==='aberto'){ arr=emAberto(); tit='Todos em aberto'; }
   else if(f==='atraso'){ arr=atrasados(); tit='Em atraso'; }
   else if(f==='recebidos'){ arr=baseLista().filter(l=>l.status==='pago'); tit='Recebidos'; }
   else if(f==='parcelados'){ arr=baseLista().filter(l=>/\(\d+\/\d+\)/.test(l.observacoes||'')); tit='Parcelados'; }
   else if(f==='resumo'){ return renderResumoCategoria(); }
   arr=filtrarPessoaPeriodo(arr);
-  arr=[...arr].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
+  // LEVA 1: dentro do conjunto do filtro, ordena por recência (mais recém-criado no topo).
+  arr=[...arr].sort((a,b)=>String(b.criado_em||'').localeCompare(String(a.criado_em||'')));
   consultaVisivel=arr;
-  el('consultaResumo').innerHTML = `<span class="cr-tit">${esc(tit)}</span>${sufixoFiltros()} · ${arr.length} item(ns) · <span class="cr-val">${money(soma(arr))}</span>`;
+  el('consultaResumo').innerHTML = `<span class="cr-tit">${esc(tit)}</span>${sufixoFiltros()} · ${arr.length} ${arr.length===1?'item':'itens'} · <span class="cr-val">${money(soma(arr))}</span>`;
   if(!arr.length){ el('consultaLista').innerHTML=vazio('inbox','Nada nesta visão.'); atualizarMarcarBar(); icons(); return; }
   // No computador: tabela (uma linha por lançamento). No celular: cartões.
   el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr, podeSelecionar()) : arr.map(itemHtml).join('');
