@@ -1,0 +1,32 @@
+ESTADO ANTES DA MIGRATION 0010 — duplicata por documento extraído
+===========================================================================
+Capturado em produção (fwoupyqojfxpipvidvsx), SOMENTE LEITURA.
+
+CONTAGEM DE CAMPOS EXTRAÍDOS (consulta extraidos-antes.sql, já removida):
+  total=38, nao_excluidos=0  (todos os 38 lançamentos estão soft-deleted)
+  com_cnpj_estab=0, com_data_extraida=0, com_valor_extraido=0,
+  com_ia_json=0, ia_lido_true=0, com_estab_nome=0
+  com_numero_nota_form=29, com_cnpj_form=20
+
+>>> As colunas de EXTRAÇÃO nunca foram gravadas (mesmo padrão do arquivo_hash):
+    aplicarIA preenche os inputs mas descarta o retorno bruto da IA. A base ativa
+    está vazia (0 não-excluídos) — a detecção vale só daqui pra frente.
+
+O QUE A 0010 ADICIONA (tudo aditivo/idempotente):
+  - coluna lancamentos.numero_nota_extraido text (default NULL, não '');
+  - índice idx_lanc_dup_doc (empresa_id, cnpj_estabelecimento, numero_nota_extraido)
+    where deleted_at is null and numero_nota_extraido is not null;
+  - policy lanc_sys_sel: SELECT to postgres using(true) — leitura do sistema para as
+    RPCs security definer lerem a empresa inteira (padrão da 0007);
+  - RPC checar_duplicata_documento(...) e checar_duplicata_hash(...), security definer,
+    dono postgres, com guarda de pertencimento (usuario_e_owner OR meu_papel(empresa)).
+
+ANTES: a coluna numero_nota_extraido NÃO existe; as RPCs NÃO existem; a policy
+lanc_sys_sel NÃO existe. Índices de lancamentos: pkey + idx_lanc_dup_logica (fallback).
+
+REVERSÃO (se necessário):
+  drop function if exists public.checar_duplicata_documento(uuid,text,text,date,numeric);
+  drop function if exists public.checar_duplicata_hash(uuid,text);
+  drop policy if exists lanc_sys_sel on public.lancamentos;
+  drop index if exists public.idx_lanc_dup_doc;
+  alter table public.lancamentos drop column if exists numero_nota_extraido;
