@@ -1020,6 +1020,7 @@ let voltandoTela = false;        // true enquanto o voltar navega (evita re-empi
 let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
+let dupConflito = null;     // Duplicata por hash: {hash, lanc} do conflito aceito pelo usuário
 let lendoIA = false;        // Bloco 3: trava de reentrada da leitura por IA (evita duplo-envio)
 let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
@@ -1608,7 +1609,7 @@ function limparForm(){
   el('btnRecortar').classList.add('hidden'); el('btnLer').classList.add('hidden'); el('cropOverlay').classList.add('hidden');
   // Bloco 3: esconde a nota e volta ao estado 'ok' (limpa eventual 'warn' anterior).
   el('revisaoBox').classList.add('hidden'); el('revisaoBox').classList.remove('warn'); el('revisaoBox').classList.add('ok');
-  fotoFile=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
+  fotoFile=null; dupConflito=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
 }
 function aoMudarCategoria(){
   const cat=el('fCategoria').value;
@@ -1667,7 +1668,8 @@ function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
 /* Ao anexar/fotografar: mostra o preview e os botões de ação. A leitura por IA NÃO
    dispara sozinha (sem timer/carência) — quem decide é o usuário, tocando em
    "Ler comprovante" ou aplicando um recorte. "Recortar" só faz sentido em imagem. */
-function handleFile(f){
+async function handleFile(f){
+  dupConflito=null;   // toda foto nova zera o conflito anterior (não gera alerta indevido)
   fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
   const lbl=el('lblFoto'); lbl.classList.remove('hidden');
   const ehImagem = !!(f.type && f.type.indexOf('image/')===0);
@@ -1678,6 +1680,17 @@ function handleFile(f){
   el('btnRecortar').classList.toggle('hidden', !ehImagem);  // recorte só para imagem
   el('btnLer').classList.remove('hidden');                  // ação principal, sempre
   icons();
+  // Duplicata por hash: avisa CEDO (antes de o usuário gastar uma leitura de IA).
+  try{
+    const h = await sha256Hex(f);
+    if(h && fotoFile===f){                       // ignora se a foto já foi trocada nesse meio-tempo
+      const conf = await checarDuplicataHash(h);
+      if(conf){
+        if(avisarDuplicataImagem(conf)) dupConflito={ hash:h, lanc:conf };  // conflito amarrado ao hash
+        else limparFoto();                                                  // Cancelar: não usa a foto
+      }
+    }
+  }catch(e){ console.warn(e); }
 }
 /* Ação principal: o usuário pediu para ler. Esconde os botões e chama a IA uma vez. */
 function lerComprovante(){
@@ -1887,6 +1900,48 @@ async function uploadPagamento(file){ return uploadArquivo(file, 'pagamentos'); 
 
 /* Detecta possível documento duplicado do próprio usuário.
    Chave: mesma data de emissão + (número da nota, se houver; senão o valor). */
+/* Duplicata por HASH: procura um lançamento ATIVO (não excluído) da MESMA empresa
+   cujo comprovante tenha o mesmo hash de arquivo. Respeita a RLS (isolamento por
+   empresa). Devolve o lançamento conflitante ou null. */
+async function checarDuplicataHash(hash){
+  if(!hash || !empresaId) return null;
+  try{
+    const { data:comps } = await sb.from('comprovantes')
+      .select('lancamento_id').eq('empresa_id', empresaId).eq('arquivo_hash', hash).is('deleted_at', null);
+    const ids = (comps||[]).map(c=>c.lancamento_id).filter(Boolean);
+    if(!ids.length) return null;
+    const { data:lancs } = await sb.from('lancamentos')
+      .select('id, numero_sequencial, valor_total, data_emissao, vencimento, status, aprovacao')
+      .in('id', ids).is('deleted_at', null).limit(1);
+    return (lancs && lancs[0]) || null;
+  }catch(e){ console.warn(e); return null; }
+}
+/* Resumo do lançamento existente para o aviso: #numero, status, valor e data. */
+function descreverLancamento(l){
+  const n = l.numero_sequencial ? ('#'+l.numero_sequencial) : '#—';
+  let st;
+  if(l.aprovacao==='rejeitado') st='Rejeitado';
+  else if(l.status==='pago') st='Recebido';
+  else if(l.vencimento && l.vencimento < isoToday()) st='Em atraso';
+  else st='A receber';
+  return `${n} · ${st} · ${money(l.valor_total)} · ${brDate(l.data_emissao||l.vencimento)}`;
+}
+/* Aviso forte de imagem já lançada. Devolve true se o usuário optar por prosseguir. */
+function avisarDuplicataImagem(lanc){
+  return confirm('Esta mesma imagem já foi lançada.\n\n'+descreverLancamento(lanc)+
+    '\n\nDeseja prosseguir mesmo assim?');
+}
+/* Remove só o anexo (sem limpar o formulário), quando o usuário cancela a duplicata. */
+function limparFoto(){
+  fotoFile=null; dupConflito=null;
+  el('fotoPreview').classList.add('hidden'); el('fotoPreview').removeAttribute('src');
+  el('lblFoto').textContent=''; el('lblFoto').classList.add('hidden');
+  el('btnRecortar').classList.add('hidden'); el('btnLer').classList.add('hidden');
+  el('btnAnalisar').classList.add('hidden');
+  el('inputFoto').value=''; el('inputFotoCam').value='';   // permite reanexar o mesmo arquivo
+  fecharViewer();
+  toast('Foto removida (imagem já lançada).','erro');
+}
 async function possivelDuplicata(dataEmissao, valor, numeroNota){
   if(!dataEmissao) return null;
   try{
@@ -2016,18 +2071,19 @@ async function lancar(){
     }
   }
 
-  // Duplicata EXATA por hash do arquivo (comprovante idêntico já lançado).
-  let arqHash='';
+  // Duplicata por HASH do arquivo FINAL (já recortado, se houve recorte). Roda DEPOIS
+  // da checagem lógica acima (valor+data+CNPJ), que continua valendo em paralelo.
+  let arqHash='', conflitoDup=null;
   if(fotoFile){
     arqHash = await sha256Hex(fotoFile);
     if(arqHash){
-      try{
-        const { data:hd } = await sb.from('comprovantes').select('id').eq('empresa_id', empresaId).eq('arquivo_hash', arqHash).limit(1);
-        if(hd && hd.length){
-          if(!confirm('Este arquivo de comprovante é idêntico a um já lançado.\n\nDeseja lançar assim mesmo?')){ toast('Cancelado (comprovante duplicado).','erro'); return; }
-          try{ await sb.rpc('registrar_alerta',{p_empresa:empresaId,p_lancamento:null,p_tipo:'duplicata',p_detalhe:{motivo:'arquivo_identico'}}); }catch(e){}
-        }
-      }catch(e){}
+      const achado = await checarDuplicataHash(arqHash);
+      if(achado){
+        if(!avisarDuplicataImagem(achado)){ toast('Lançamento cancelado (imagem já lançada).','erro'); return; }
+        conflitoDup = achado;                                  // forçado agora, com o arquivo final
+      } else if(dupConflito){
+        conflitoDup = dupConflito.lanc;                        // forçado no anexo (mesma foto, ainda válida)
+      }
     }
   }
 
@@ -2042,11 +2098,24 @@ async function lancar(){
     if(comp) rows.forEach(r=>r.comprovante=comp);  // parcelado: mesmo comprovante em todas as parcelas
     const { data:ins, error } = await sb.from('lancamentos').insert(rows).select('id');
     if(error) throw error;
-    // Grava metadados do comprovante (hash para dedup exata; nunca bloqueia).
+    // Metadados do comprovante: o hash é a ÂNCORA da detecção de duplicata, então uma
+    // falha aqui é REPORTADA (não mais engolida) — mas NÃO reverte o lançamento já salvo.
     if(comp && ins && ins[0]){
-      try{ await sb.from('comprovantes').insert({ lancamento_id:ins[0].id, empresa_id:empresaId, storage_path:comp,
+      const { error:errComp } = await sb.from('comprovantes').insert({ lancamento_id:ins[0].id, empresa_id:empresaId, storage_path:comp,
         arquivo_hash:arqHash||null, mime_type:(fotoFile&&fotoFile.type)||'', tamanho_bytes:(fotoFile&&fotoFile.size)||0,
-        nome_arquivo_original:((fotoFile&&fotoFile.name)||'').replace(/[^\w.\- ]/g,'').slice(0,120) }); }catch(e){}
+        nome_arquivo_original:((fotoFile&&fotoFile.name)||'').replace(/[^\w.\- ]/g,'').slice(0,120) });
+      if(errComp) mostrarErro(errComp,'gravar metadados do comprovante');
+    }
+    // Duplicata FORÇADA: registra alerta para a gestão da empresa (nunca bloqueia).
+    if(conflitoDup && ins && ins[0]){
+      try{ await sb.rpc('registrar_alerta', { p_empresa:empresaId, p_lancamento:ins[0].id, p_tipo:'duplicata',
+        p_detalhe:{ motivo:'arquivo_identico_forcado', hash:arqHash,
+          hash_final_igual: !!(dupConflito && dupConflito.hash===arqHash),
+          existente:{ id:conflitoDup.id, numero_sequencial:conflitoDup.numero_sequencial,
+                      valor:Number(conflitoDup.valor_total)||0, data:conflitoDup.data_emissao,
+                      resumo:descreverLancamento(conflitoDup) },
+          forcado_por:{ usuario_id:user.id, nome:perfil.nome||'' },
+          em:new Date().toISOString() } }); }catch(e){ console.warn(e); }
     }
     await carregarLista();
     carregando(false);
