@@ -319,14 +319,20 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .item .l3{font-size:11.5px;color:var(--text-4);margin-top:4px}
 .item .l3>span{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
 .item .l3 .l3-user{color:var(--text-3)}
-/* LEVA 1.1: ações com rótulo + cor, numa única linha; rola na horizontal se houver muitas. */
-.item .acts{display:flex;gap:8px;margin-top:11px;flex-wrap:nowrap;overflow-x:auto}
-.act{display:inline-flex;align-items:center;gap:5px;padding:9px 11px;min-height:40px;border-radius:9px;flex:none;
-  border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);
-  font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+/* Ajuste fino: ações em UMA linha, dividindo a largura igualmente (sem rolagem). */
+.item .acts{display:flex;gap:6px;margin-top:11px;flex-wrap:nowrap}
+.act{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:9px 6px;min-height:40px;border-radius:9px;
+  flex:1 1 0;min-width:0;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);
+  font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.act .act-lbl{overflow:hidden;text-overflow:ellipsis}
+.act [data-lucide]{flex:none}
 .act:hover{background:var(--surface-2)}
 .act.ok{border-color:var(--ok-border);color:var(--ok-fg)} .act.ok:hover{background:var(--ok-bg)}
 .act.danger{border-color:var(--err-border);color:var(--err-fg)} .act.danger:hover{background:var(--err-bg)}
+/* Fallback telas estreitas: "Excluir" fica só o ícone (lixeira vermelha). */
+@media(max-width:360px){ .item .acts .act.danger .act-lbl{display:none} }
+/* Muitas ações (ex.: pendente com aprovar/rejeitar): todos viram ícones coloridos. */
+.item .acts.acts-min .act-lbl{display:none}
 /* LEVA 1.1: card-resumo de compra parcelada (agrupa as parcelas; expande ao tocar). */
 .item.grupo{padding:0}
 .grupo-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 13px;cursor:pointer}
@@ -1584,20 +1590,22 @@ function itemHtml(l){
   // LEVA 1.1: ações com RÓTULO + COR semântica (verde receber/estornar, vermelho excluir, neutro nota/editar).
   const acts=[];
   if(podeAgir){
-    if(l.comprovante) acts.push(`<button class="act" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
-    if(!pago) acts.push(`<button class="act ok" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i> Receber</button>`);
-    if(pago)  acts.push(`<button class="act ok" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i> Estornar</button>`);
-    acts.push(`<button class="act" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>`);
-    if(!pago) acts.push(`<button class="act danger" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i> Excluir</button>`);
+    if(l.comprovante) acts.push(`<button class="act" title="Nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i><span class="act-lbl">Nota</span></button>`);
+    if(!pago) acts.push(`<button class="act ok" title="Receber" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i><span class="act-lbl">Receber</span></button>`);
+    if(pago)  acts.push(`<button class="act ok" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i><span class="act-lbl">Estornar</span></button>`);
+    acts.push(`<button class="act" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i><span class="act-lbl">Editar</span></button>`);
+    if(!pago) acts.push(`<button class="act danger" title="Excluir" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i><span class="act-lbl">Excluir</span></button>`);
   } else if(l.comprovante){
-    acts.push(`<button class="act" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
+    acts.push(`<button class="act" title="Nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i><span class="act-lbl">Nota</span></button>`);
   }
-  if(l.comprovante_pagamento) acts.push(`<button class="act" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
+  if(l.comprovante_pagamento) acts.push(`<button class="act" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i><span class="act-lbl">Pagamento</span></button>`);
   // Aprovação: gestor/financeiro aprovam ou rejeitam pendentes.
   if(l.aprovacao==='pendente' && veTudo()){
-    acts.push(`<button class="act ok" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i> Aprovar</button>`);
-    acts.push(`<button class="act danger" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i> Rejeitar</button>`);
+    acts.push(`<button class="act ok" title="Aprovar" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i><span class="act-lbl">Aprovar</span></button>`);
+    acts.push(`<button class="act danger" title="Rejeitar" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i><span class="act-lbl">Rejeitar</span></button>`);
   }
+  // Ajuste fino: 5+ ações (ex.: pendente) -> só ícones coloridos, sem rolagem.
+  const actsCls = acts.length>4 ? 'acts acts-min' : 'acts';
   const apr = l.aprovacao==='pendente' ? '<span class="st pend"><i data-lucide="clock" class="i-sm"></i> Pendente</span>'
     : l.aprovacao==='rejeitado' ? '<span class="st atraso"><i data-lucide="x" class="i-sm"></i> Rejeitado</span>' : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
@@ -1610,7 +1618,7 @@ function itemHtml(l){
     <div class="l2"><span class="l2info">${esc(l.categoria)}${numNota?' · '+numNota:''}${tag?' · '+tag:''}</span><span class="val num">${money(l.valor_total)}</span></div>
     <div class="l3"><span>${apr}${st}${venc?' · '+venc:''}${pessoa?' · '+pessoa:''}</span></div>
     ${extras}
-    ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
+    ${acts.length?`<div class="${actsCls}">${acts.join('')}</div>`:''}
   </div>`;
 }
 
