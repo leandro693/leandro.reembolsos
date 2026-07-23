@@ -1021,6 +1021,8 @@ let kmModo = 'trecho';
 let parcelado = false;
 let fotoFile = null;
 let dupConflito = null;     // Duplicata por hash: {hash, lanc} do conflito aceito pelo usuário
+let docConflito = null;     // Duplicata por documento extraído: {lanc} do conflito aceito
+let iaExtraido = null;      // Últimos dados EXTRAÍDOS pela IA (checagem por documento + gravação)
 let lendoIA = false;        // Bloco 3: trava de reentrada da leitura por IA (evita duplo-envio)
 let modoForm = 'manual';
 let empresaId = null;            // empresa (tenant) do usuário logado
@@ -1609,7 +1611,7 @@ function limparForm(){
   el('btnRecortar').classList.add('hidden'); el('btnLer').classList.add('hidden'); el('cropOverlay').classList.add('hidden');
   // Bloco 3: esconde a nota e volta ao estado 'ok' (limpa eventual 'warn' anterior).
   el('revisaoBox').classList.add('hidden'); el('revisaoBox').classList.remove('warn'); el('revisaoBox').classList.add('ok');
-  fotoFile=null; dupConflito=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
+  fotoFile=null; dupConflito=null; docConflito=null; iaExtraido=null; lendoIA=false; fecharViewer(); setKmModo('trecho'); setParcelado(false);
 }
 function aoMudarCategoria(){
   const cat=el('fCategoria').value;
@@ -1669,7 +1671,7 @@ function aoEscolherFoto(ev){ const f=ev.target.files[0]; if(f) handleFile(f); }
    dispara sozinha (sem timer/carência) — quem decide é o usuário, tocando em
    "Ler comprovante" ou aplicando um recorte. "Recortar" só faz sentido em imagem. */
 async function handleFile(f){
-  dupConflito=null;   // toda foto nova zera o conflito anterior (não gera alerta indevido)
+  dupConflito=null; docConflito=null; iaExtraido=null;   // toda foto nova zera conflitos e extração (sem alerta indevido)
   fotoFile=f; const img=el('fotoPreview'); const url=URL.createObjectURL(f);
   const lbl=el('lblFoto'); lbl.classList.remove('hidden');
   const ehImagem = !!(f.type && f.type.indexOf('image/')===0);
@@ -1821,6 +1823,13 @@ async function analisarFoto(){
     if(error || !data || data.erro){ falhaLeitura('Não consegui ler com a IA agora. Preencha manualmente.'); return; }
     if(data.legivel===false){ falhaLeitura('Não consegui ler este comprovante com segurança. Preencha manualmente.'); return; }
     aplicarIA(data);
+    // Duplicata por DOCUMENTO (dados extraídos, empresa inteira) — avisa AGORA, com os
+    // dados frescos da IA e antes de o usuário editar. Forçar guarda; cancelar limpa a foto.
+    const confDoc = await checarDuplicataDocumento(data);
+    if(confDoc){
+      if(avisarDuplicataDocumento(confDoc)) docConflito = { lanc:confDoc };
+      else { limparFoto(); return; }
+    }
     // Sucesso: nota de conferência (ou de atenção se veio incompleto/acima do teto).
     const incompleto = !el('fValor').value || !el('fCategoria').value;
     if(data.revisao) notaRevisao('warn', 'Atenção: '+data.revisao);
@@ -1854,6 +1863,7 @@ function notaRevisao(tipo, msg){
 
 /* Aplica o que a IA extraiu nos campos do formulário */
 function aplicarIA(d){
+  iaExtraido = d;   // guarda os dados EXTRAÍDOS (base da checagem por documento e da gravação)
   el('revisaoBox').classList.remove('hidden');
   // Bloco 4: a IA agora sugere da lista REAL da empresa; se vier fora dela, cai em "Outros" (nunca texto livre).
   if(d.categoria){ const cats=listaCategorias();
@@ -1900,20 +1910,37 @@ async function uploadPagamento(file){ return uploadArquivo(file, 'pagamentos'); 
 
 /* Detecta possível documento duplicado do próprio usuário.
    Chave: mesma data de emissão + (número da nota, se houver; senão o valor). */
-/* Duplicata por HASH: procura um lançamento ATIVO (não excluído) da MESMA empresa
-   cujo comprovante tenha o mesmo hash de arquivo. Respeita a RLS (isolamento por
-   empresa). Devolve o lançamento conflitante ou null. */
+/* Duplicata por HASH: agora via RPC security definer (checar_duplicata_hash), que roda
+   em escopo de EMPRESA INTEIRA (pega reenvio do arquivo de qualquer colega, não só do
+   próprio operador) e devolve SÓ o resumo do lançamento conflitante. */
 async function checarDuplicataHash(hash){
   if(!hash || !empresaId) return null;
   try{
-    const { data:comps } = await sb.from('comprovantes')
-      .select('lancamento_id').eq('empresa_id', empresaId).eq('arquivo_hash', hash).is('deleted_at', null);
-    const ids = (comps||[]).map(c=>c.lancamento_id).filter(Boolean);
-    if(!ids.length) return null;
-    const { data:lancs } = await sb.from('lancamentos')
-      .select('id, numero_sequencial, valor_total, data_emissao, vencimento, status, aprovacao')
-      .in('id', ids).is('deleted_at', null).limit(1);
-    return (lancs && lancs[0]) || null;
+    const { data } = await sb.rpc('checar_duplicata_hash', { p_empresa:empresaId, p_hash:hash });
+    return (data && data[0]) || null;
+  }catch(e){ console.warn(e); return null; }
+}
+/* Normaliza a data extraída (AAAA-MM-DD ou DD/MM/AAAA) para ISO; vazio se não reconhecer. */
+function normalizarDataIso(s){
+  s=String(s||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(s)) return s.slice(0,10).split('/').reverse().join('-');
+  return '';
+}
+/* Duplicata por DOCUMENTO EXTRAÍDO (RPC empresa-inteira). Camada forte (CNPJ+número) +
+   fallback (CNPJ+data+valor). Campos extraídos vazios NÃO chamam a RPC (sem falso positivo). */
+async function checarDuplicataDocumento(ia){
+  if(!ia || !empresaId) return null;
+  const cnpj = String(ia.cnpj||'').replace(/\D/g,'');
+  if(!cnpj) return null;                                        // sem CNPJ extraído, nada a comparar
+  const numero = String(ia.numero_nota||'').trim();
+  const dataExtr = normalizarDataIso(ia.data_emissao);
+  const valor = Number(String(ia.valor).replace(',','.')) || null;
+  if(!numero && !(dataExtr && valor)) return null;             // nem forte nem fallback têm insumo
+  try{
+    const { data } = await sb.rpc('checar_duplicata_documento', {
+      p_empresa:empresaId, p_cnpj:cnpj, p_numero:numero||null, p_data:dataExtr||null, p_valor:valor });
+    return (data && data[0]) || null;
   }catch(e){ console.warn(e); return null; }
 }
 /* Resumo do lançamento existente para o aviso: #numero, status, valor e data. */
@@ -1931,9 +1958,14 @@ function avisarDuplicataImagem(lanc){
   return confirm('Esta mesma imagem já foi lançada.\n\n'+descreverLancamento(lanc)+
     '\n\nDeseja prosseguir mesmo assim?');
 }
+/* Aviso forte de documento já lançado (mesmo CNPJ e número/valor). Devolve true se prosseguir. */
+function avisarDuplicataDocumento(lanc){
+  return confirm('Este mesmo documento já foi lançado (mesmo estabelecimento e nota/valor).\n\n'+
+    descreverLancamento(lanc)+'\n\nDeseja prosseguir mesmo assim?');
+}
 /* Remove só o anexo (sem limpar o formulário), quando o usuário cancela a duplicata. */
 function limparFoto(){
-  fotoFile=null; dupConflito=null;
+  fotoFile=null; dupConflito=null; docConflito=null; iaExtraido=null;
   el('fotoPreview').classList.add('hidden'); el('fotoPreview').removeAttribute('src');
   el('lblFoto').textContent=''; el('lblFoto').classList.add('hidden');
   el('btnRecortar').classList.add('hidden'); el('btnLer').classList.add('hidden');
@@ -2029,6 +2061,18 @@ async function lancar(){
     beneficiario: ehEdu?el('fBeneficiario').value:'', observacoes:el('fObs').value.trim(),
     status:'aberto', km_total:0, valor_km:0, pedagio:0, estacionamento:0, aprovacao,
     numero_nota:ehKm?'':numeroNota, cnpj:ehKm?'':cnpj };
+  // Grava os dados EXTRAÍDOS pela IA (não os inputs) — âncora da duplicata por documento.
+  // Antes ficavam vazios; agora populam as colunas de extração e o ia_json_bruto.
+  if(!ehKm && iaExtraido){
+    const ia=iaExtraido;
+    base.cnpj_estabelecimento = String(ia.cnpj||'').replace(/\D/g,'');
+    base.data_extraida        = normalizarDataIso(ia.data_emissao) || null;
+    base.valor_extraido       = Number(String(ia.valor).replace(',','.')) || null;
+    base.estabelecimento_nome = String(ia.fornecedor||'').slice(0,200);
+    base.numero_nota_extraido = String(ia.numero_nota||'').trim() || null;  // NULL, nunca ''
+    base.ia_json_bruto        = ia;
+    base.ia_lido              = true;
+  }
 
   let rows=[], fornecedorNome='';
   if(ehKm){
@@ -2086,6 +2130,8 @@ async function lancar(){
       }
     }
   }
+  // Duplicata por DOCUMENTO: conflito aceito na leitura (empresa inteira, dados extraídos).
+  const conflitoDoc = docConflito ? docConflito.lanc : null;
 
   carregando(true,'Lançando reembolso...');
   try{
@@ -2106,14 +2152,24 @@ async function lancar(){
         nome_arquivo_original:((fotoFile&&fotoFile.name)||'').replace(/[^\w.\- ]/g,'').slice(0,120) });
       if(errComp) mostrarErro(errComp,'gravar metadados do comprovante');
     }
-    // Duplicata FORÇADA: registra alerta para a gestão da empresa (nunca bloqueia).
+    // Duplicata FORÇADA por ARQUIVO idêntico (hash): alerta para a gestão (nunca bloqueia).
     if(conflitoDup && ins && ins[0]){
       try{ await sb.rpc('registrar_alerta', { p_empresa:empresaId, p_lancamento:ins[0].id, p_tipo:'duplicata',
         p_detalhe:{ motivo:'arquivo_identico_forcado', hash:arqHash,
           hash_final_igual: !!(dupConflito && dupConflito.hash===arqHash),
-          existente:{ id:conflitoDup.id, numero_sequencial:conflitoDup.numero_sequencial,
+          existente:{ numero_sequencial:conflitoDup.numero_sequencial,
                       valor:Number(conflitoDup.valor_total)||0, data:conflitoDup.data_emissao,
                       resumo:descreverLancamento(conflitoDup) },
+          forcado_por:{ usuario_id:user.id, nome:perfil.nome||'' },
+          em:new Date().toISOString() } }); }catch(e){ console.warn(e); }
+    }
+    // Duplicata FORÇADA por DOCUMENTO extraído (mesmo CNPJ e nota/valor): alerta próprio.
+    if(conflitoDoc && ins && ins[0]){
+      try{ await sb.rpc('registrar_alerta', { p_empresa:empresaId, p_lancamento:ins[0].id, p_tipo:'duplicata',
+        p_detalhe:{ motivo:'documento_identico_forcado',
+          existente:{ numero_sequencial:conflitoDoc.numero_sequencial,
+                      valor:Number(conflitoDoc.valor_total)||0, data:conflitoDoc.data_emissao,
+                      resumo:descreverLancamento(conflitoDoc) },
           forcado_por:{ usuario_id:user.id, nome:perfil.nome||'' },
           em:new Date().toISOString() } }); }catch(e){ console.warn(e); }
     }
