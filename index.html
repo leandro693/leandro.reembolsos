@@ -306,20 +306,38 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 /* ---- Item de lançamento (lista) ---- */
 .item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 13px;
   margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
-.item .l1{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+/* LEVA 1.1: L1 = #número + FORNECEDOR legível (quebra, não trunca). */
+.item .l1{display:flex;align-items:baseline;gap:7px}
+.item .l1 .forn{font-weight:700;color:var(--text-strong);font-size:14.5px;line-height:1.25;min-width:0;word-break:break-word}
 .item .cat{font-weight:600;color:var(--text-strong);font-size:14px;min-width:0;flex:1;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .val{color:var(--text-strong);font-size:14.5px;flex:none;white-space:nowrap}
-.item .l1r{display:flex;align-items:center;gap:8px;flex:none;white-space:nowrap}
-.item .l2{display:flex;justify-content:space-between;gap:10px;margin-top:3px}
-.item .l2 span{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.item .l2 span:first-child{min-width:0;flex:1} .item .l2 span:last-child{flex:none}
-.item .l3{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-4);margin-top:3px}
-.item .l3 span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* LEVA 1: ações numa única linha (ícones). Alvo de toque >=40px; rola na horizontal
-   no caso raro de muitas ações (ex.: pendente com aprovar/rejeitar), sem quebrar linha. */
-.item .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:nowrap;overflow-x:auto}
-.item .acts .ic-btn{width:40px;height:40px;flex:none}
+.item .val{color:var(--text-strong);font-size:14.5px;font-weight:700;flex:none;white-space:nowrap}
+/* L2 = categoria · NF · (parcela) à esquerda, valor à direita. */
+.item .l2{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:4px}
+.item .l2 .l2info{font-size:12.5px;color:var(--text-3);min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* L3 = status · vencimento · pessoa. */
+.item .l3{font-size:11.5px;color:var(--text-4);margin-top:4px}
+.item .l3>span{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.item .l3 .l3-user{color:var(--text-3)}
+/* LEVA 1.1: ações com rótulo + cor, numa única linha; rola na horizontal se houver muitas. */
+.item .acts{display:flex;gap:8px;margin-top:11px;flex-wrap:nowrap;overflow-x:auto}
+.act{display:inline-flex;align-items:center;gap:5px;padding:9px 11px;min-height:40px;border-radius:9px;flex:none;
+  border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);
+  font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.act:hover{background:var(--surface-2)}
+.act.ok{border-color:var(--ok-border);color:var(--ok-fg)} .act.ok:hover{background:var(--ok-bg)}
+.act.danger{border-color:var(--err-border);color:var(--err-fg)} .act.danger:hover{background:var(--err-bg)}
+/* LEVA 1.1: card-resumo de compra parcelada (agrupa as parcelas; expande ao tocar). */
+.item.grupo{padding:0}
+.grupo-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 13px;cursor:pointer}
+.gh-info{min-width:0;display:flex;flex-direction:column;gap:2px}
+.gh-info .forn{font-weight:700;color:var(--text-strong);font-size:14.5px;word-break:break-word}
+.gh-sub{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--accent);font-weight:600}
+.gh-right{display:flex;align-items:center;gap:8px;flex:none}
+.gh-right .val{font-weight:700;font-size:15px;color:var(--text-strong)}
+.gh-chev{transition:transform .15s;color:var(--text-3)}
+.grupo-body{padding:2px 10px 10px;background:var(--surface-2);border-top:1px solid var(--border)}
+.grupo-body .item{box-shadow:none;margin-top:10px;margin-bottom:0}
 .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-3);
   background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 5px;margin-left:5px}
 
@@ -434,6 +452,15 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .dashgrid{display:grid;gap:12px}
 .chart{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
 .chart h3{font-size:13px;color:var(--text-2);margin-bottom:12px;font-weight:600;display:flex;align-items:center;gap:7px}
+/* LEVA 1.1: lista compacta dos últimos lançamentos no dashboard. */
+.ult-lista{display:flex;flex-direction:column}
+.ult-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 2px;cursor:pointer;border-top:1px solid var(--border)}
+.ult-row:first-child{border-top:none}
+.ult-row:hover{background:var(--surface-2)}
+.ult-forn{min-width:0;flex:1;font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ult-right{display:flex;align-items:center;gap:10px;flex:none}
+.ult-right .val{font-weight:700;color:var(--text-strong)}
+.ult-data{font-size:11.5px;color:var(--text-4);font-family:'JetBrains Mono',monospace}
 .bar{margin-bottom:12px}
 .bar .top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px}
 .bar .lbl{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
@@ -615,6 +642,8 @@ body.nav-open .nav-backdrop{display:block}
       <p class="pagesub" id="dashSub">Visão geral dos seus reembolsos.</p>
       <div class="kpis" id="dashKpis"></div>
       <div id="dashCharts"></div>
+      <!-- LEVA 1.1: resumo rápido dos últimos 5 lançamentos (clicáveis). -->
+      <div id="dashUltimos" class="mt12"></div>
       <!-- Bloco enxugar: "Vencendo em breve" removido (redundante com Lançamentos). -->
       <div id="dashPessoas" class="mt12"></div>
     </section>
@@ -1054,7 +1083,8 @@ const BENEFICIARIOS = ['Sócio - Leandro','Sócio - Márcio','Sócio - Adelson',
   'Colaborador - Ricardo','Colaborador - Lucas','Colaborador - Outro'];
 
 /* ===== Helpers de formato ===== */
-function money(n){ n=Number(n)||0; const s=Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return 'R$ '+s; }
+/* LEVA 1.1: valor SEM prefixo "R$" (CLAUDE.md §11.2) e SEMPRE com 2 casas. */
+function money(n){ n=Number(n)||0; return Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 /* Máscara de CPF (000.000.000-00) ou CNPJ (00.000.000/0000-00) conforme os dígitos. */
 function fmtCpfCnpj(v){
@@ -1337,9 +1367,29 @@ function renderInicio(){
   el('dashSub').innerHTML = (empresaNome?`<span class="empresa-chip">${esc(empresaNome)}</span> · `:'') + esc(base);
   renderKpis();
   renderDashCharts();
+  renderDashUltimos();   // LEVA 1.1: últimos 5 lançamentos (resumo rápido)
   // Bloco enxugar: "Vencendo em breve" saiu (redundante com Lançamentos). Mantém ranking.
   renderDashPessoas();
   icons();
+}
+/* LEVA 1.1: bloco simples com os 5 lançamentos mais recentes (fornecedor · NF · valor · data).
+   Cada linha abre a edição do lançamento; "Ver todos" vai para a lista. Respeita o escopo. */
+function renderDashUltimos(){
+  const arr=[...baseLista()].sort((a,b)=>String(b.criado_em||'').localeCompare(String(a.criado_em||''))).slice(0,5);
+  const box=el('dashUltimos');
+  if(!arr.length){ box.innerHTML=''; return; }
+  const linhas=arr.map((l,i)=>{
+    const nf=l.numero_nota?`<span class="tag">NF ${esc(l.numero_nota)}</span>`:'';
+    return `<div class="ult-row" data-ult="${i}"><div class="ult-forn">${esc(l.fornecedor||l.categoria||'—')} ${nf}</div>`+
+      `<div class="ult-right"><span class="val num">${money(l.valor_total)}</span><span class="ult-data">${brDate(l.data_emissao||l.vencimento).slice(0,5)}</span></div></div>`;
+  }).join('');
+  box.innerHTML=`<div class="chart"><h3><i data-lucide="receipt" class="i-sm"></i> Últimos lançamentos
+    <button class="btn btn-ghost sm" style="margin-left:auto" onclick="irConsultas()">Ver todos</button></h3>
+    <div class="ult-lista">${linhas}</div></div>`;
+  // Cada linha abre a edição do lançamento correspondente.
+  box.querySelectorAll('.ult-row').forEach(row=>{
+    row.onclick = ()=>{ const l=arr[Number(row.getAttribute('data-ult'))]; if(l) abrirEdicao(l,'scInicio'); };
+  });
 }
 /* Ranking por pessoa no Dashboard (só admin/financeiro). Respeita o escopo. */
 function renderDashPessoas(){
@@ -1467,7 +1517,7 @@ function abrirFornModal(f){
   el('fornModalTit').textContent = f ? 'Editar fornecedor' : 'Novo fornecedor';
   el('mfId').value       = f?f.id:'';
   el('mfNome').value     = f?(f.nome||''):'';
-  el('mfCnpj').value     = f?(f.cnpj||''):'';
+  el('mfCnpj').value     = f?fmtCpfCnpj(f.cnpj||''):'';  // LEVA 1.1: CNPJ com máscara ao editar fornecedor
   el('mfTelefone').value = f?(f.telefone||''):'';
   el('mfEmail').value    = f?(f.email||''):'';
   el('mfEndereco').value = f?(f.endereco||''):'';
@@ -1531,34 +1581,76 @@ function itemHtml(l){
       (l.estacionamento>0?`<span>Estac. ${money(l.estacionamento)}</span>`:'')+`</div>`;
   }
   const podeAgir = empresaPapel!=='financeiro'; // Bloco 1: só financeiro é leitura (papel de empresa_usuarios)
-  // LEVA 1: ações do card viram SÓ ÍCONES, numa única linha (title= para acessibilidade).
+  // LEVA 1.1: ações com RÓTULO + COR semântica (verde receber/estornar, vermelho excluir, neutro nota/editar).
   const acts=[];
   if(podeAgir){
-    if(l.comprovante) acts.push(`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`);
-    if(!pago) acts.push(`<button class="ic-btn" title="Marcar recebido" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i></button>`);
-    if(pago)  acts.push(`<button class="ic-btn" title="Estornar" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i></button>`);
-    acts.push(`<button class="ic-btn" title="Editar" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i></button>`);
-    if(!pago) acts.push(`<button class="ic-btn danger" title="Excluir" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i></button>`);
+    if(l.comprovante) acts.push(`<button class="act" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
+    if(!pago) acts.push(`<button class="act ok" data-act="receber" data-id="${l.id}"><i data-lucide="check" class="i-sm"></i> Receber</button>`);
+    if(pago)  acts.push(`<button class="act ok" data-act="estornar" data-id="${l.id}"><i data-lucide="undo-2" class="i-sm"></i> Estornar</button>`);
+    acts.push(`<button class="act" data-act="editar" data-id="${l.id}"><i data-lucide="pencil" class="i-sm"></i> Editar</button>`);
+    if(!pago) acts.push(`<button class="act danger" data-act="excluir" data-id="${l.id}"><i data-lucide="trash-2" class="i-sm"></i> Excluir</button>`);
   } else if(l.comprovante){
-    acts.push(`<button class="ic-btn" title="Ver nota" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i></button>`);
+    acts.push(`<button class="act" data-act="comprovante" data-id="${l.id}"><i data-lucide="paperclip" class="i-sm"></i> Nota</button>`);
   }
-  if(l.comprovante_pagamento) acts.push(`<button class="ic-btn" title="Comprovante de pagamento" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i></button>`);
+  if(l.comprovante_pagamento) acts.push(`<button class="act" data-act="comprovantePag" data-id="${l.id}"><i data-lucide="banknote" class="i-sm"></i> Pagamento</button>`);
   // Aprovação: gestor/financeiro aprovam ou rejeitam pendentes.
   if(l.aprovacao==='pendente' && veTudo()){
-    acts.push(`<button class="ic-btn" title="Aprovar" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i></button>`);
-    acts.push(`<button class="ic-btn danger" title="Rejeitar" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i></button>`);
+    acts.push(`<button class="act ok" data-act="aprovar" data-id="${l.id}"><i data-lucide="check-check" class="i-sm"></i> Aprovar</button>`);
+    acts.push(`<button class="act danger" data-act="rejeitar" data-id="${l.id}"><i data-lucide="x" class="i-sm"></i> Rejeitar</button>`);
   }
-  const apr = l.aprovacao==='pendente' ? '<span class="st pend"><i data-lucide="clock" class="i-sm"></i> Pendente</span> '
-    : l.aprovacao==='rejeitado' ? '<span class="st atraso"><i data-lucide="x" class="i-sm"></i> Rejeitado</span> ' : '';
-  const autor = veTudo() && l.usuario ? `<div class="l3"><span><i data-lucide="user" class="i-sm" style="width:12px;height:12px;vertical-align:-2px"></i> ${esc(l.usuario)}</span><span></span></div>` : '';
+  const apr = l.aprovacao==='pendente' ? '<span class="st pend"><i data-lucide="clock" class="i-sm"></i> Pendente</span>'
+    : l.aprovacao==='rejeitado' ? '<span class="st atraso"><i data-lucide="x" class="i-sm"></i> Rejeitado</span>' : '';
   const numNota = l.numero_nota ? `<span class="tag">NF ${esc(l.numero_nota)}</span>` : '';
-  const numSeq = l.numero_sequencial ? `<span class="numseq">#${String(l.numero_sequencial).padStart(4,'0')}</span> ` : '';
+  const numSeq = l.numero_sequencial ? `#${String(l.numero_sequencial).padStart(4,'0')}` : '';
+  const venc = l.vencimento ? `venc ${brDate(l.vencimento).slice(0,5)}` : '';
+  const pessoa = (veTudo() && l.usuario) ? `<span class="l3-user"><i data-lucide="user" class="i-sm"></i> ${esc(l.usuario)}</span>` : '';
+  // LEVA 1.1: 4 linhas — fornecedor legível na L1; categoria/NF/parcela + valor na L2; status/venc/pessoa na L3; ações na L4.
   return `<div class="item">
-    <div class="l1"><span class="cat">${numSeq}${esc(l.categoria)}${tag}</span><span class="val num">${money(l.valor_total)}</span></div>
-    <div class="l2"><span>${apr}${st} ${esc(l.fornecedor||'')} ${numNota}</span><span>venc ${brDate(l.vencimento)}</span></div>
-    ${extras}${autor}
+    <div class="l1"><span class="numseq">${numSeq}</span> <span class="forn">${esc(l.fornecedor||'—')}</span></div>
+    <div class="l2"><span class="l2info">${esc(l.categoria)}${numNota?' · '+numNota:''}${tag?' · '+tag:''}</span><span class="val num">${money(l.valor_total)}</span></div>
+    <div class="l3"><span>${apr}${st}${venc?' · '+venc:''}${pessoa?' · '+pessoa:''}</span></div>
+    ${extras}
     ${acts.length?`<div class="acts">${acts.join('')}</div>`:''}
   </div>`;
+}
+
+/* LEVA 1.1: renderização dos cards do CELULAR agrupando parcelas da mesma compra.
+   Só visual — não altera arr/consultaVisivel, então filtros, totais e seleção seguem
+   por parcela. Um id_compra com >=2 parcelas NA VISÃO vira um card-resumo expansível. */
+function renderCards(arr){
+  const seen=new Set(), out=[];
+  for(const l of arr){
+    if(l.id_compra){
+      if(seen.has(l.id_compra)) continue;
+      seen.add(l.id_compra);
+      const grupo=arr.filter(x=>x.id_compra===l.id_compra);   // parcelas desta compra NA visão atual
+      out.push(grupo.length>=2 ? grupoParceladoHtml(grupo) : itemHtml(grupo[0]));
+    } else out.push(itemHtml(l));
+  }
+  return out.join('') || vazio('inbox','Nada nesta visão.');
+}
+/* Card-resumo de uma compra parcelada: fornecedor, soma das parcelas NA VISÃO e
+   "N de M parcelas". Expande para os cards individuais (com todas as ações por parcela). */
+function grupoParceladoHtml(grupo){
+  const g=grupo[0];
+  const total=grupo.reduce((s,l)=>s+(Number(l.valor_total)||0),0);
+  const m=Number(g.parcela_total)||grupo.length;      // total de parcelas da compra
+  const n=grupo.length;                               // quantas aparecem neste filtro
+  const rotulo = (n<m) ? `${n} de ${m} parcelas` : `${m} parcelas`;
+  const gid='grp_'+String(g.id_compra).replace(/[^a-zA-Z0-9]/g,'');
+  return `<div class="item grupo">
+    <div class="grupo-head" onclick="toggleGrupo('${gid}')">
+      <div class="gh-info"><span class="forn">${esc(g.fornecedor||'—')}</span><span class="gh-sub"><i data-lucide="layers" class="i-sm"></i> ${rotulo}</span></div>
+      <div class="gh-right"><span class="val num">${money(total)}</span><i data-lucide="chevron-down" class="gh-chev" id="${gid}_chev"></i></div>
+    </div>
+    <div class="grupo-body hidden" id="${gid}">${grupo.map(itemHtml).join('')}</div>
+  </div>`;
+}
+/* Expande/recolhe o grupo de parcelas e gira o chevron. */
+function toggleGrupo(gid){
+  const body=el(gid); if(!body) return;
+  const aberto=body.classList.toggle('hidden')===false;
+  const chev=el(gid+'_chev'); if(chev) chev.style.transform = aberto ? 'rotate(180deg)' : '';
 }
 
 /* Delegação de eventos dos itens (evita HTML inline inseguro) */
@@ -2233,8 +2325,9 @@ function abrirEdicao(l, origem){
   edicaoAtual=l;
   { const cats=listaCategorias(); if(l.categoria && !cats.includes(l.categoria)) cats.push(l.categoria); popular(el('eCategoria'), cats, false); } el('eCategoria').value=l.categoria;
   el('eFornecedor').value=l.fornecedor||'';
-  el('eNumeroNota').value=l.numero_nota||''; el('eCnpj').value=l.cnpj||'';
-  el('eValor').value=l.valor_total; el('eObs').value=l.observacoes||'';
+  // LEVA 1.1: CNPJ com máscara e valor sempre com 2 casas na edição.
+  el('eNumeroNota').value=l.numero_nota||''; el('eCnpj').value=fmtCpfCnpj(l.cnpj||'');
+  el('eValor').value=(Number(l.valor_total)||0).toFixed(2); el('eObs').value=l.observacoes||'';
   el('eDataEmissao').value=l.data_emissao||''; el('eVenc').value=l.vencimento||'';
   tela('scEditar', origem||'scInicio');
   el('btnVerCompEdit').classList.toggle('hidden', !l.comprovante);  // LEVA 1: botão de ver comprovante (celular)
@@ -2379,7 +2472,7 @@ function renderConsulta(){
   el('consultaResumo').innerHTML = `<span class="cr-tit">${esc(tit)}</span>${sufixoFiltros()} · ${arr.length} ${arr.length===1?'item':'itens'} · <span class="cr-val">${money(soma(arr))}</span>`;
   if(!arr.length){ el('consultaLista').innerHTML=vazio('inbox','Nada nesta visão.'); atualizarMarcarBar(); icons(); return; }
   // No computador: tabela (uma linha por lançamento). No celular: cartões.
-  el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr, podeSelecionar()) : arr.map(itemHtml).join('');
+  el('consultaLista').innerHTML = ehDesktop() ? tabelaLancamentos(arr, podeSelecionar()) : renderCards(arr);
   bindAcoes('consultaLista');
   atualizarMarcarBar();
   icons();
@@ -2484,6 +2577,8 @@ function exportarXlsx(){
     'Recebido em':l.data_pagamento?brDate(l.data_pagamento):'', 'Observações':l.observacoes||'', 'Solicitante':l.usuario||''
   }));
   const ws=XLSX.utils.json_to_sheet(rows);
+  // LEVA 1.1: coluna Valor (G) com 2 casas no Excel (número, formato #,##0.00).
+  for(let r=0;r<rows.length;r++){ const c=ws['G'+(r+2)]; if(c) c.z='#,##0.00'; }
   ws['!cols']=[{wch:12},{wch:12},{wch:24},{wch:30},{wch:20},{wch:12},{wch:12},{wch:11},{wch:12},{wch:34},{wch:16}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Lançamentos');
   XLSX.writeFile(wb, `Lancamentos_${(perfil.pix_nome||perfil.nome||'').replace(/ /g,'_')||'reembolsos'}.xlsx`);
