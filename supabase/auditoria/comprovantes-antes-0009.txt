@@ -1,0 +1,46 @@
+ESTADO ANTES DA MIGRATION 0009 — comprovantes / duplicata por hash
+===========================================================================
+Capturado em produção (fwoupyqojfxpipvidvsx) via pg_policies/pg_indexes,
+SOMENTE LEITURA. Consulta: supabase/auditoria/comprovantes-antes-0009.sql
+
+1) POLICIES VIVAS DE public.comprovantes
+---------------------------------------------------------------------------
+comprovantes_sel   SELECT   roles={public}
+  USING: (usuario_e_owner() OR (empresa_id IN (SELECT empresas_do_usuario())))
+
+>>> NÃO EXISTE policy de INSERT nem de UPDATE. Com RLS ligada, toda escrita do
+    app (role authenticated) em comprovantes é NEGADA. Como o insert do front
+    está dentro de try{}catch(e){} silencioso, o metadado (arquivo_hash) nunca
+    foi gravado — por isso a duplicata por imagem nunca foi detectada.
+
+2) ÍNDICES VIVOS
+---------------------------------------------------------------------------
+CREATE UNIQUE INDEX comprovantes_pkey ON public.comprovantes USING btree (id)
+CREATE INDEX idx_comprovantes_lanc ON public.comprovantes USING btree (lancamento_id)
+CREATE UNIQUE INDEX idx_comprovante_hash ON public.comprovantes USING btree
+  (empresa_id, arquivo_hash) WHERE ((deleted_at IS NULL) AND (arquivo_hash IS NOT NULL))
+
+>>> O índice idx_comprovante_hash é UNIQUE: impediria o fluxo aprovado de
+    "Prosseguir mesmo assim" (forçar duplicata legítima) com erro 23505.
+
+3) CONTAGEM
+---------------------------------------------------------------------------
+total = 0        linhas em comprovantes
+com_hash = 0     linhas com arquivo_hash preenchido
+
+>>> A tabela está VAZIA. Consequências:
+    - Confirma que nenhum metadado foi persistido até hoje.
+    - Qualquer troca do índice idx_comprovante_hash é de risco ~zero (não há
+      linha para violar a nova restrição nem para reindexar).
+
+REVERSÃO (se a 0009 precisar ser desfeita)
+---------------------------------------------------------------------------
+-- restaurar o índice único original:
+drop index if exists public.idx_comprovante_hash;
+create unique index if not exists idx_comprovante_hash
+  on public.comprovantes(empresa_id, arquivo_hash)
+  where deleted_at is null and arquivo_hash is not null;
+-- remover as policies criadas pela 0009 (nomes a confirmar na migration):
+-- drop policy if exists comp_ins on public.comprovantes;
+-- drop policy if exists comprovantes_sys_upd on public.comprovantes;
+(A policy comprovantes_sel acima permanece intacta — nada a restaurar nela.)
