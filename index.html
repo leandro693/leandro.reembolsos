@@ -431,6 +431,10 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .cm-item-info b{font-size:13px;color:var(--text-strong)}
 .cm-item-sub{font-size:11.5px;color:var(--text-2)}
 .cm-item .val{font-size:13px;color:var(--text);font-weight:600}
+.cm-motivo{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.cm-lbl{font-size:12px;color:var(--text-2);font-weight:600}
+.cm-sel,.cm-inp{width:100%;padding:10px 12px;min-height:42px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);color:var(--text);font-size:13.5px}
+.cm-inp::placeholder{color:var(--text-4)}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
@@ -985,6 +989,7 @@ body.nav-open .nav-backdrop{display:block}
       <div id="adminIntegracao" class="mt12"></div>
       <div id="adminCategorias" class="mt12"></div>
       <div id="adminSetores" class="mt12"></div>
+      <div id="adminMotivos" class="mt12"></div>
       <div id="adminPoliticas" class="mt12"></div>
       <div id="adminAlertas" class="mt12"></div>
       <div id="adminSeguranca" class="mt12"></div>
@@ -1143,6 +1148,9 @@ function fmtTelefone(v){
   return d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2');
 }
 function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
+/* Pagamento/recebimento: 'status' é a verdade (o front escreve status='pago' em receber());
+   data_pagamento anda pareada e serve de reforço. Não usar 'situacao' (é derivada por trigger). */
+function estaPago(l){ return !!l && (l.status==='pago' || !!l.data_pagamento); }
 function isoToday(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function isoVenc10(baseIso, add){ const d=new Date(baseIso+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+add,10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function proxVencIso(){ const h=new Date(); let a=h.getFullYear(),m=h.getMonth(); if(h.getDate()>10){m++; if(m>11){m=0;a++;}} const z=n=>String(n).padStart(2,'0'); return `${a}-${z(m+1)}-10`; }
@@ -1355,10 +1363,17 @@ async function carregarEmpresa(){
   try{ const { data:u } = await sb.from('usuarios').select('is_owner').eq('id', user.id).maybeSingle(); isOwner=!!(u&&u.is_owner); }catch(e){ isOwner=false; }
   await carregarCategoriasDB();
   await carregarSetoresDB();
+  await carregarMotivos();
 }
 async function carregarSetoresDB(){
   try{ const { data } = await sb.from('setores').select('id, nome, ativo').eq('empresa_id', empresaId).order('nome',{ascending:true}); setoresDB=data||[]; }
   catch(e){ setoresDB=[]; }
+}
+/* Motivos de exclusão ativos da empresa (para o seletor obrigatório na exclusão). */
+let motivosDB=[];
+async function carregarMotivos(){
+  try{ const { data } = await sb.from('motivos_exclusao').select('id, nome, ativo').eq('empresa_id', empresaId).eq('ativo', true).order('nome',{ascending:true}); motivosDB=data||[]; }
+  catch(e){ motivosDB=[]; }
 }
 /* Categorias da empresa (do banco). O formulário usa estas; cai na lista fixa se vazio. */
 async function carregarCategoriasDB(){
@@ -1632,7 +1647,7 @@ async function excluirFornecedor(f){
 
 /* HTML de um item da lista (com botões de ação) */
 function itemHtml(l){
-  const pago=l.status==='pago';
+  const pago=estaPago(l);   // gate financeiro: pago/recebido não oferece Excluir (mostra Estornar)
   const hoje=isoToday();
   const atraso = !pago && l.vencimento && l.vencimento<hoje;
   const tag = /\(\d+\/\d+\)/.test(l.observacoes||'') ? `<span class="tag">${esc(l.observacoes.match(/\(\d+\/\d+\)/)[0])}</span>` : '';
@@ -2373,66 +2388,88 @@ async function estornar(l){
 /* AJUSTE 2: rótulo x/y da parcela e status para a lista de exclusão. */
 function rotuloParcela(l){ const m=(l.observacoes||'').match(/\((\d+)\/(\d+)\)/); return m?`${m[1]}/${m[2]}`:''; }
 function statusParcela(l){
-  if(l.status==='pago') return 'Recebida';
+  if(estaPago(l)) return 'Recebida';
   if(l.vencimento && String(l.vencimento).slice(0,10)<isoToday()) return 'Vencida';
   return 'A receber';
 }
-/* Modal com a LISTA de parcelas (checkbox por parcela, todas marcadas por padrão).
-   Devolve os ids marcados ao clicar "Excluir selecionadas" (desabilitado se zero),
-   ou null ao cancelar/dismiss. Reusa o componente modal (corpoHtml/aoMontar/resolver). */
-function escolherParcelas(grupo){
-  const corpo = `<div class="cm-lista">`+grupo.map(l=>{
+/* BLOCO A: modal ÚNICO de exclusão. Quando aplicável, lista as parcelas (checkbox);
+   sempre pede um MOTIVO obrigatório (lista de motivos_exclusao ativos + "Outro" com texto).
+   O botão Excluir só habilita com motivo válido e, havendo lista, >=1 parcela marcada.
+   Retorna { ids, motivo } ou null (cancelar/dismiss). */
+function pedirExclusao({titulo, mensagem, parcelas}){
+  const temLista = Array.isArray(parcelas) && parcelas.length>0;
+  const listaHtml = temLista ? `<div class="cm-lista">`+parcelas.map(l=>{
     const xy=rotuloParcela(l);
     return `<label class="cm-item">
       <input type="checkbox" class="cm-chk" data-id="${esc(l.id)}" checked>
       <span class="cm-item-info"><b>${xy?'Parcela '+xy:'Parcela'}</b>
         <span class="cm-item-sub">venc. ${esc(brDate(l.vencimento))||'-'} · ${esc(statusParcela(l))}</span></span>
       <span class="val num">${money(l.valor_total)}</span></label>`;
-  }).join('')+`</div>`;
+  }).join('')+`</div>` : '';
+  const opts = (motivosDB||[]).map(m=>`<option value="${esc(m.nome)}">${esc(m.nome)}</option>`).join('');
+  const motivoHtml = `<div class="cm-motivo">
+    <label class="cm-lbl" for="cmMotivoSel">Motivo da exclusão</label>
+    <select id="cmMotivoSel" class="cm-sel"><option value="">Selecione o motivo</option>${opts}<option value="__outro__">Outro</option></select>
+    <input id="cmMotivoOutro" class="cm-inp hidden" type="text" maxlength="120" placeholder="Descreva o motivo">
+  </div>`;
   return modal({
-    titulo:'Excluir parcelas', mensagem:'Desmarque as parcelas que NÃO quer excluir.',
-    corpoHtml: corpo, dismissValor:null,
+    titulo, mensagem, corpoHtml: listaHtml+motivoHtml, dismissValor:null,
     botoes:[
       {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
-      {rotulo:'Excluir selecionadas', tipo:'danger', id:'cmExcluirSel',
-       resolver:()=>[...document.querySelectorAll('#cmCorpo .cm-chk:checked')].map(c=>c.getAttribute('data-id'))}
+      {rotulo:'Excluir', tipo:'danger', id:'cmExcluirSel',
+       resolver:()=>{
+         const sel=document.querySelector('#cmMotivoSel'); const outro=document.querySelector('#cmMotivoOutro');
+         const v=sel?sel.value:''; const motivo = v==='__outro__' ? (outro?outro.value.trim():'') : v;
+         const ids = temLista ? [...document.querySelectorAll('#cmCorpo .cm-chk:checked')].map(c=>c.getAttribute('data-id')) : [];
+         return { ids, motivo };
+       }}
     ],
     aoMontar:(ov)=>{
       const btn=ov.querySelector('#cmExcluirSel');
-      const atualiza=()=>{ if(btn) btn.disabled = ov.querySelectorAll('#cmCorpo .cm-chk:checked').length===0; };
+      const sel=ov.querySelector('#cmMotivoSel');
+      const outro=ov.querySelector('#cmMotivoOutro');
+      const motivoOk=()=>{ const v=sel?sel.value:''; if(!v) return false; if(v==='__outro__') return !!(outro && outro.value.trim()); return true; };
+      const nMarcadas=()=> ov.querySelectorAll('#cmCorpo .cm-chk:checked').length;
+      const atualiza=()=>{ if(btn) btn.disabled = !motivoOk() || (temLista && nMarcadas()===0); };
+      if(sel) sel.onchange=()=>{ if(outro){ outro.classList.toggle('hidden', sel.value!=='__outro__'); if(sel.value==='__outro__') setTimeout(()=>outro.focus(),0); } atualiza(); };
+      if(outro) outro.oninput=atualiza;
       ov.querySelectorAll('#cmCorpo .cm-chk').forEach(c=>c.onchange=atualiza);
       atualiza();
     }
   });
 }
 async function excluir(l){
-  let ids=[l.id];
+  // Gate financeiro: pago/recebido NÃO exclui — precisa estornar antes.
+  if(estaPago(l)){ aviso('Estorne antes de excluir', 'Este lançamento já foi recebido. Para excluí-lo, estorne o recebimento primeiro.'); return; }
   const temParc = /\(\d+\/\d+\)/.test(l.observacoes||'') && l.id_compra;
+  let ids=[l.id], motivo=null;
   if(temParc){
-    // LEVA 2.1: uma escolha única (3 opções) em vez de dois confirms sequenciais.
     const op = await escolher('Excluir lançamento parcelado', 'Esta compra tem várias parcelas.',
       [{rotulo:'Só esta parcela', valor:'esta', tipo:'primary'},
        {rotulo:'Todas as parcelas', valor:'todas', tipo:'danger'},
        {rotulo:'Cancelar', valor:null, tipo:'ghost'}]);
     if(!op) return;   // cancelar/dismiss
     if(op==='esta'){
-      // AJUSTE 2: confirma a parcela específica antes de excluir.
       const xy=rotuloParcela(l);
-      if(!await confirmar('Excluir parcela', `Excluir a parcela ${xy} no valor ${money(l.valor_total)}?`, {okLabel:'Excluir', danger:true})) return;
-      ids=[l.id];
+      const res = await pedirExclusao({titulo:'Excluir parcela', mensagem:`Excluir a parcela ${xy} no valor ${money(l.valor_total)}? Informe o motivo.`});
+      if(!res) return;
+      ids=[l.id]; motivo=res.motivo;
     } else {
-      // AJUSTE 2: lista todas as parcelas (com status); exclui só as selecionadas.
-      const grupo = lista.filter(x=>x.id_compra===l.id_compra);
-      const sel = await escolherParcelas(grupo);
-      if(!sel || !sel.length) return;   // cancelou ou nada marcado
-      ids = sel;
+      // "Todas": lista SÓ as não pagas — a paga não aparece, não pode ser marcada nem excluída.
+      const naoPagas = lista.filter(x=>x.id_compra===l.id_compra && !estaPago(x));
+      if(!naoPagas.length){ aviso('Nada a excluir', 'As parcelas desta compra já foram recebidas. Estorne antes de excluir.'); return; }
+      const res = await pedirExclusao({titulo:'Excluir parcelas', mensagem:'Desmarque as que NÃO quer excluir e informe o motivo.', parcelas:naoPagas});
+      if(!res || !res.ids.length) return;   // cancelou ou nada marcado
+      ids = res.ids; motivo=res.motivo;
     }
   } else {
-    if(!await confirmar('Excluir lançamento', 'Confirma a exclusão?', {okLabel:'Excluir', danger:true})) return;
+    const res = await pedirExclusao({titulo:'Excluir lançamento', mensagem:'Confirma a exclusão? Informe o motivo.'});
+    if(!res) return;
+    ids=[l.id]; motivo=res.motivo;
   }
   carregando(true,'Excluindo...');
-  // Soft-delete: marca deleted_at (a RLS esconde; nada é apagado de fato — auditoria).
-  const { error } = await sb.from('lancamentos').update({ deleted_at: new Date().toISOString() }).in('id', ids);
+  // Soft-delete: marca deleted_at + motivo_exclusao (a trigger de auditoria grava o motivo em dados_depois).
+  const { error } = await sb.from('lancamentos').update({ deleted_at: new Date().toISOString(), motivo_exclusao: motivo }).in('id', ids);
   await after(error, ids.length+' lançamento(s) excluído(s)');
 }
 async function after(error, msgOk){
@@ -2926,6 +2963,7 @@ async function renderAdmin(){
   await renderAdminIntegracao();
   await renderAdminCategorias();
   await renderAdminSetores();
+  await renderAdminMotivos();
   await renderAdminPoliticas();
   renderAdminAprovacao();
   renderAdminEmpresaOwner();
@@ -3067,6 +3105,45 @@ async function renomearSetor(id){
   const { error } = await sb.from('setores').update({ nome }).eq('id', id);
   carregando(false);
   if(!error){ await carregarSetoresDB(); renderAdminSetores(); toast('Setor renomeado','ok'); } else mostrarErro(error,'renomear setor');
+}
+/* --- Motivos de exclusão (cadastro por empresa; só gestor/owner via RLS) --- */
+let cacheMotivos=[];
+async function renderAdminMotivos(){
+  try{
+    const { data } = await sb.from('motivos_exclusao').select('*').eq('empresa_id', empresaId).order('nome',{ascending:true});
+    cacheMotivos=data||[];
+    const linhas = cacheMotivos.map(m=>`<div class="crow">
+      <span class="cnome" title="${esc(m.nome)}">${esc(m.nome)}</span>
+      <button class="ic-btn" title="Renomear" onclick="renomearMotivo('${m.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
+      <label class="switch" title="${m.ativo?'Ativo':'Inativo'}"><input type="checkbox" ${m.ativo?'checked':''} onchange="toggleMotivo('${m.id}',this.checked)"><span class="slider"></span></label></div>`).join('');
+    el('adminMotivos').innerHTML = `<div class="chart"><h3><i data-lucide="list-x" class="i-sm"></i> Motivos de exclusão</h3>
+      <div style="font-size:12px;color:var(--text-4);margin:-4px 0 10px">Aparecem no seletor obrigatório ao excluir um lançamento. Desative os que não quer oferecer.</div>
+      <div class="row2" style="margin-bottom:10px"><div class="field"><input type="text" id="novoMotivo" placeholder="Novo motivo"></div>
+        <div class="field"><button class="btn btn-sec" onclick="addMotivo()"><i data-lucide="plus" class="i-sm"></i> Adicionar</button></div></div>
+      <div class="lista-compacta">${linhas||'<div class="empty" style="padding:14px">Sem motivos cadastrados.</div>'}</div></div>`;
+    icons();
+  }catch(e){ el('adminMotivos').innerHTML=''; }
+}
+async function addMotivo(){
+  const nome=(el('novoMotivo').value||'').trim(); if(!nome){ toast('Informe o nome','erro'); return; }
+  carregando(true,'Adicionando...');
+  const { error } = await sb.from('motivos_exclusao').insert({ empresa_id:empresaId, nome });
+  carregando(false);
+  if(error){ mostrarErro(error,'adicionar motivo'); return; }
+  el('novoMotivo').value=''; await carregarMotivos(); renderAdminMotivos();
+}
+async function toggleMotivo(id, ativo){
+  const { error } = await sb.from('motivos_exclusao').update({ ativo: ativo==='true'||ativo===true }).eq('id', id);
+  if(!error){ await carregarMotivos(); renderAdminMotivos(); } else mostrarErro(error,'ativar/desativar motivo');
+}
+async function renomearMotivo(id){
+  const m=cacheMotivos.find(x=>String(x.id)===String(id)); if(!m) return;
+  const entrada=prompt('Novo nome do motivo:', m.nome); if(entrada===null) return;
+  const nome=entrada.trim(); if(!nome){ toast('Nome inválido','erro'); return; } if(nome===m.nome) return;
+  carregando(true,'Renomeando...');
+  const { error } = await sb.from('motivos_exclusao').update({ nome }).eq('id', id);
+  carregando(false);
+  if(!error){ await carregarMotivos(); renderAdminMotivos(); toast('Motivo renomeado','ok'); } else mostrarErro(error,'renomear motivo');
 }
 let cacheCategorias=[];
 async function renderAdminCategorias(){
