@@ -1,0 +1,17 @@
+Verificação pós-0011 (read-only, 2026-08-05):
+
+tabela_existe: true
+rls_habilitada: true
+policies:
+  motivos_exclusao_sel  SELECT  usuario_e_owner() OR empresa_id IN (empresas_do_usuario())
+  motivos_exclusao_ins  INSERT  (with check) usuario_e_owner() OR meu_papel(empresa_id)='gestor'
+  motivos_exclusao_upd  UPDATE  usuario_e_owner() OR meu_papel(empresa_id)='gestor'
+  motivos_exclusao_del  DELETE  usuario_e_owner() OR meu_papel(empresa_id)='gestor'
+coluna lancamentos.motivo_exclusao: existe=true, nullable=YES
+seed_por_empresa:
+  727e4732-6b9d-46fc-84f8-352209454952 -> 4 motivos, todos ativos
+  a1a1a1a1-0000-4000-8000-000000000001 -> 4 motivos, todos ativos
+total_empresas: 2
+
+=> RLS no padrao (SELECT por empresa; escrita so gestor/owner), coluna nula criada,
+   seed presente (4 motivos) nas 2 empresas. Migration 0011 OK.

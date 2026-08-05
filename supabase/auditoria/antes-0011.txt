@@ -1,0 +1,5 @@
+Registro do "antes" da migration 0011 (read-only, 2026-08-05):
+{"motivos_exclusao_existe": false,
+ "lancamentos_tem_motivo_exclusao": false,
+ "lancamentos_total": 59}
+-> tabela e coluna nao existiam; a 0011 e aditiva e nao altera as 59 linhas.
