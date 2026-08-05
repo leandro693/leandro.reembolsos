@@ -1,12 +1,16 @@
--- READ-ONLY probe: papel usado pela Management API e se a RLS bloqueia o SELECT.
+-- READ-ONLY: exemplos concretos (pago vs a receber) + cruzamento status x situacao x data_pagamento.
 select json_build_object(
-  'current_user', current_user,
-  'session_user', session_user,
-  'lanc_relrowsecurity', (select relrowsecurity from pg_class where oid='public.lancamentos'::regclass),
-  'lanc_relforcerowsecurity', (select relforcerowsecurity from pg_class where oid='public.lancamentos'::regclass),
-  'lanc_owner', (select pg_get_userbyid(relowner) from pg_class where oid='public.lancamentos'::regclass),
-  'lanc_total', (select count(*) from public.lancamentos),
-  'pago_status', (select count(*) from public.lancamentos where status='pago'),
-  'com_data_pag', (select count(*) from public.lancamentos where data_pagamento is not null),
-  'situacao_pago', (select count(*) from public.lancamentos where situacao='pago')
-) as probe;
+  'exemplos_pagos', (select json_agg(row_to_json(p)) from (
+     select status, situacao, data_pagamento, parcela_num, parcela_total, (id_compra is not null) as e_parcela
+     from public.lancamentos where status='pago' and deleted_at is null
+     order by data_pagamento desc nulls last limit 5) p),
+  'exemplos_a_receber', (select json_agg(row_to_json(a)) from (
+     select status, situacao, data_pagamento, parcela_num, parcela_total, (id_compra is not null) as e_parcela
+     from public.lancamentos where status<>'pago' and deleted_at is null
+     order by criado_em desc limit 5) a),
+  'cruzamento', (select json_agg(row_to_json(c)) from (
+     select status, situacao, (data_pagamento is not null) as tem_data_pag, count(*) as qtd
+     from public.lancamentos where deleted_at is null
+     group by status, situacao, (data_pagamento is not null)
+     order by status, situacao, 3) c)
+) as r;
