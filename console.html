@@ -182,6 +182,18 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 /* toast + loading */
 #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;gap:8px;align-items:center}
 .tmsg{background:var(--surface);border:1px solid var(--border-strong);border-left-width:4px;box-shadow:0 6px 24px rgba(0,0,0,.16);border-radius:10px;padding:11px 16px;font-size:13.5px;font-weight:600;color:var(--text)}
+/* LEVA 2.1: modal de confirmação (Maradel). */
+.cm-ov{position:fixed;inset:0;z-index:130;background:rgba(43,43,45,.55);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px}
+.cm-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.30);width:100%;max-width:400px;padding:20px 20px 18px}
+.cm-title{font-size:16px;font-weight:700;color:var(--text-strong);margin-bottom:8px}
+.cm-msg{font-size:13.5px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-bottom:18px}
+.cm-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.cm-btn{padding:10px 16px;min-height:42px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);transition:.15s}
+.cm-btn:hover{background:var(--surface-2)}
+.cm-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.cm-btn.primary:hover{opacity:.92}
+.cm-btn.danger{background:transparent;border-color:var(--err-border);color:var(--err-fg)}
+.cm-btn.danger:hover{background:var(--err-bg)}
 .tmsg.ok{border-left-color:var(--ok-fg)} .tmsg.erro{border-left-color:var(--err-fg)}
 #load{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
 #load .card{display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text)}
@@ -244,6 +256,14 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 </div>
 
 <div id="toast"></div>
+<!-- LEVA 2.1: modal de confirmação (identidade Maradel) — substitui os confirm() nativos -->
+<div id="confirmOverlay" class="cm-ov hidden" onclick="if(event.target===this) fecharModalDismiss()">
+  <div class="cm-box" role="dialog" aria-modal="true" aria-labelledby="cmTitulo">
+    <h3 class="cm-title" id="cmTitulo"></h3>
+    <p class="cm-msg" id="cmMsg"></p>
+    <div class="cm-actions" id="cmAcoes"></div>
+  </div>
+</div>
 <div id="load" class="hidden"><div class="card"><span class="spin"></span><span id="loadTxt">Carregando...</span></div></div>
 
 <script>
@@ -270,7 +290,8 @@ const SECOES=[
 /* ---------- helpers ---------- */
 function el(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function money(n){ n=Number(n)||0; const s=Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); return 'R$ '+s; }
+/* LEVA 2.1: valor SEM prefixo "R$" (CLAUDE.md §11.2) e SEMPRE com 2 casas. */
+function money(n){ n=Number(n)||0; return Math.abs(n).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
 function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
 function icons(){ if(window.lucide) lucide.createIcons(); }
 function carregando(v,txt){ el('load').classList.toggle('hidden',!v); if(txt) el('loadTxt').textContent=txt; }
@@ -295,6 +316,39 @@ function mostrarErro(erro, contexto){
   console.error('['+cod+'] '+(contexto||''), erro);
   toast(frase+' ('+cod+')','erro');
 }
+
+/* LEVA 2.1: Modal de confirmação (Maradel). Assíncrono (Promise); nunca trava. */
+let _modalResolver=null, _modalDismiss=null;
+function modal({titulo, mensagem, botoes, dismissValor=null}){
+  const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
+  if(_modalResolver) _fecharModal(_modalDismiss);
+  el('cmTitulo').textContent = titulo||'';
+  el('cmMsg').textContent = mensagem||'';
+  const box=el('cmAcoes');
+  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}">${esc(b.rotulo)}</button>`).join('');
+  _modalDismiss = dismissValor;
+  return new Promise(res=>{
+    _modalResolver = res;
+    box.querySelectorAll('button[data-cmi]').forEach(btn=>{
+      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b?b.valor:dismissValor); };
+    });
+    ov.classList.remove('hidden');
+    const prim = box.querySelector('.cm-btn.primary, .cm-btn.danger') || box.querySelector('.cm-btn');
+    if(prim) setTimeout(()=>prim.focus(), 0);
+  });
+}
+function _fecharModal(valor){ const ov=el('confirmOverlay'); if(ov) ov.classList.add('hidden'); const r=_modalResolver; _modalResolver=null; if(r) r(valor); }
+function modalAberto(){ const ov=el('confirmOverlay'); return !!ov && !ov.classList.contains('hidden'); }
+function fecharModalDismiss(){ if(modalAberto()) _fecharModal(_modalDismiss); }
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modalAberto()) fecharModalDismiss(); });
+function aviso(titulo, mensagem){ return modal({titulo, mensagem, dismissValor:true, botoes:[{rotulo:'OK', valor:true, tipo:'primary'}]}); }
+function confirmar(titulo, mensagem, opts={}){
+  return modal({titulo, mensagem, dismissValor:false, botoes:[
+    {rotulo:opts.cancelLabel||'Cancelar', valor:false, tipo:'ghost'},
+    {rotulo:opts.okLabel||'Confirmar', valor:true, tipo:opts.danger?'danger':'primary'}
+  ]});
+}
+function escolher(titulo, mensagem, botoes){ return modal({titulo, mensagem, botoes, dismissValor:null}); }
 
 /* ---------- tema ---------- */
 function toggleTema(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
@@ -559,7 +613,7 @@ async function addPolitica(){
   carregando(true,'Adicionando...'); const {error}=await sb.from('politicas_limite').insert({empresa_id:ctxId,valor_limite:v,periodo:el('polPeriodo').value}); carregando(false);
   if(error){ mostrarErro(error,'adicionar política'); return; } renderPoliticas();
 }
-async function excluirPolitica(id){ if(!confirm('Remover esta política?')) return;
+async function excluirPolitica(id){ if(!await confirmar('Remover política', 'Remover esta política?', {okLabel:'Remover', danger:true})) return;
   const {error}=await sb.from('politicas_limite').delete().eq('id',id); if(!error) renderPoliticas(); else mostrarErro(error,'remover política'); }
 
 /* ---- Aprovação ---- */

@@ -406,6 +406,19 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .crop-rect .ch.sw{left:-9px;bottom:-9px;cursor:nesw-resize}
 .crop-rect .ch.se{right:-9px;bottom:-9px;cursor:nwse-resize}
 .crop-actions{display:flex;gap:10px}
+/* LEVA 2.1: modal de confirmação (Maradel). Centralizado, overlay grafite, terracota. */
+.cm-ov{position:fixed;inset:0;z-index:130;background:rgba(43,43,45,.55);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px}
+.cm-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.30);width:100%;max-width:400px;padding:20px 20px 18px;animation:cmIn .16s ease}
+@keyframes cmIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.cm-title{font-size:16px;font-weight:700;color:var(--text-strong);margin-bottom:8px}
+.cm-msg{font-size:13.5px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-bottom:18px}
+.cm-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.cm-btn{padding:10px 16px;min-height:42px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);transition:.15s}
+.cm-btn:hover{background:var(--surface-2)}
+.cm-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.cm-btn.primary:hover{opacity:.92}
+.cm-btn.danger{background:transparent;border-color:var(--err-border);color:var(--err-fg)}
+.cm-btn.danger:hover{background:var(--err-bg)}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
@@ -1004,6 +1017,15 @@ body.nav-open .nav-backdrop{display:block}
   </div>
 </div>
 
+<!-- LEVA 2.1: modal de confirmação (identidade Maradel) — substitui os confirm() nativos -->
+<div id="confirmOverlay" class="cm-ov hidden" onclick="if(event.target===this) fecharModalDismiss()">
+  <div class="cm-box" role="dialog" aria-modal="true" aria-labelledby="cmTitulo">
+    <h3 class="cm-title" id="cmTitulo"></h3>
+    <p class="cm-msg" id="cmMsg"></p>
+    <div class="cm-actions" id="cmAcoes"></div>
+  </div>
+</div>
+
 <!-- LOADING & TOAST -->
 <div id="loading" class="loading hidden"><div class="spinner"></div><p id="loadingMsg">Processando...</p></div>
 
@@ -1178,9 +1200,11 @@ function voltar(){
 function armarHistorico(){
   try{ history.replaceState({app:1},''); history.pushState({app:1},''); }catch(e){}
 }
-/* Fecha o primeiro overlay/modal aberto, por prioridade. Devolve true se fechou. */
+/* Fecha o primeiro overlay/modal aberto, por prioridade. Devolve true se fechou.
+   LEVA 2.1: o modal de confirmação entra na fila — o "voltar" o fecha como Cancelar. */
 function fecharOverlayAberto(){
   const aberto = id => { const e=el(id); return !!e && !e.classList.contains('hidden'); };
+  if(modalAberto()){ fecharModalDismiss(); return true; }        // back = cancelar o modal
   if(aberto('cropOverlay')){ cancelarRecorte(); return true; }   // preserva a foto, NÃO lê
   if(aberto('compOverlay')){ fecharComprovante(); return true; }
   if(aberto('fornModal')){ fecharFornModal(); return true; }
@@ -1188,12 +1212,19 @@ function fecharOverlayAberto(){
   if(document.querySelector('.menu:not(.hidden)')){ fecharMenus(); return true; }
   return false;
 }
-/* Hierarquia: 1) fecha overlay; 2) volta à tela anterior; 3) confirma a saída. */
+let _saindo=false;   // LEVA 2.1: guarda os popstates da saída programática (go(-2))
+function sairDoApp(){ _saindo=true; history.go(-2); }   // cruza as sentinelas e sai
+/* Hierarquia: 1) fecha overlay/modal; 2) volta à tela anterior; 3) confirma a saída.
+   LEVA 2.1: o "Sair do sistema?" agora é modal ASSÍNCRONO. Re-arma a sentinela ANTES
+   de abrir (o app nunca fica exposto); só sai no "Sim". Enquanto o modal está aberto,
+   um novo "voltar" cai em fecharOverlayAberto e apenas o cancela (não sai sem querer). */
 function voltarFisico(){
+  if(_saindo) return;                                           // ignora os popstates da saída
   if(fecharOverlayAberto()){ armarHistorico(); return; }        // só fecha, não troca de tela
   if(telaAtual!=='scInicio'){ voltar(); armarHistorico(); return; }
-  if(confirm('Sair do sistema?')){ history.back(); return; }    // sai de fato
-  armarHistorico();                                             // "Não": continua no app
+  armarHistorico();                                             // re-arma JÁ (seguro)
+  confirmar('Sair do sistema?', 'Deseja sair do sistema?', {okLabel:'Sair', cancelLabel:'Ficar', danger:true})
+    .then(sim=>{ if(sim) sairDoApp(); });
 }
 window.addEventListener('popstate', voltarFisico);
 function irInicio(){ tela('scInicio'); renderInicio(); }
@@ -1334,7 +1365,7 @@ el('loginForm').addEventListener('submit', async (e)=>{
 });
 
 async function sair(){
-  if(!confirm('Sair da conta neste aparelho?')) return;
+  if(!await confirmar('Sair da conta', 'Sair da conta neste aparelho?', {okLabel:'Sair', danger:true})) return;
   await sb.auth.signOut();
   user=null; lista=[];
   mostrarLogin();
@@ -1559,7 +1590,7 @@ async function salvarFornecedor(){
 async function excluirFornecedor(f){
   const qtd = lista.filter(l=>l.fornecedor_id===f.id).length;
   const aviso = qtd ? `\n\nOs ${qtd} lançamento(s) ligados a ele continuam, apenas sem vínculo com o cadastro.` : '';
-  if(!confirm(`Excluir o fornecedor “${f.nome}”?${aviso}`)) return;
+  if(!await confirmar('Excluir fornecedor', `Excluir “${f.nome}”?${aviso}`, {okLabel:'Excluir', danger:true})) return;
   carregando(true,'Excluindo...');
   try{
     const { error } = await sb.from('fornecedores').delete().eq('id',f.id);
@@ -1679,7 +1710,7 @@ function bindAcoes(containerId){
   };
 }
 async function decidirAprovacao(l, decisao){
-  if(decisao==='rejeitado' && !confirm('Rejeitar este lançamento?')) return;
+  if(decisao==='rejeitado' && !(await confirmar('Rejeitar lançamento', 'Rejeitar este lançamento?', {okLabel:'Rejeitar', danger:true}))) return;
   carregando(true, decisao==='aprovado'?'Aprovando...':'Rejeitando...');
   const { error } = await sb.from('lancamentos').update({ aprovacao:decisao }).eq('id', l.id);
   await after(error, decisao==='aprovado'?'Lançamento aprovado':'Lançamento rejeitado');
@@ -1938,7 +1969,7 @@ async function analisarFoto(){
     // dados frescos da IA e antes de o usuário editar. Forçar guarda; cancelar limpa a foto.
     const confDoc = await checarDuplicataDocumento(data);
     if(confDoc){
-      if(avisarDuplicataDocumento(confDoc)) docConflito = { lanc:confDoc };
+      if(await avisarDuplicataDocumento(confDoc)) docConflito = { lanc:confDoc };
       else { limparFoto(); return; }
     }
     // Sucesso: nota de conferência (ou de atenção se veio incompleto/acima do teto).
@@ -2064,15 +2095,15 @@ function descreverLancamento(l){
   else st='A receber';
   return `${n} · ${st} · ${money(l.valor_total)} · ${brDate(l.data_emissao||l.vencimento)}`;
 }
-/* Aviso forte de imagem já lançada. Devolve true se o usuário optar por prosseguir. */
-function avisarDuplicataImagem(lanc){
-  return confirm('Esta mesma imagem já foi lançada.\n\n'+descreverLancamento(lanc)+
-    '\n\nDeseja prosseguir mesmo assim?');
+/* Aviso forte de imagem já lançada (async). Resolve true se optar por prosseguir. */
+async function avisarDuplicataImagem(lanc){
+  return await confirmar('Imagem já lançada',
+    descreverLancamento(lanc)+'\n\nDeseja prosseguir mesmo assim?', {okLabel:'Prosseguir', danger:true});
 }
-/* Aviso forte de documento já lançado (mesmo CNPJ e número/valor). Devolve true se prosseguir. */
-function avisarDuplicataDocumento(lanc){
-  return confirm('Este mesmo documento já foi lançado (mesmo estabelecimento e nota/valor).\n\n'+
-    descreverLancamento(lanc)+'\n\nDeseja prosseguir mesmo assim?');
+/* Aviso forte de documento já lançado (async, mesmo CNPJ e número/valor). */
+async function avisarDuplicataDocumento(lanc){
+  return await confirmar('Documento já lançado',
+    'Mesmo estabelecimento e nota/valor.\n\n'+descreverLancamento(lanc)+'\n\nDeseja prosseguir mesmo assim?', {okLabel:'Prosseguir', danger:true});
 }
 /* Remove só o anexo (sem limpar o formulário), quando o usuário cancela a duplicata. */
 function limparFoto(){
@@ -2150,7 +2181,11 @@ async function acharOuCriarFornecedor(nome, cnpj){
     let melhor=null, melhorSim=0;
     for(const f of candidatos){ const s=similaridade(alvo, normNome(f.nome)); if(s>melhorSim){ melhorSim=s; melhor=f; } }
     if(melhor && melhorSim>=0.88){
-      if(confirm(`"${nomeLimpo}" parece ser o mesmo que "${melhor.nome}" já cadastrado.\n\nOK = usar o existente\nCancelar = criar um novo`)) return melhor.id;
+      const op = await escolher('Fornecedor parecido',
+        `"${nomeLimpo}" parece ser o mesmo que "${melhor.nome}" já cadastrado.`,
+        [{rotulo:'Usar o existente', valor:'usar', tipo:'primary'},
+         {rotulo:'Criar novo', valor:'novo', tipo:'ghost'}]);
+      if(op==='usar') return melhor.id;
     }
     // (e) sem certeza → cria novo (erra para criar, nunca para fundir).
     return await criarFornecedor(nomeLimpo, '');
@@ -2216,12 +2251,12 @@ async function lancar(){
       try{ await sb.rpc('registrar_alerta', { p_empresa: empresaId, p_lancamento: dup.id, p_tipo:'duplicata',
         p_detalhe:{ data_emissao:dataEmissao, numero_nota:numeroNota, valor:num('fValor'), cnpj } }); }catch(e){}
       const ref = numeroNota ? ('nota nº '+numeroNota) : ('valor '+money(num('fValor')));
-      if(confirm(`Já existe um lançamento com esta data e ${ref}`+(dup.fornecedor?` (${dup.fornecedor})`:'')+
-        `.\n\nPara evitar duplicidade, este novo lançamento NÃO será incluído.\n\nDeseja abrir o lançamento anterior para editar?`)){
-        abrirEdicao(dup, 'scConsultas');
-      } else {
-        toast('Lançamento não incluído (possível duplicidade).','erro');
-      }
+      const abrir = await confirmar('Possível duplicidade',
+        `Já existe um lançamento com esta data e ${ref}`+(dup.fornecedor?` (${dup.fornecedor})`:'')+
+        `.\n\nPara evitar duplicidade, este novo lançamento NÃO será incluído.\n\nAbrir o lançamento anterior para editar?`,
+        {okLabel:'Abrir anterior'});
+      if(abrir) abrirEdicao(dup, 'scConsultas');
+      else toast('Lançamento não incluído (possível duplicidade).','erro');
       return;
     }
   }
@@ -2234,7 +2269,7 @@ async function lancar(){
     if(arqHash){
       const achado = await checarDuplicataHash(arqHash);
       if(achado){
-        if(!avisarDuplicataImagem(achado)){ toast('Lançamento cancelado (imagem já lançada).','erro'); return; }
+        if(!(await avisarDuplicataImagem(achado))){ toast('Lançamento cancelado (imagem já lançada).','erro'); return; }
         conflitoDup = achado;                                  // forçado agora, com o arquivo final
       } else if(dupConflito){
         conflitoDup = dupConflito.lanc;                        // forçado no anexo (mesma foto, ainda válida)
@@ -2295,13 +2330,13 @@ async function lancar(){
    RECEBER / ESTORNAR / EXCLUIR / EDITAR
    ========================================================================== */
 async function receber(l){
-  if(!confirm('Marcar como recebido?')) return;
+  if(!await confirmar('Marcar recebido', 'Marcar como recebido?')) return;
   carregando(true,'Salvando...');
   const { error } = await sb.from('lancamentos').update({status:'pago', data_pagamento:isoToday()}).eq('id', l.id);
   await after(error,'Marcado como recebido');
 }
 async function estornar(l){
-  if(!confirm('Estornar o recebimento? Volta para "A receber".')) return;
+  if(!await confirmar('Estornar recebimento', 'Estornar o recebimento? Volta para "A receber".', {okLabel:'Estornar', danger:true})) return;
   carregando(true,'Estornando...');
   const { error } = await sb.from('lancamentos').update({status:'aberto', data_pagamento:null, comprovante_pagamento:''}).eq('id', l.id);
   await after(error,'Recebimento estornado');
@@ -2310,10 +2345,16 @@ async function excluir(l){
   let ids=[l.id];
   const temParc = /\(\d+\/\d+\)/.test(l.observacoes||'') && l.id_compra;
   if(temParc){
-    const todas=confirm('Lançamento parcelado.\n\nOK = excluir TODAS as parcelas desta compra.\nCancelar = excluir só esta parcela.');
-    if(todas) ids = lista.filter(x=>x.id_compra===l.id_compra).map(x=>x.id);
+    // LEVA 2.1: uma escolha única (3 opções) em vez de dois confirms sequenciais.
+    const op = await escolher('Excluir lançamento parcelado', 'Esta compra tem várias parcelas.',
+      [{rotulo:'Só esta parcela', valor:'esta', tipo:'primary'},
+       {rotulo:'Todas as parcelas', valor:'todas', tipo:'danger'},
+       {rotulo:'Cancelar', valor:null, tipo:'ghost'}]);
+    if(!op) return;   // cancelar/dismiss
+    if(op==='todas') ids = lista.filter(x=>x.id_compra===l.id_compra).map(x=>x.id);
+  } else {
+    if(!await confirmar('Excluir lançamento', 'Confirma a exclusão?', {okLabel:'Excluir', danger:true})) return;
   }
-  if(!confirm('Confirma a exclusão?')) return;
   carregando(true,'Excluindo...');
   // Soft-delete: marca deleted_at (a RLS esconde; nada é apagado de fato — auditoria).
   const { error } = await sb.from('lancamentos').update({ deleted_at: new Date().toISOString() }).in('id', ids);
@@ -2350,10 +2391,10 @@ async function mostrarComprovanteViewer(path){
     if(data && data.signedUrl) abrirViewer(data.signedUrl, /\.pdf$/i.test(path)?'application/pdf':'image');
   }catch(e){ /* silencioso */ }
 }
-function adiarMes(){
+async function adiarMes(){
   const atual=el('eVenc').value||isoToday();
   const nova=isoVenc10(atual,1);
-  if(!confirm('Adiar o vencimento para '+brDate(nova)+'?')) return;
+  if(!await confirmar('Adiar vencimento', 'Adiar o vencimento para '+brDate(nova)+'?')) return;
   el('eVenc').value=nova; toast('Vencimento ajustado. Salve para confirmar.','ok');
 }
 async function salvarEdicao(){
@@ -2557,7 +2598,7 @@ async function marcarSelecionados(){
   const ids=[...selConsulta]; if(!ids.length) return;
   const dp=el('marcarData').value||isoToday();
   const comProva = pagFile ? ' com comprovante de pagamento' : '';
-  if(!confirm(`Marcar ${ids.length} lançamento(s) como recebidos em ${brDate(dp)}${comProva}?`)) return;
+  if(!await confirmar('Marcar recebidos', `Marcar ${ids.length} lançamento(s) como recebidos em ${brDate(dp)}${comProva}?`)) return;
   carregando(true,'Marcando...');
   const patch={ status:'pago', data_pagamento:dp };
   if(pagFile){
@@ -2676,7 +2717,7 @@ function renderMarcar(){
 async function marcarTodos(){
   const arr=listaMarcar(); if(!arr.length) return;
   const comProva = mPagFile ? ' com comprovante de pagamento' : '';
-  if(!confirm(`Fechar o lote: marcar ${arr.length} lançamento(s) · ${money(soma(arr))} como pagos${comProva}?`)) return;
+  if(!await confirmar('Fechar o lote', `Marcar ${arr.length} lançamento(s) · ${money(soma(arr))} como pagos${comProva}?`, {okLabel:'Fechar lote'})) return;
   carregando(true,'Fechando lote...');
   const dp=el('mData').value||isoToday();
   const patch={ status:'pago', data_pagamento:dp };
@@ -3020,7 +3061,7 @@ async function addPolitica(){
   el('polValor').value=''; renderAdminPoliticas();
 }
 async function excluirPolitica(id){
-  if(!confirm('Remover esta política?')) return;
+  if(!await confirmar('Remover política', 'Remover esta política?', {okLabel:'Remover', danger:true})) return;
   const { error } = await sb.from('politicas_limite').delete().eq('id', id);
   if(!error) renderAdminPoliticas(); else mostrarErro(error,'remover política');
 }
@@ -3198,7 +3239,7 @@ async function gerarBalancete(){
   if(!consultaVisivel.length){ toast('Nada para gerar','erro'); return; }
   if(!window.jspdf){ toast('Biblioteca PDF não carregou','erro'); return; }
   const comAnexo=consultaVisivel.filter(l=>l.comprovante);
-  if(!comAnexo.length && !confirm('Nenhum lançamento desta lista tem comprovante anexado. Gerar só o resumo?')) return;
+  if(!comAnexo.length && !(await confirmar('Balancete', 'Nenhum lançamento desta lista tem comprovante anexado. Gerar só o resumo?', {okLabel:'Gerar resumo'}))) return;
   const { jsPDF }=window.jspdf; const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   desenharResumo(doc);
   let img=0,falha=0;
@@ -3244,6 +3285,50 @@ function mostrarErro(erro, contexto){
   console.error('['+cod+'] '+(contexto||''), erro);
   toast(frase+' ('+cod+')','erro');
 }
+
+/* ============================================================================
+   LEVA 2.1: Modal de confirmação (Maradel). Assíncrono (Promise): resolve com o
+   `valor` do botão clicado, ou `dismissValor` ao fechar no overlay/Esc/voltar.
+   Substitui os confirm()/alert() nativos. Nunca trava (sempre resolve).
+   ========================================================================== */
+let _modalResolver=null, _modalDismiss=null;
+function modal({titulo, mensagem, botoes, dismissValor=null}){
+  const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
+  if(_modalResolver) _fecharModal(_modalDismiss);   // fecha um modal anterior (não empilha)
+  el('cmTitulo').textContent = titulo||'';
+  el('cmMsg').textContent = mensagem||'';
+  const box=el('cmAcoes');
+  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}">${esc(b.rotulo)}</button>`).join('');
+  _modalDismiss = dismissValor;
+  return new Promise(res=>{
+    _modalResolver = res;
+    box.querySelectorAll('button[data-cmi]').forEach(btn=>{
+      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b?b.valor:dismissValor); };
+    });
+    ov.classList.remove('hidden');
+    const prim = box.querySelector('.cm-btn.primary, .cm-btn.danger') || box.querySelector('.cm-btn');
+    if(prim) setTimeout(()=>prim.focus(), 0);
+  });
+}
+function _fecharModal(valor){
+  const ov=el('confirmOverlay'); if(ov) ov.classList.add('hidden');
+  const r=_modalResolver; _modalResolver=null;
+  if(r) r(valor);
+}
+/* true quando o modal está aberto (o voltar físico o fecha como "cancelar"). */
+function modalAberto(){ const ov=el('confirmOverlay'); return !!ov && !ov.classList.contains('hidden'); }
+function fecharModalDismiss(){ if(modalAberto()) _fecharModal(_modalDismiss); }
+window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modalAberto()) fecharModalDismiss(); });
+/* Atalhos. aviso: 1 botão OK (cobre alert). confirmar: Cancelar/OK -> boolean.
+   escolher: N opções -> resolve o `valor` escolhido (ou dismissValor). */
+function aviso(titulo, mensagem){ return modal({titulo, mensagem, dismissValor:true, botoes:[{rotulo:'OK', valor:true, tipo:'primary'}]}); }
+function confirmar(titulo, mensagem, opts={}){
+  return modal({titulo, mensagem, dismissValor:false, botoes:[
+    {rotulo:opts.cancelLabel||'Cancelar', valor:false, tipo:'ghost'},
+    {rotulo:opts.okLabel||'Confirmar', valor:true, tipo:opts.danger?'danger':'primary'}
+  ]});
+}
+function escolher(titulo, mensagem, botoes){ return modal({titulo, mensagem, botoes, dismissValor:null}); }
 
 /* Ao cruzar o limite celular/computador, re-renderiza a tela ativa (tabela x cartões) */
 let _rzTimer=null, _rzWide=null;
