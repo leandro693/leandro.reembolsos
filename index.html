@@ -419,6 +419,18 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .cm-btn.primary:hover{opacity:.92}
 .cm-btn.danger{background:transparent;border-color:var(--err-border);color:var(--err-fg)}
 .cm-btn.danger:hover{background:var(--err-bg)}
+.cm-btn:disabled{opacity:.45;cursor:not-allowed}
+.cm-btn:disabled:hover{background:var(--surface)}
+/* AJUSTE 2: corpo customizado do modal — lista de parcelas com checkbox e status. */
+.cm-corpo{margin-bottom:18px}
+.cm-lista{display:flex;flex-direction:column;gap:6px;max-height:44vh;overflow-y:auto}
+.cm-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);cursor:pointer}
+.cm-item:hover{border-color:var(--border-strong)}
+.cm-chk{width:18px;height:18px;flex:none;accent-color:var(--accent);cursor:pointer}
+.cm-item-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cm-item-info b{font-size:13px;color:var(--text-strong)}
+.cm-item-sub{font-size:11.5px;color:var(--text-2)}
+.cm-item .val{font-size:13px;color:var(--text);font-weight:600}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
@@ -1022,6 +1034,7 @@ body.nav-open .nav-backdrop{display:block}
   <div class="cm-box" role="dialog" aria-modal="true" aria-labelledby="cmTitulo">
     <h3 class="cm-title" id="cmTitulo"></h3>
     <p class="cm-msg" id="cmMsg"></p>
+    <div class="cm-corpo hidden" id="cmCorpo"></div>
     <div class="cm-actions" id="cmAcoes"></div>
   </div>
 </div>
@@ -1197,9 +1210,17 @@ function voltar(){
    consome a sentinela e o handler a re-arma → o histórico nunca cresce.
    A URL não muda (sem rota/hash), então atualizar a página segue funcionando.
    ========================================================================== */
-function armarHistorico(){
-  try{ history.replaceState({app:1},''); history.pushState({app:1},''); }catch(e){}
-}
+/* AJUSTE 1: trap do voltar físico com BUFFER de 2 sentinelas na ENTRADA — cobre o
+   "voltar zero-toque" logo ao entrar (a entrada empurrada no load pode não ser um
+   ponto de volta confiável no 1º back). Após o 1º back tratado, reduz a 1 sentinela
+   e mantém assim (não cresce o histórico). Base/sentinelas marcadas no history.state. */
+function marcarBase(){ try{ history.replaceState({base:true},''); }catch(e){} }
+function pushSentinela(){ try{ history.pushState({sent:true},''); }catch(e){} }
+function armarBuffer(){ marcarBase(); pushSentinela(); pushSentinela(); }   // base + 2 sentinelas
+/* Após tratar um popstate: mantém EXATAMENTE 1 sentinela acima da base.
+   - caiu na base  -> empurra 1 (restaura a proteção)
+   - já numa sentinela (buffer 2->1) -> NÃO empurra (evita empilhar). */
+function rearmarAposBack(){ const st=history.state; if(!st || st.base) pushSentinela(); }
 /* Fecha o primeiro overlay/modal aberto, por prioridade. Devolve true se fechou.
    LEVA 2.1: o modal de confirmação entra na fila — o "voltar" o fecha como Cancelar. */
 function fecharOverlayAberto(){
@@ -1220,13 +1241,20 @@ function sairDoApp(){ _saindo=true; history.go(-2); }   // cruza as sentinelas e
    um novo "voltar" cai em fecharOverlayAberto e apenas o cancela (não sai sem querer). */
 function voltarFisico(){
   if(_saindo) return;                                           // ignora os popstates da saída
-  if(fecharOverlayAberto()){ armarHistorico(); return; }        // só fecha, não troca de tela
-  if(telaAtual!=='scInicio'){ voltar(); armarHistorico(); return; }
-  armarHistorico();                                             // re-arma JÁ (seguro)
+  if(fecharOverlayAberto()){ rearmarAposBack(); return; }       // só fecha, não troca de tela
+  if(telaAtual!=='scInicio'){ voltar(); rearmarAposBack(); return; }
+  rearmarAposBack();                                            // re-arma JÁ (seguro; buffer -> 1)
   confirmar('Sair do sistema?', 'Deseja sair do sistema?', {okLabel:'Sair', cancelLabel:'Ficar', danger:true})
     .then(sim=>{ if(sim) sairDoApp(); });
 }
 window.addEventListener('popstate', voltarFisico);
+/* Reforço: se a armadilha se perder, o 1º gesto/pageshow re-arma o buffer UMA vez
+   (não cresce: só age quando NÃO estamos numa sentinela). */
+let _reforcoFeito=false;
+function reforcarTrap(){ if(_reforcoFeito) return; _reforcoFeito=true; if(!(history.state && history.state.sent)) armarBuffer(); }
+window.addEventListener('pointerdown', reforcarTrap, {passive:true, once:false});
+window.addEventListener('keydown', reforcarTrap);
+window.addEventListener('pageshow', reforcarTrap);
 function irInicio(){ tela('scInicio'); renderInicio(); }
 function irAjustes(){ tela('scAjustes'); prepararAjustes(); }
 
@@ -1294,7 +1322,8 @@ async function entrar(session){
   aplicarNavPapel();
   pilhaTelas = [];      // sessão nova: pilha do voltar começa vazia
   tela('scInicio');
-  armarHistorico();     // arma a sentinela do voltar físico (Android)
+  _reforcoFeito=false;  // nova sessão: permite o reforço por gesto/pageshow reagir
+  armarBuffer();        // AJUSTE 1: buffer de 2 sentinelas (cobre o voltar zero-toque ao entrar)
   await carregarLista();
   renderInicio();
 }
@@ -2341,6 +2370,41 @@ async function estornar(l){
   const { error } = await sb.from('lancamentos').update({status:'aberto', data_pagamento:null, comprovante_pagamento:''}).eq('id', l.id);
   await after(error,'Recebimento estornado');
 }
+/* AJUSTE 2: rótulo x/y da parcela e status para a lista de exclusão. */
+function rotuloParcela(l){ const m=(l.observacoes||'').match(/\((\d+)\/(\d+)\)/); return m?`${m[1]}/${m[2]}`:''; }
+function statusParcela(l){
+  if(l.status==='pago') return 'Recebida';
+  if(l.vencimento && String(l.vencimento).slice(0,10)<isoToday()) return 'Vencida';
+  return 'A receber';
+}
+/* Modal com a LISTA de parcelas (checkbox por parcela, todas marcadas por padrão).
+   Devolve os ids marcados ao clicar "Excluir selecionadas" (desabilitado se zero),
+   ou null ao cancelar/dismiss. Reusa o componente modal (corpoHtml/aoMontar/resolver). */
+function escolherParcelas(grupo){
+  const corpo = `<div class="cm-lista">`+grupo.map(l=>{
+    const xy=rotuloParcela(l);
+    return `<label class="cm-item">
+      <input type="checkbox" class="cm-chk" data-id="${esc(l.id)}" checked>
+      <span class="cm-item-info"><b>${xy?'Parcela '+xy:'Parcela'}</b>
+        <span class="cm-item-sub">venc. ${esc(brDate(l.vencimento))||'-'} · ${esc(statusParcela(l))}</span></span>
+      <span class="val num">${money(l.valor_total)}</span></label>`;
+  }).join('')+`</div>`;
+  return modal({
+    titulo:'Excluir parcelas', mensagem:'Desmarque as parcelas que NÃO quer excluir.',
+    corpoHtml: corpo, dismissValor:null,
+    botoes:[
+      {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+      {rotulo:'Excluir selecionadas', tipo:'danger', id:'cmExcluirSel',
+       resolver:()=>[...document.querySelectorAll('#cmCorpo .cm-chk:checked')].map(c=>c.getAttribute('data-id'))}
+    ],
+    aoMontar:(ov)=>{
+      const btn=ov.querySelector('#cmExcluirSel');
+      const atualiza=()=>{ if(btn) btn.disabled = ov.querySelectorAll('#cmCorpo .cm-chk:checked').length===0; };
+      ov.querySelectorAll('#cmCorpo .cm-chk').forEach(c=>c.onchange=atualiza);
+      atualiza();
+    }
+  });
+}
 async function excluir(l){
   let ids=[l.id];
   const temParc = /\(\d+\/\d+\)/.test(l.observacoes||'') && l.id_compra;
@@ -2351,7 +2415,18 @@ async function excluir(l){
        {rotulo:'Todas as parcelas', valor:'todas', tipo:'danger'},
        {rotulo:'Cancelar', valor:null, tipo:'ghost'}]);
     if(!op) return;   // cancelar/dismiss
-    if(op==='todas') ids = lista.filter(x=>x.id_compra===l.id_compra).map(x=>x.id);
+    if(op==='esta'){
+      // AJUSTE 2: confirma a parcela específica antes de excluir.
+      const xy=rotuloParcela(l);
+      if(!await confirmar('Excluir parcela', `Excluir a parcela ${xy} no valor ${money(l.valor_total)}?`, {okLabel:'Excluir', danger:true})) return;
+      ids=[l.id];
+    } else {
+      // AJUSTE 2: lista todas as parcelas (com status); exclui só as selecionadas.
+      const grupo = lista.filter(x=>x.id_compra===l.id_compra);
+      const sel = await escolherParcelas(grupo);
+      if(!sel || !sel.length) return;   // cancelou ou nada marcado
+      ids = sel;
+    }
   } else {
     if(!await confirmar('Excluir lançamento', 'Confirma a exclusão?', {okLabel:'Excluir', danger:true})) return;
   }
@@ -3292,20 +3367,26 @@ function mostrarErro(erro, contexto){
    Substitui os confirm()/alert() nativos. Nunca trava (sempre resolve).
    ========================================================================== */
 let _modalResolver=null, _modalDismiss=null;
-function modal({titulo, mensagem, botoes, dismissValor=null}){
+/* corpoHtml: HTML customizado (lista/checkboxes) entre a mensagem e os botões.
+   botao.resolver(): opcional — calcula o valor NO CLIQUE (ex.: ler os marcados).
+   aoMontar(ov): opcional — roda após render (liga listeners, estado inicial, foco). */
+function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar}){
   const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
   if(_modalResolver) _fecharModal(_modalDismiss);   // fecha um modal anterior (não empilha)
   el('cmTitulo').textContent = titulo||'';
   el('cmMsg').textContent = mensagem||'';
+  const corpo=el('cmCorpo');
+  if(corpo){ corpo.innerHTML = corpoHtml||''; corpo.classList.toggle('hidden', !corpoHtml); }
   const box=el('cmAcoes');
-  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}">${esc(b.rotulo)}</button>`).join('');
+  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}"${b.id?` id="${b.id}"`:''}>${esc(b.rotulo)}</button>`).join('');
   _modalDismiss = dismissValor;
   return new Promise(res=>{
     _modalResolver = res;
     box.querySelectorAll('button[data-cmi]').forEach(btn=>{
-      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b?b.valor:dismissValor); };
+      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b ? (b.resolver ? b.resolver() : b.valor) : dismissValor); };
     });
     ov.classList.remove('hidden');
+    if(typeof aoMontar==='function') aoMontar(ov);   // pós-render: liga checkboxes, estado do botão
     const prim = box.querySelector('.cm-btn.primary, .cm-btn.danger') || box.querySelector('.cm-btn');
     if(prim) setTimeout(()=>prim.focus(), 0);
   });
