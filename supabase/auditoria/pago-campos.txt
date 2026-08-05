@@ -1,0 +1,27 @@
+Registro read-only (2026-08-05) — qual campo marca REALMENTE pagamento/recebimento.
+
+Papel da Management API: current_user = session_user = postgres (dono das tabelas).
+lancamentos: relrowsecurity=true, relforcerowsecurity=false, owner=postgres
+  -> o dono ignora a RLS (force off), por isso a consulta enxerga a tabela inteira.
+
+Consistência (tabela inteira, 59 linhas):
+  status='pago'            = 2
+  data_pagamento not null  = 2
+  situacao='pago'          = 2
+  -> os tres coincidem.
+
+Exemplos:
+  PAGO      -> status="pago",   situacao="pago",     data_pagamento="2026-08-03"/"2026-08-05"
+  A RECEBER -> status="aberto", situacao="em_aberto", data_pagamento=null
+
+Conclusao:
+  - FONTE DA VERDADE = status ('aberto' | 'pago'), escrita pelo front em receber()
+    ({status:'pago', data_pagamento:hoje}) e estornar() ({status:'aberto', data_pagamento:null}).
+  - situacao e DERIVADA de status por trigger (0001, fn de sincronia) — o front nunca a escreve.
+  - data_pagamento anda pareada com status='pago'.
+  => estaPago(l) = l.status === 'pago' || !!l.data_pagamento  (status como verdade; data como reforco).
+
+Observacao (fora do escopo do Bloco A, mas anotada): das 59 linhas, deleted_at is null = 0
+  (todas com deleted_at preenchido). Como o front (postgres->usuario) filtra .is('deleted_at', null)
+  por empresa via RLS, o dono ve tudo (todas as empresas + excluidos). Vale confirmar depois se a
+  empresa ativa tem lançamentos ativos esperados; nao afeta a definicao de estaPago.
