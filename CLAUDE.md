@@ -210,3 +210,9 @@ pelo workflow de criação de usuários (`create-users.yml`).
 - Valores monetários são exibidos **sem o prefixo "R$"**, só o número formatado
   (ex.: `7.578,26`). Alinhado ao padrão geral da marca. Vale para **telas,
   relatórios e exportações**.
+
+### 11.3 Disciplina de versão
+
+- A cada release, fazer bump **CONJUNTO** de `sw.js` (cache `vNN`) **E** da constante
+  `APP_VERSION` no `index.html` — os dois devem **sempre bater**. O indicador em
+  Ajustes mostra ambos e sinaliza "atualizando" se divergirem.

@@ -958,7 +958,7 @@ body.nav-open .nav-backdrop{display:block}
 
       <div class="divider"></div>
       <button class="btn btn-danger" onclick="sair()"><i data-lucide="log-out" class="i-md"></i> Sair da conta</button>
-      <div class="foot" style="text-align:center;color:var(--text-4);font-size:11px;margin-top:16px">Maradel Assessoria e Consultoria Contábil</div>
+      <div class="foot" style="text-align:center;color:var(--text-4);font-size:11px;margin-top:16px">Maradel Assessoria e Consultoria Contábil<br><span id="ajVersao">Versão -</span></div>
     </section>
 
     <!-- FORNECEDORES -->
@@ -1090,6 +1090,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
+const APP_VERSION       = '34';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1151,54 +1152,6 @@ function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split(
 /* Pagamento/recebimento: 'status' é a verdade (o front escreve status='pago' em receber());
    data_pagamento anda pareada e serve de reforço. Não usar 'situacao' (é derivada por trigger). */
 function estaPago(l){ return !!l && (l.status==='pago' || !!l.data_pagamento); }
-
-/* ============================================================================
-   DIAGNÓSTICO TEMPORÁRIO (v33) — instrumentação do "voltar" físico.
-   Painel fixo no rodapé + log persistido em localStorage (sobrevive à saída do app).
-   REMOVER na Etapa 2, junto com as chamadas diagLog(...) espalhadas.
-   ========================================================================== */
-const DIAG_KEY='diag_log';
-let _diagT0=(window.performance&&performance.now)?performance.now():0;
-function _diagNow(){ const t=(window.performance&&performance.now)?performance.now():0; return Math.round(t-_diagT0); }
-function _diagVar(nome){ try{ return eval(nome); }catch(e){ return '?'; } }   // evita TDZ de let
-function _diagEstado(){
-  let st; try{ st=JSON.stringify(history.state); }catch(e){ st='?'; }
-  return `len=${history.length} state=${st} tela=${_diagVar('telaAtual')} saindo=${_diagVar('_saindo')}`;
-}
-function _diagRender(arr){ const pre=document.getElementById('diagBody'); if(!pre) return; pre.textContent=(arr||[]).join('\n'); pre.scrollTop=pre.scrollHeight; }
-function diagLog(msg){
-  try{
-    const linha=`+${String(_diagNow()).padStart(6,' ')}ms ${msg}`;
-    let arr=[]; try{ arr=JSON.parse(localStorage.getItem(DIAG_KEY)||'[]'); }catch(e){}
-    arr.push(linha); if(arr.length>500) arr=arr.slice(-500);
-    try{ localStorage.setItem(DIAG_KEY, JSON.stringify(arr)); }catch(e){}
-    _diagRender(arr);
-  }catch(e){}
-}
-function diagMontarPainel(){
-  if(document.getElementById('diagPanel')||!document.body) return;
-  const box=document.createElement('div'); box.id='diagPanel';
-  box.style.cssText='position:fixed;left:0;right:0;bottom:0;height:40vh;z-index:99999;display:flex;flex-direction:column;background:rgba(10,10,12,.93);border-top:2px solid #DB8438';
-  box.innerHTML=`<div style="display:flex;gap:6px;align-items:center;padding:6px 8px;background:#1c1c1e;color:#fff;font:12px system-ui,sans-serif">
-      <span style="flex:1">DIAG voltar v33</span>
-      <button type="button" id="diagCopy" style="padding:4px 10px;border:0;border-radius:6px;background:#DB8438;color:#fff;font:12px system-ui">Copiar</button>
-      <button type="button" id="diagToggle" style="padding:4px 10px;border:0;border-radius:6px;background:#3a3a3d;color:#fff;font:12px system-ui">Ocultar</button>
-      <button type="button" id="diagClear" style="padding:4px 10px;border:0;border-radius:6px;background:#3a3a3d;color:#fff;font:12px system-ui">Limpar</button>
-    </div>
-    <pre id="diagBody" style="flex:1;margin:0;padding:8px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#7CFC00;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace"></pre>`;
-  document.body.appendChild(box);
-  const body=document.getElementById('diagBody');
-  document.getElementById('diagCopy').onclick=async()=>{
-    const txt=body.textContent||'';
-    try{ await navigator.clipboard.writeText(txt); }
-    catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(_){ } ta.remove(); }
-    try{ toast('Log copiado','ok'); }catch(e){}
-  };
-  document.getElementById('diagToggle').onclick=(e)=>{ const h=body.style.display!=='none'; body.style.display=h?'none':'block'; box.style.height=h?'auto':'40vh'; e.target.textContent=h?'Mostrar':'Ocultar'; };
-  document.getElementById('diagClear').onclick=()=>{ try{ localStorage.removeItem(DIAG_KEY); }catch(e){} _diagRender([]); };
-  let arr=[]; try{ arr=JSON.parse(localStorage.getItem(DIAG_KEY)||'[]'); }catch(e){}
-  _diagRender(arr);
-}
 function isoToday(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function isoVenc10(baseIso, add){ const d=new Date(baseIso+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+add,10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function proxVencIso(){ const h=new Date(); let a=h.getFullYear(),m=h.getMonth(); if(h.getDate()>10){m++; if(m>11){m=0;a++;}} const z=n=>String(n).padStart(2,'0'); return `${a}-${z(m+1)}-10`; }
@@ -1242,6 +1195,8 @@ function tela(id, origem){
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
   el(id).classList.remove('hidden');
   telaAtual=id;
+  try{ sessionStorage.setItem('tela_atual', id); }catch(e){}   // item c: lembra a tela para o refresh
+  try{ if(history.state && history.state.a) history.replaceState({...history.state, tela:id},''); }catch(e){}
   toggleGaveta(false); // fecha a gaveta do menu no celular ao navegar
   if(origem) stackAnterior=origem;
   if(id!=='scForm' && id!=='scEditar') fecharViewer();  // viewer vale no lançamento e na edição
@@ -1261,22 +1216,29 @@ function voltar(){
   try{ tela(destino); } finally { voltandoTela = false; }
 }
 /* ============================================================================
-   VOLTAR FÍSICO (Android) — padrão SENTINELA: o app mantém apenas 1 entrada
-   extra no histórico; quem decide o destino é a pilha interna. Cada "voltar"
-   consome a sentinela e o handler a re-arma → o histórico nunca cresce.
-   A URL não muda (sem rota/hash), então atualizar a página segue funcionando.
-   ========================================================================== */
-/* AJUSTE 1: trap do voltar físico com BUFFER de 2 sentinelas na ENTRADA — cobre o
-   "voltar zero-toque" logo ao entrar (a entrada empurrada no load pode não ser um
-   ponto de volta confiável no 1º back). Após o 1º back tratado, reduz a 1 sentinela
-   e mantém assim (não cresce o histórico). Base/sentinelas marcadas no history.state. */
-function marcarBase(){ try{ history.replaceState({base:true},''); }catch(e){} }
-function pushSentinela(){ try{ history.pushState({sent:true},''); }catch(e){} }
-function armarBuffer(){ diagLog(`[armar:antes] ${_diagEstado()}`); marcarBase(); pushSentinela(); pushSentinela(); diagLog(`[armar:depois] ${_diagEstado()}`); }   // base + 2 sentinelas
-/* Após tratar um popstate: mantém EXATAMENTE 1 sentinela acima da base.
-   - caiu na base  -> empurra 1 (restaura a proteção)
-   - já numa sentinela (buffer 2->1) -> NÃO empurra (evita empilhar). */
-function rearmarAposBack(){ const st=history.state; if(!st || st.base) pushSentinela(); }
+   VOLTAR FÍSICO (Android) — SENTINELA ÚNICA e IDEMPOTENTE.
+   Mantém no máximo 1 entrada extra ("sentinela") acima de uma base marcada.
+   ancorar() é chamado no load e em entrar(); como o history.state SOBREVIVE ao
+   reload, ele detecta que já ancorou (state.a) e NÃO empurra de novo — assim o
+   histórico NÃO cresce entre reaberturas (fim do 3->5->7). A tela ativa vai no
+   state e no sessionStorage para restaurar ao atualizar (item c).
+   Limite honesto: no zero-toque a frio o Chrome standalone descarrega a página
+   sem popstate; não há API para interceptar. O item (c) faz reabrir na mesma tela. */
+function _stTela(){ try{ return telaAtual; }catch(e){ return 'scInicio'; } }
+function ancorar(){
+  try{
+    const s=history.state;
+    if(s && s.a){                                   // já ancorado (inclusive após reload): não empilha
+      if(s.base) history.pushState({a:1,tela:_stTela()},'');   // estava na base -> repõe 1 sentinela
+      else history.replaceState({a:1,tela:_stTela()},'');      // já na sentinela -> só atualiza a tela
+      return;
+    }
+    history.replaceState({a:1,base:1,tela:_stTela()},'');       // 1ª vez: marca a base
+    history.pushState({a:1,tela:_stTela()},'');                 // e cria UMA sentinela (nunca mais que 1)
+  }catch(e){}
+}
+/* Após tratar um popstate: garante exatamente 1 sentinela acima da base, sem empilhar. */
+function reancorar(){ try{ const s=history.state; if(!s || s.base) history.pushState({a:1,tela:_stTela()},''); }catch(e){} }
 /* Fecha o primeiro overlay/modal aberto, por prioridade. Devolve true se fechou.
    LEVA 2.1: o modal de confirmação entra na fila — o "voltar" o fecha como Cancelar. */
 function fecharOverlayAberto(){
@@ -1290,38 +1252,44 @@ function fecharOverlayAberto(){
   return false;
 }
 let _saindo=false;   // LEVA 2.1: guarda os popstates da saída programática (go(-2))
-function sairDoApp(){ diagLog(`[sairDoApp] go(-2) ${_diagEstado()}`); _saindo=true; history.go(-2); }   // cruza as sentinelas e sai
+function sairDoApp(){ _saindo=true; history.go(-2); }   // cruza a sentinela e a base -> sai
 /* Hierarquia: 1) fecha overlay/modal; 2) volta à tela anterior; 3) confirma a saída.
-   LEVA 2.1: o "Sair do sistema?" agora é modal ASSÍNCRONO. Re-arma a sentinela ANTES
-   de abrir (o app nunca fica exposto); só sai no "Sim". Enquanto o modal está aberto,
-   um novo "voltar" cai em fecharOverlayAberto e apenas o cancela (não sai sem querer). */
-function voltarFisico(){
-  diagLog(`[popstate] ${_diagEstado()}`);
-  if(_saindo){ diagLog('[popstate] ignora (_saindo)'); return; }  // ignora os popstates da saída
-  if(fecharOverlayAberto()){ diagLog('[ramo] overlay fechado'); rearmarAposBack(); return; }   // só fecha, não troca de tela
-  if(telaAtual!=='scInicio'){ diagLog('[ramo] volta tela anterior'); voltar(); rearmarAposBack(); return; }
-  diagLog('[ramo] scInicio -> abre modal "Sair do sistema?"');
-  rearmarAposBack();                                            // re-arma JÁ (seguro; buffer -> 1)
+   O "Sair do sistema?" é modal ASSÍNCRONO. Re-ancora ANTES de abrir (o app nunca fica
+   exposto); só sai no "Sair". Com o modal aberto, um novo "voltar" cai em
+   fecharOverlayAberto e apenas o cancela (não sai sem querer). */
+function aoPopstate(){
+  if(_saindo) return;                                          // ignora os popstates da saída
+  if(fecharOverlayAberto()){ reancorar(); return; }            // só fecha, não troca de tela
+  if(telaAtual!=='scInicio'){ voltar(); reancorar(); return; } // volta 1 tela (pilha interna)
+  reancorar();                                                 // repõe a sentinela JÁ (seguro)
   confirmar('Sair do sistema?', 'Deseja sair do sistema?', {okLabel:'Sair', cancelLabel:'Ficar', danger:true})
-    .then(sim=>{ diagLog('[modal] resposta='+sim); if(sim) sairDoApp(); });
+    .then(sim=>{ if(sim) sairDoApp(); });
 }
-window.addEventListener('popstate', voltarFisico);
-/* DIAG v33: eventos que podem ocorrer ANTES/no lugar do popstate (hipótese: no
-   Chrome standalone o 1º back no zero-toque DESCARREGA a página em vez de popstate). */
-window.addEventListener('pagehide', (e)=>diagLog(`[pagehide] persisted=${e.persisted} ${_diagEstado()}`));
-window.addEventListener('beforeunload', ()=>diagLog(`[beforeunload] ${_diagEstado()}`));
-document.addEventListener('visibilitychange', ()=>diagLog(`[visibility] ${document.visibilityState} ${_diagEstado()}`));
-window.addEventListener('pageshow', (e)=>diagLog(`[pageshow] persisted=${e.persisted} ${_diagEstado()}`));
-if(document.readyState!=='loading') diagMontarPainel(); else document.addEventListener('DOMContentLoaded', diagMontarPainel);
-diagLog(`[load] ===== nova sessão ===== ${_diagEstado()}`);
-/* Reforço: se a armadilha se perder, o 1º gesto/pageshow re-arma o buffer UMA vez
-   (não cresce: só age quando NÃO estamos numa sentinela). */
-let _reforcoFeito=false;
-function reforcarTrap(){ if(_reforcoFeito) return; _reforcoFeito=true; if(!(history.state && history.state.sent)) armarBuffer(); }
-window.addEventListener('pointerdown', reforcarTrap, {passive:true, once:false});
-window.addEventListener('keydown', reforcarTrap);
-window.addEventListener('pageshow', reforcarTrap);
+window.addEventListener('popstate', aoPopstate);
+window.addEventListener('pageshow', ancorar);   // idempotente: reancora sem empilhar (não cresce)
 function irInicio(){ tela('scInicio'); renderInicio(); }
+/* Item (c): restaurar a tela ao ATUALIZAR/RECARREGAR (sessionStorage).
+   Telas com contexto transitório (editar/baixa) caem para a lista (scConsultas);
+   as demais válidas restauram direto; o resto cai no Dashboard. */
+const TELAS_RESTAURAVEIS=['scInicio','scConsultas','scForm','scFornecedores','scAjustes','scAdmin'];
+function renderTelaAtual(id){
+  switch(id){
+    case 'scConsultas': irConsultas(); break;
+    case 'scForm': irForm('novo'); break;
+    case 'scFornecedores': irFornecedores(); break;
+    case 'scAjustes': irAjustes(); break;
+    case 'scAdmin': irAdmin(); break;
+    default: irInicio();
+  }
+}
+function restaurarTela(){
+  let alvo='scInicio';
+  try{ alvo = sessionStorage.getItem('tela_atual') || 'scInicio'; }catch(e){}
+  if(alvo==='scEditar' || alvo==='scMarcar') alvo='scConsultas';        // contexto não persiste -> lista
+  if(alvo==='scAdmin' && !(isOwner || empresaPapel==='gestor')) alvo='scInicio';  // sem acesso -> Dashboard
+  if(!TELAS_RESTAURAVEIS.includes(alvo)) alvo='scInicio';
+  renderTelaAtual(alvo);
+}
 function irAjustes(){ tela('scAjustes'); prepararAjustes(); }
 
 /* Menu lateral: mostra os módulos conforme o papel, recolhe (só ícones) no
@@ -1375,7 +1343,6 @@ function mostrarLogin(){
 }
 
 async function entrar(session){
-  diagLog(`[entrar] inicio ${_diagEstado()}`);
   user = session.user;
   await garantirPerfil();
   await carregarEmpresa();
@@ -1388,11 +1355,9 @@ async function entrar(session){
   el('uPapelSb').textContent = rotuloPapel();
   aplicarNavPapel();
   pilhaTelas = [];      // sessão nova: pilha do voltar começa vazia
-  tela('scInicio');
-  _reforcoFeito=false;  // nova sessão: permite o reforço por gesto/pageshow reagir
-  armarBuffer();        // AJUSTE 1: buffer de 2 sentinelas (cobre o voltar zero-toque ao entrar)
+  ancorar();            // sentinela única e idempotente (não cresce entre reaberturas)
   await carregarLista();
-  renderInicio();
+  restaurarTela();      // item c: reabre na MESMA tela do refresh (ou Dashboard)
 }
 
 async function garantirPerfil(){
@@ -2931,6 +2896,21 @@ function prepararAjustes(){
   el('cfgPixNome').value=perfil.pix_nome||perfil.nome||'';
   el('cfgPixBanco').value=perfil.pix_banco||'';
   marcarPrefs(); icons();
+  mostrarVersao();
+}
+/* Item (d): versão visível. Mostra APP_VERSION e cruza com a versão REAL do cache
+   ativo do Service Worker (caches.keys() -> reembolsos-maradel-vNN-saas). */
+async function mostrarVersao(){
+  const alvo=el('ajVersao'); if(!alvo) return;
+  let sw='';
+  try{
+    if(window.caches){ const ks=await caches.keys();
+      const m=ks.map(k=>(k.match(/reembolsos-maradel-v(\d+)-saas/)||[])[1]).filter(Boolean).sort((a,b)=>b-a)[0];
+      if(m) sw=m;
+    }
+  }catch(e){}
+  alvo.textContent = sw ? (sw===APP_VERSION ? `Versão ${APP_VERSION}` : `Versão ${APP_VERSION} · SW v${sw} (atualizando…)`)
+                        : `Versão ${APP_VERSION}`;
 }
 async function salvarPix(){
   const payload={ user_id:user.id, nome:perfil.nome||'',
