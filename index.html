@@ -1151,6 +1151,54 @@ function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split(
 /* Pagamento/recebimento: 'status' é a verdade (o front escreve status='pago' em receber());
    data_pagamento anda pareada e serve de reforço. Não usar 'situacao' (é derivada por trigger). */
 function estaPago(l){ return !!l && (l.status==='pago' || !!l.data_pagamento); }
+
+/* ============================================================================
+   DIAGNÓSTICO TEMPORÁRIO (v33) — instrumentação do "voltar" físico.
+   Painel fixo no rodapé + log persistido em localStorage (sobrevive à saída do app).
+   REMOVER na Etapa 2, junto com as chamadas diagLog(...) espalhadas.
+   ========================================================================== */
+const DIAG_KEY='diag_log';
+let _diagT0=(window.performance&&performance.now)?performance.now():0;
+function _diagNow(){ const t=(window.performance&&performance.now)?performance.now():0; return Math.round(t-_diagT0); }
+function _diagVar(nome){ try{ return eval(nome); }catch(e){ return '?'; } }   // evita TDZ de let
+function _diagEstado(){
+  let st; try{ st=JSON.stringify(history.state); }catch(e){ st='?'; }
+  return `len=${history.length} state=${st} tela=${_diagVar('telaAtual')} saindo=${_diagVar('_saindo')}`;
+}
+function _diagRender(arr){ const pre=document.getElementById('diagBody'); if(!pre) return; pre.textContent=(arr||[]).join('\n'); pre.scrollTop=pre.scrollHeight; }
+function diagLog(msg){
+  try{
+    const linha=`+${String(_diagNow()).padStart(6,' ')}ms ${msg}`;
+    let arr=[]; try{ arr=JSON.parse(localStorage.getItem(DIAG_KEY)||'[]'); }catch(e){}
+    arr.push(linha); if(arr.length>500) arr=arr.slice(-500);
+    try{ localStorage.setItem(DIAG_KEY, JSON.stringify(arr)); }catch(e){}
+    _diagRender(arr);
+  }catch(e){}
+}
+function diagMontarPainel(){
+  if(document.getElementById('diagPanel')||!document.body) return;
+  const box=document.createElement('div'); box.id='diagPanel';
+  box.style.cssText='position:fixed;left:0;right:0;bottom:0;height:40vh;z-index:99999;display:flex;flex-direction:column;background:rgba(10,10,12,.93);border-top:2px solid #DB8438';
+  box.innerHTML=`<div style="display:flex;gap:6px;align-items:center;padding:6px 8px;background:#1c1c1e;color:#fff;font:12px system-ui,sans-serif">
+      <span style="flex:1">DIAG voltar v33</span>
+      <button type="button" id="diagCopy" style="padding:4px 10px;border:0;border-radius:6px;background:#DB8438;color:#fff;font:12px system-ui">Copiar</button>
+      <button type="button" id="diagToggle" style="padding:4px 10px;border:0;border-radius:6px;background:#3a3a3d;color:#fff;font:12px system-ui">Ocultar</button>
+      <button type="button" id="diagClear" style="padding:4px 10px;border:0;border-radius:6px;background:#3a3a3d;color:#fff;font:12px system-ui">Limpar</button>
+    </div>
+    <pre id="diagBody" style="flex:1;margin:0;padding:8px;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#7CFC00;font:11px/1.35 ui-monospace,Menlo,Consolas,monospace"></pre>`;
+  document.body.appendChild(box);
+  const body=document.getElementById('diagBody');
+  document.getElementById('diagCopy').onclick=async()=>{
+    const txt=body.textContent||'';
+    try{ await navigator.clipboard.writeText(txt); }
+    catch(e){ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); }catch(_){ } ta.remove(); }
+    try{ toast('Log copiado','ok'); }catch(e){}
+  };
+  document.getElementById('diagToggle').onclick=(e)=>{ const h=body.style.display!=='none'; body.style.display=h?'none':'block'; box.style.height=h?'auto':'40vh'; e.target.textContent=h?'Mostrar':'Ocultar'; };
+  document.getElementById('diagClear').onclick=()=>{ try{ localStorage.removeItem(DIAG_KEY); }catch(e){} _diagRender([]); };
+  let arr=[]; try{ arr=JSON.parse(localStorage.getItem(DIAG_KEY)||'[]'); }catch(e){}
+  _diagRender(arr);
+}
 function isoToday(){ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
 function isoVenc10(baseIso, add){ const d=new Date(baseIso+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+add,10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function proxVencIso(){ const h=new Date(); let a=h.getFullYear(),m=h.getMonth(); if(h.getDate()>10){m++; if(m>11){m=0;a++;}} const z=n=>String(n).padStart(2,'0'); return `${a}-${z(m+1)}-10`; }
@@ -1224,7 +1272,7 @@ function voltar(){
    e mantém assim (não cresce o histórico). Base/sentinelas marcadas no history.state. */
 function marcarBase(){ try{ history.replaceState({base:true},''); }catch(e){} }
 function pushSentinela(){ try{ history.pushState({sent:true},''); }catch(e){} }
-function armarBuffer(){ marcarBase(); pushSentinela(); pushSentinela(); }   // base + 2 sentinelas
+function armarBuffer(){ diagLog(`[armar:antes] ${_diagEstado()}`); marcarBase(); pushSentinela(); pushSentinela(); diagLog(`[armar:depois] ${_diagEstado()}`); }   // base + 2 sentinelas
 /* Após tratar um popstate: mantém EXATAMENTE 1 sentinela acima da base.
    - caiu na base  -> empurra 1 (restaura a proteção)
    - já numa sentinela (buffer 2->1) -> NÃO empurra (evita empilhar). */
@@ -1242,20 +1290,30 @@ function fecharOverlayAberto(){
   return false;
 }
 let _saindo=false;   // LEVA 2.1: guarda os popstates da saída programática (go(-2))
-function sairDoApp(){ _saindo=true; history.go(-2); }   // cruza as sentinelas e sai
+function sairDoApp(){ diagLog(`[sairDoApp] go(-2) ${_diagEstado()}`); _saindo=true; history.go(-2); }   // cruza as sentinelas e sai
 /* Hierarquia: 1) fecha overlay/modal; 2) volta à tela anterior; 3) confirma a saída.
    LEVA 2.1: o "Sair do sistema?" agora é modal ASSÍNCRONO. Re-arma a sentinela ANTES
    de abrir (o app nunca fica exposto); só sai no "Sim". Enquanto o modal está aberto,
    um novo "voltar" cai em fecharOverlayAberto e apenas o cancela (não sai sem querer). */
 function voltarFisico(){
-  if(_saindo) return;                                           // ignora os popstates da saída
-  if(fecharOverlayAberto()){ rearmarAposBack(); return; }       // só fecha, não troca de tela
-  if(telaAtual!=='scInicio'){ voltar(); rearmarAposBack(); return; }
+  diagLog(`[popstate] ${_diagEstado()}`);
+  if(_saindo){ diagLog('[popstate] ignora (_saindo)'); return; }  // ignora os popstates da saída
+  if(fecharOverlayAberto()){ diagLog('[ramo] overlay fechado'); rearmarAposBack(); return; }   // só fecha, não troca de tela
+  if(telaAtual!=='scInicio'){ diagLog('[ramo] volta tela anterior'); voltar(); rearmarAposBack(); return; }
+  diagLog('[ramo] scInicio -> abre modal "Sair do sistema?"');
   rearmarAposBack();                                            // re-arma JÁ (seguro; buffer -> 1)
   confirmar('Sair do sistema?', 'Deseja sair do sistema?', {okLabel:'Sair', cancelLabel:'Ficar', danger:true})
-    .then(sim=>{ if(sim) sairDoApp(); });
+    .then(sim=>{ diagLog('[modal] resposta='+sim); if(sim) sairDoApp(); });
 }
 window.addEventListener('popstate', voltarFisico);
+/* DIAG v33: eventos que podem ocorrer ANTES/no lugar do popstate (hipótese: no
+   Chrome standalone o 1º back no zero-toque DESCARREGA a página em vez de popstate). */
+window.addEventListener('pagehide', (e)=>diagLog(`[pagehide] persisted=${e.persisted} ${_diagEstado()}`));
+window.addEventListener('beforeunload', ()=>diagLog(`[beforeunload] ${_diagEstado()}`));
+document.addEventListener('visibilitychange', ()=>diagLog(`[visibility] ${document.visibilityState} ${_diagEstado()}`));
+window.addEventListener('pageshow', (e)=>diagLog(`[pageshow] persisted=${e.persisted} ${_diagEstado()}`));
+if(document.readyState!=='loading') diagMontarPainel(); else document.addEventListener('DOMContentLoaded', diagMontarPainel);
+diagLog(`[load] ===== nova sessão ===== ${_diagEstado()}`);
 /* Reforço: se a armadilha se perder, o 1º gesto/pageshow re-arma o buffer UMA vez
    (não cresce: só age quando NÃO estamos numa sentinela). */
 let _reforcoFeito=false;
@@ -1317,6 +1375,7 @@ function mostrarLogin(){
 }
 
 async function entrar(session){
+  diagLog(`[entrar] inicio ${_diagEstado()}`);
   user = session.user;
   await garantirPerfil();
   await carregarEmpresa();
