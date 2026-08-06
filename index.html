@@ -1090,7 +1090,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '34';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '35';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -2079,6 +2079,13 @@ function aplicarIA(d){
   if(d.categoria){ const cats=listaCategorias();
     if(cats.includes(d.categoria)){ el('fCategoria').value=d.categoria; aoMudarCategoria(); }
     else if(cats.includes('Outros')){ el('fCategoria').value='Outros'; aoMudarCategoria(); } }
+  // Memória de categoria: se a IA não identificou (campo vazio ou "Outros"), tenta a mais
+  // usada naquele fornecedor no histórico. Silencioso; a IA confiante já preencheu acima.
+  const catAtual = el('fCategoria').value;
+  if(!catAtual || catAtual==='Outros'){
+    const sug = memoriaCategoria(d.cnpj, d.fornecedor);
+    if(sug){ el('fCategoria').value = sug; aoMudarCategoria(); }
+  }
   if(d.fornecedor) el('fFornecedor').value=d.fornecedor;
   if(d.numero_nota) el('fNumeroNota').value=d.numero_nota;
   if(d.cnpj) el('fCnpj').value=d.cnpj;
@@ -2207,6 +2214,37 @@ function normNome(s){
   x = x.replace(/\bs[.\/ ]?a\b/g,' ');        // S.A. / S/A / SA
   x = x.replace(/[^a-z0-9 ]/g,' ');           // demais pontuações viram espaço
   return x.replace(/\s+/g,' ').trim();
+}
+/* Memória de categoria por estabelecimento (consulta ao histórico já carregado, NÃO é IA).
+   Quando a IA não identifica a categoria (cai em "Outros"/vazio), sugere a categoria MAIS
+   USADA naquele fornecedor nos lançamentos NÃO excluídos da empresa (a `lista` em memória
+   já vem escopada pela RLS e ordenada por criado_em desc). Casa por CNPJ (dígitos) e, sem
+   CNPJ, por nome normalizado (reusa normNome). Só sugere categoria ATIVA da empresa; empate
+   pela mais recente. Retorna o nome da categoria ou '' se não houver nada válido. */
+function memoriaCategoria(cnpj, fornecedor){
+  try{
+    if(!Array.isArray(lista) || !lista.length) return '';
+    const dig = String(cnpj||'').replace(/\D/g,'');
+    const nn  = normNome(fornecedor);
+    let linhas = [];
+    if(dig) linhas = lista.filter(l=> String(l.cnpj_estabelecimento||l.cnpj||'').replace(/\D/g,'')===dig);
+    if(!linhas.length && nn.length>=3) linhas = lista.filter(l=> normNome(l.fornecedor)===nn);  // guarda: normalizado vazio/curto não casa tudo
+    if(!linhas.length) return '';
+    const ativas = listaCategorias();   // só categorias existentes E ativas hoje
+    // `lista` está em ordem desc por criado_em -> a 1ª ocorrência de cada categoria é a mais recente.
+    const cont = new Map();
+    linhas.forEach((l,i)=>{
+      const c = l.categoria;
+      if(!c || c==='Outros' || !ativas.includes(c)) return;   // descarta inválida/desativada/Outros
+      const e = cont.get(c) || { n:0, idx:i };
+      e.n++; cont.set(c, e);
+    });
+    let melhor='', best=null;
+    for(const [c,e] of cont){
+      if(!best || e.n>best.n || (e.n===best.n && e.idx<best.idx)){ best=e; melhor=c; }  // empate -> mais recente (menor idx)
+    }
+    return melhor;
+  }catch(e){ return ''; }
 }
 /* Bloco 4: similaridade de nomes por coeficiente de Dice (bigramas) — cálculo puro. */
 function similaridade(a, b){
