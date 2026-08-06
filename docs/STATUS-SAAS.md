@@ -3,6 +3,75 @@
 > Trabalho autônomo noturno. Este documento registra o que foi feito, como
 > reverter e o que falta. Fonte de verdade da arquitetura: `docs/ARQUITETURA.md`.
 
+---
+
+## Estado atual — fim de 05/08/2026 (âncora para continuar em 06/08)
+
+### 1. Migrations aplicadas em produção (até a 0011)
+Todas em `supabase/migrations/`, **aplicadas** via workflow **Run SQL Migration** (idempotentes).
+Registros read-only do "antes/depois" em `supabase/auditoria/`.
+
+| Migration | O que fez |
+|---|---|
+| `0007_rls_insert_logs_sistema.sql` | Policy de INSERT `to postgres` em `eventos_auditoria` — corrige o soft-delete que violava RLS ao auditar. |
+| `0008_lanc_select_ver_excluidos.sql` | `lanc_select` deixa de esconder `deleted_at`; o front filtra excluídos (permite auditar/ver excluídos). |
+| `0009_comprovantes_hash_integridade.sql` | Policies de comprovantes + gravação real do hash sha256 (o INSERT era negado em silêncio); integridade da duplicata por arquivo. |
+| `0010_duplicata_documento.sql` | `numero_nota_extraido` + RPCs de duplicata **empresa-inteira** (por hash e por documento), `security definer` com guarda de pertencimento. |
+| `0011_motivos_exclusao.sql` | Tabela `motivos_exclusao` (por empresa; RLS SELECT por empresa, escrita gestor/dono) + coluna `lancamentos.motivo_exclusao` (motivo vai à auditoria via `dados_depois`). |
+
+### 2. Versão atual
+- **`sw.js` v34 / `APP_VERSION` 34.** Regra: **bump CONJUNTO** dos dois a cada release —
+  devem sempre bater. O indicador em **Ajustes** mostra ambos e sinaliza "atualizando"
+  se divergirem (ver CLAUDE.md §11.3).
+
+### 3. O que foi feito hoje (05/08)
+- **Unificação de papel** (perfil do app x papel da empresa) e **navegação única**.
+- **Leitura por IA sob ação do usuário** (dispara na ação, não automática) + **recorte manual** do comprovante.
+- **Precisão da IA**: categoria restrita às da **empresa** + **consolidação de fornecedor**.
+- **Erros amigáveis** com código `ERR-XXXX`.
+- **Leva 1 e 1.1 de UI**: valores **sem "R$"** com 2 casas, ordenação por **recência**,
+  cards legíveis, **parcelados agrupados**, **últimos 5** no Dashboard, **filtro de status
+  unificado**, **ver comprovante na edição**.
+- **Modal de confirmação Maradel** (substitui todos os `confirm()` nativos; `aviso/confirmar/escolher`).
+- **Exclusão financeiramente segura**: **pago exige estorno** (gate por `status`) +
+  **motivo obrigatório** cadastrável (lista por empresa + "Outro"); "todas as parcelas"
+  lista só as **não pagas**.
+- **Correção do soft-delete/RLS** (0007/0008) e **4 camadas de detecção de duplicata**
+  (hash de arquivo + documento extraído + lógica valor/data/CNPJ, tudo empresa-inteira).
+- **Botão voltar do Android**: **sentinela única idempotente** (fim do empilhamento 3→5→7);
+  modal "Sair do sistema?" em todo `popstate`. **Limite de plataforma documentado**: no
+  zero-toque a frio o Chrome standalone descarrega a página sem `popstate` (sem API para
+  interceptar) — mitigado pelo item abaixo.
+- **Manter a tela no refresh** (`sessionStorage` + `restaurarTela`, whitelist; editar/baixa
+  caem para a lista).
+- **Indicador de versão** em Ajustes (APP_VERSION x cache do SW).
+
+### 4. Fila para amanhã (06/08), em ordem
+1. **(a) Memória de categoria por estabelecimento — JÁ DECIDIDA.** Quando a IA cai em
+   "Outros" ou não identifica, **sugerir a categoria mais usada naquele fornecedor**.
+   **Não é IA** — é consulta ao histórico. Casa por **CNPJ → nome normalizado**. Preenche
+   **silenciosamente**. A IA tem **prioridade quando confiante**.
+2. **(b) "Por pessoa" vira filtro** — o dashboard recalcula para a pessoa escolhida.
+3. **(c) Modal de input** para trocar os `prompt()` de renomear (setor/categoria/motivo).
+- **Grandes (exigem quiz/decisão própria):** produtos proibidos + desconto automático;
+  profissionalizar infra (**Supabase Pro** + backup + **banco DEV**).
+
+### 5. Ponto aberto (verificar)
+- Em `lancamentos`, as **59 linhas** vistas via `postgres` estavam **todas com
+  `deleted_at` preenchido**. **Confirmar, logado como a empresa**, se os lançamentos
+  **ativos esperados** aparecem (o `postgres` enxerga todas as empresas + excluídos, então
+  pode ser só efeito de visão — mas vale checar). Registro em `supabase/auditoria/pago-campos.txt`.
+
+### 6. Regras/padrões a manter (ver CLAUDE.md §10–§11)
+- **Sem banco DEV**: desenvolvimento roda contra **produção** com dados reais; **nenhuma
+  migration destrutiva** sem **backup + OK explícito**.
+- **Valores sem "R$"**, sempre **2 casas**.
+- **Sem travessão "—"** como separador de UI e **sem emoji**.
+- **Migration em commit isolado** quando possível.
+- **Bump conjunto** `sw.js` (cache `vNN`) **e** `APP_VERSION`.
+
+---
+
 ## Backup (feito antes de tudo)
 - **Branch** `backup/pre-saas-single-tenant` — código completo do app single-tenant.
 - **Zip** enviado no chat (`backup-reembolsos-pre-saas.zip`).

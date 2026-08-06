@@ -27,7 +27,9 @@ Dois front-ends, mesmo backend e mesmo login:
 Documento de referência mais amplo: `docs/ARQUITETURA.md`, `docs/STATUS-SAAS.md`
 e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
-## 2. Estado atual (migrations aplicadas 0000 → 0006)
+## 2. Estado atual (migrations aplicadas 0000 → 0011)
+
+**Versão publicada: `sw.js` v34 / `APP_VERSION` 34** (ver §11.3 — bump conjunto).
 
 Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
 
@@ -40,6 +42,11 @@ Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
 | `0004_aprovacao_onboarding.sql` | `empresas.exige_aprovacao`; RPC `criar_empresa` e `vincular_usuario_empresa`. |
 | `0005_categoria_codigo_externo.sql` | `codigo_externo` em `categorias` e `setores` (mapeia ao ERP). |
 | `0006_integracoes_erp.sql` | Tabela `integracoes_erp` (credenciais de ERP por empresa) + RLS gestor/dono. |
+| `0007_rls_insert_logs_sistema.sql` | Policy de INSERT `to postgres` em `eventos_auditoria` (corrige o soft-delete que violava RLS ao auditar). |
+| `0008_lanc_select_ver_excluidos.sql` | `lanc_select` deixa de esconder `deleted_at`; o front (operacional) filtra excluídos — permite auditar/ver excluídos. |
+| `0009_comprovantes_hash_integridade.sql` | Policies de comprovantes + gravação real do hash sha256 (o INSERT era negado silenciosamente); integridade da duplicata por arquivo. |
+| `0010_duplicata_documento.sql` | `numero_nota_extraido` + RPCs de duplicata **empresa-inteira** (por hash e por documento), `security definer` com guarda de pertencimento. |
+| `0011_motivos_exclusao.sql` | Tabela `motivos_exclusao` (por empresa; RLS SELECT por empresa, escrita gestor/dono) + coluna `lancamentos.motivo_exclusao` (motivo vai à auditoria via `dados_depois`). |
 
 Funcionalidades no ar: fundação SaaS + RLS, leitura por IA endurecida (com
 detecção de parcelado), aprovação multinível, políticas de limite, alertas,
