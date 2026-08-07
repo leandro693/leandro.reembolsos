@@ -29,7 +29,13 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0011)
 
-**Versão publicada: `sw.js` v34 / `APP_VERSION` 34** (ver §11.3 — bump conjunto).
+**Versão (06/08/2026 — estado incomum por incidente do GitHub):**
+- **Site público: v34** (deploy travado — incidente Actions/Pages do GitHub, não é o código).
+- **Último commit: v35 `1a68471`** (memória de categoria) — pushado, **deploy PENDENTE**.
+- **Working tree: v36** ("por pessoa" vira filtro) — implementado e testado, **NÃO commitado**.
+- Ao retomar: **1) confirmar se o v35 subiu** (`sw.js` público) → 2) testar no aparelho →
+  3) só então commitar o v36. Detalhes em `docs/STATUS-SAAS.md` (âncora 06/08).
+- Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
 
 Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
 

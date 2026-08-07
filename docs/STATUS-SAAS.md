@@ -5,7 +5,51 @@
 
 ---
 
-## Estado atual — fim de 05/08/2026 (âncora para continuar em 06/08)
+## Estado atual — fim de 06/08/2026 (âncora; ESTADO INCOMUM: deploy travado por incidente do GitHub)
+
+> **Atenção ao retomar (07/08):** houve incidente de infraestrutura do GitHub hoje
+> (Actions/Pages degradados desde ~15:22 UTC; webhooks throttled). **Não é o nosso
+> código.** Há **pendência de deploy** (v35) e **pendência de commit** (v36). Siga a
+> sequência abaixo antes de qualquer coisa.
+
+### 0. Pendências e sequência correta ao retomar
+1. **Confirmar se o v35 subiu**: `curl -s https://leandro693.github.io/leandro.reembolsos/sw.js | grep -o 'reembolsos-maradel-v[0-9]*-saas'`.
+   - Ao fim de 06/08 o site público ainda servia **v34** (deploy do Pages falhando por timeout do serviço, não por conteúdo — o build/Jekyll sempre passou).
+2. **Leandro testa a memória de categoria no aparelho** (v35).
+3. **Só então commitar o v36** ("por pessoa") — está no **working tree**, testado, sem commit.
+4. **Leandro testa "por pessoa"** (v36).
+
+### 1. Feito hoje (06/08)
+- **(a) Memória de categoria por estabelecimento (v35)** — **commitada (`1a68471`) e pushada**, mas
+  **DEPLOY PENDENTE** pelo incidente do GitHub. Sugere a categoria mais usada do fornecedor quando a
+  IA cai em "Outros"/vazio; consulta a `lista` em memória (RLS por empresa, `deleted_at is null`);
+  casa por CNPJ→`normNome`; só categoria ativa; empate pela mais recente; preenchimento silencioso.
+- **(b) "Por pessoa" vira filtro (v36)** — **IMPLEMENTADO e TESTADO (tudo verde), mas NÃO commitado**
+  (código no **working tree**: `index.html` + `sw.js`). Detalhes para retomar:
+  - Filtro de pessoa aplicado em **`baseLista()`** (só `veTudo() && escopoVer==='todos' && pessoaFiltro`)
+    → recalcula **dashboard (KPIs/gráficos/últimos/"por pessoa") E lista** de uma vez.
+  - **Seletor também no topo do Dashboard** (`#dashPessoa`), gêmeo do de Lançamentos, **gated por `veTudo()`**.
+  - `setPessoa` sincroniza os 2 selects + persiste em `localStorage['mrd_pessoa']` + re-render da tela ativa.
+  - Persistência **validada no load** (`validarPessoaSalva`): se a pessoa não tem mais lançamentos, volta a "Todas".
+  - **`sw.js` v36 + `APP_VERSION` 36** (bump conjunto **já feito no código**, falta só commitar).
+  - Mensagem de commit combinada p/ o v36: `feat: "por pessoa" vira filtro (recalcula dashboard e lista; seletor no Dashboard)`.
+
+### 2. Versão
+- **Repositório: v36** (working tree). **Último commit: v35 (`1a68471`)** + commit-gatilho vazio `3510eed`.
+- **Site público: v34** (deploy pendente). Bump conjunto `sw.js`+`APP_VERSION` (CLAUDE.md §11.3).
+
+### 3. Fila seguinte (após validar "por pessoa")
+- **Modal de input** (trocar os `prompt()` de renomear setor/categoria/motivo).
+- **Grandes (quiz próprio):** produtos proibidos + desconto automático; profissionalizar infra
+  (**Supabase Pro** + backup + **banco DEV**).
+
+### 4. Ponto aberto (mantido)
+- As **59 linhas** em `lancamentos` com `deleted_at` preenchido — confirmar, **logado como a empresa**,
+  se os lançamentos ativos esperados aparecem. Registro em `supabase/auditoria/pago-campos.txt`.
+
+---
+
+## Estado anterior — fim de 05/08/2026
 
 ### 1. Migrations aplicadas em produção (até a 0011)
 Todas em `supabase/migrations/`, **aplicadas** via workflow **Run SQL Migration** (idempotentes).
