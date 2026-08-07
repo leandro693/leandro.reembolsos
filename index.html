@@ -474,6 +474,9 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 
 /* ---- Indicadores (KPIs) do Dashboard ---- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.dash-pessoa{display:flex;align-items:center;gap:10px;margin:0 0 14px}
+.dash-pessoa .filtros-lbl{display:inline-flex;align-items:center;gap:5px;margin:0}
+.dash-pessoa select{flex:1;max-width:280px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;
   padding:13px 14px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;min-width:0;overflow:hidden}
 .kpi:hover{transform:translateY(-2px)}
@@ -675,6 +678,11 @@ body.nav-open .nav-backdrop{display:block}
     <section id="scInicio" class="screen hidden">
       <h2 class="pagetitle">Dashboard</h2>
       <p class="pagesub" id="dashSub">Visão geral dos seus reembolsos.</p>
+      <!-- "Por pessoa" como filtro: entra na visão da pessoa (KPIs/gráficos/lista). Só quem tem gestão. -->
+      <div id="dashPessoaWrap" class="dash-pessoa hidden">
+        <span class="filtros-lbl"><i data-lucide="user" class="i-sm"></i> Pessoa</span>
+        <select id="dashPessoa" class="ctl-sm" onchange="setPessoa(this.value)"><option value="">Todas as pessoas</option></select>
+      </div>
       <div class="kpis" id="dashKpis"></div>
       <div id="dashCharts"></div>
       <!-- LEVA 1.1: resumo rápido dos últimos 5 lançamentos (clicáveis). -->
@@ -1090,7 +1098,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '35';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '36';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1357,6 +1365,7 @@ async function entrar(session){
   pilhaTelas = [];      // sessão nova: pilha do voltar começa vazia
   ancorar();            // sentinela única e idempotente (não cresce entre reaberturas)
   await carregarLista();
+  validarPessoaSalva(); // "por pessoa": se a pessoa salva não tem mais lançamentos, volta a "Todas"
   restaurarTela();      // item c: reabre na MESMA tela do refresh (ou Dashboard)
 }
 
@@ -1454,7 +1463,10 @@ async function carregarLista(){
 /* Escopo de visualização (só admin/financeiro): 'meus' esconde os dos outros. */
 let escopoVer = localStorage.getItem('mrd_escopo') || 'todos';
 function baseLista(){
-  return (veTudo() && escopoVer==='meus') ? lista.filter(l=>String(l.user_id)===String(user&&user.id)) : lista;
+  if(veTudo() && escopoVer==='meus') return lista.filter(l=>String(l.user_id)===String(user&&user.id));
+  // "Por pessoa" vira filtro global: recalcula dashboard (KPIs/gráficos/últimos/por-pessoa) E lista.
+  if(veTudo() && escopoVer==='todos' && pessoaFiltro) return lista.filter(l=>(l.usuario||'')===pessoaFiltro);
+  return lista;
 }
 const emAberto = ()=> baseLista().filter(l=>l.status!=='pago' && l.aprovacao!=='rejeitado');
 function pendentesAprovacao(){ return baseLista().filter(l=>l.aprovacao==='pendente'); }
@@ -1466,6 +1478,7 @@ function atrasados(){ const hoje=isoToday(); return emAberto().filter(l=>l.venci
    ========================================================================== */
 function mesLabel(iso){ const [a,m]=String(iso).split('-'); return `${m}/${a}`; }
 function renderInicio(){
+  atualizarVisibPessoa(); popularPessoas();   // seletor "por pessoa" do Dashboard (só gestão)
   const base = veTudo()
     ? 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').'
     : 'Visão geral dos seus reembolsos.';
@@ -2603,7 +2616,7 @@ function fecharComprovante(){ el('compOverlay').classList.add('hidden'); const f
    ========================================================================== */
 let consultaFiltro='proximo';
 let consultaVisivel=[];
-let pessoaFiltro='';        // '' = todas
+let pessoaFiltro=localStorage.getItem('mrd_pessoa')||'';   // '' = todas; persiste até limpar
 let perDe='', perAte='';    // 'AAAA-MM'
 let periodoPreset='tudo';
 const PERIODO_LBL={tudo:'Todo período',mes:'Este mês',proxmes:'Próximo mês',prox3meses:'Próximos 3 meses',prox6meses:'Próximos 6 meses',mespassado:'Mês passado','3meses':'Últimos 3 meses',ano:'Este ano'};
@@ -2619,11 +2632,21 @@ function prepararFiltrosExtra(){
   el('btnDataLbl').textContent = PERIODO_LBL[periodoPreset]||'Todo período';
   el('btnData').classList.toggle('on-filter', periodoPreset!=='tudo');
 }
-function atualizarVisibPessoa(){ el('filtros2').classList.toggle('hidden', !(veTudo() && escopoVer==='todos')); }
+function atualizarVisibPessoa(){
+  const mostra = veTudo() && escopoVer==='todos';
+  el('filtros2').classList.toggle('hidden', !mostra);
+  el('dashPessoaWrap')?.classList.toggle('hidden', !mostra);   // seletor gêmeo no Dashboard (só gestão)
+}
+/* Pessoas COM lançamentos (distintas, ordenadas, sem vazio/duplicata). Popula os DOIS selects. */
+function nomesComLancamentos(){ return [...new Set(lista.map(l=>l.usuario).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); }
 function popularPessoas(){
-  const sel=el('filtroPessoa'); if(!sel) return;
-  const nomes=[...new Set(lista.map(l=>l.usuario).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  sel.innerHTML='<option value="">Todas as pessoas</option>'+nomes.map(n=>`<option value="${esc(n)}"${n===pessoaFiltro?' selected':''}>${esc(n)}</option>`).join('');
+  const nomes=nomesComLancamentos();
+  const opts='<option value="">Todas as pessoas</option>'+nomes.map(n=>`<option value="${esc(n)}"${n===pessoaFiltro?' selected':''}>${esc(n)}</option>`).join('');
+  ['filtroPessoa','dashPessoa'].forEach(id=>{ const sel=el(id); if(sel){ sel.innerHTML=opts; sel.value=pessoaFiltro; } });
+}
+/* Persistência: valida a pessoa salva contra quem tem lançamentos hoje; se saiu, volta a "Todas". */
+function validarPessoaSalva(){
+  if(pessoaFiltro && !nomesComLancamentos().includes(pessoaFiltro)){ pessoaFiltro=''; localStorage.removeItem('mrd_pessoa'); }
 }
 /* soma/subtrai meses de um 'AAAA-MM' */
 function mesRel(ym, delta){ let [y,m]=ym.split('-').map(Number); m+=delta; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;} return `${y}-${String(m).padStart(2,'0')}`; }
@@ -2649,13 +2672,20 @@ function marcarEscopo(){
 }
 function setEscopo(v){
   escopoVer=v; localStorage.setItem('mrd_escopo', v);
-  if(v==='meus') pessoaFiltro='';
-  marcarEscopo(); atualizarVisibPessoa(); popularPessoas();
-  if(el('filtroPessoa')) el('filtroPessoa').value=pessoaFiltro;
+  if(v==='meus'){ pessoaFiltro=''; localStorage.removeItem('mrd_pessoa'); }   // escopo "meus" zera o filtro de pessoa
+  marcarEscopo(); atualizarVisibPessoa(); popularPessoas();   // popularPessoas já sincroniza os dois selects
   if(!el('scConsultas').classList.contains('hidden')) renderConsulta();
   if(!el('scInicio').classList.contains('hidden')) renderInicio();
 }
-function setPessoa(v){ pessoaFiltro=v; renderConsulta(); }
+/* "Entrar na visão" da pessoa: sincroniza os dois selects, persiste e re-renderiza a tela ativa
+   (Dashboard e Lançamentos recalculam via baseLista()). '' = Todas. */
+function setPessoa(v){
+  pessoaFiltro=v||'';
+  if(pessoaFiltro) localStorage.setItem('mrd_pessoa', pessoaFiltro); else localStorage.removeItem('mrd_pessoa');
+  ['filtroPessoa','dashPessoa'].forEach(id=>{ const s=el(id); if(s && s.value!==pessoaFiltro) s.value=pessoaFiltro; });
+  if(!el('scInicio').classList.contains('hidden')) renderInicio();
+  if(!el('scConsultas').classList.contains('hidden')) renderConsulta();
+}
 let selConsulta = new Set();
 function setConsulta(f){
   consultaFiltro=f; selConsulta.clear();
