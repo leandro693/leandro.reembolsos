@@ -187,6 +187,9 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 .cm-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.30);width:100%;max-width:400px;padding:20px 20px 18px}
 .cm-title{font-size:16px;font-weight:700;color:var(--text-strong);margin-bottom:8px}
 .cm-msg{font-size:13.5px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-bottom:18px}
+.cm-corpo{margin-bottom:18px}
+.cm-inp{width:100%;padding:10px 12px;min-height:42px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);color:var(--text);font-size:13.5px}
+.cm-btn:disabled{opacity:.45;cursor:not-allowed}
 .cm-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .cm-btn{padding:10px 16px;min-height:42px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid var(--border-strong);background:var(--surface);color:var(--text-2);transition:.15s}
 .cm-btn:hover{background:var(--surface-2)}
@@ -261,6 +264,7 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
   <div class="cm-box" role="dialog" aria-modal="true" aria-labelledby="cmTitulo">
     <h3 class="cm-title" id="cmTitulo"></h3>
     <p class="cm-msg" id="cmMsg"></p>
+    <div class="cm-corpo hidden" id="cmCorpo"></div>
     <div class="cm-actions" id="cmAcoes"></div>
   </div>
 </div>
@@ -319,20 +323,23 @@ function mostrarErro(erro, contexto){
 
 /* LEVA 2.1: Modal de confirmação (Maradel). Assíncrono (Promise); nunca trava. */
 let _modalResolver=null, _modalDismiss=null;
-function modal({titulo, mensagem, botoes, dismissValor=null}){
+function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar}){
   const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
   if(_modalResolver) _fecharModal(_modalDismiss);
   el('cmTitulo').textContent = titulo||'';
   el('cmMsg').textContent = mensagem||'';
+  const corpo=el('cmCorpo');
+  if(corpo){ corpo.innerHTML = corpoHtml||''; corpo.classList.toggle('hidden', !corpoHtml); }
   const box=el('cmAcoes');
-  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}">${esc(b.rotulo)}</button>`).join('');
+  box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}"${b.id?` id="${b.id}"`:''}>${esc(b.rotulo)}</button>`).join('');
   _modalDismiss = dismissValor;
   return new Promise(res=>{
     _modalResolver = res;
     box.querySelectorAll('button[data-cmi]').forEach(btn=>{
-      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b?b.valor:dismissValor); };
+      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b ? (b.resolver ? b.resolver() : b.valor) : dismissValor); };
     });
     ov.classList.remove('hidden');
+    if(typeof aoMontar==='function') aoMontar(ov);
     const prim = box.querySelector('.cm-btn.primary, .cm-btn.danger') || box.querySelector('.cm-btn');
     if(prim) setTimeout(()=>prim.focus(), 0);
   });
@@ -349,6 +356,26 @@ function confirmar(titulo, mensagem, opts={}){
   ]});
 }
 function escolher(titulo, mensagem, botoes){ return modal({titulo, mensagem, botoes, dismissValor:null}); }
+/* Modal de INPUT (renomear): campo pré-preenchido, foco+seleção, Enter confirma,
+   Salvar bloqueado se vazio/só espaços. Retorna o texto (trim) ou null. */
+function pedirTexto(titulo, valorAtual, opts={}){
+  return modal({
+    titulo, dismissValor:null,
+    corpoHtml:`<input id="cmInput" class="cm-inp" type="text" maxlength="${opts.max||80}" value="${esc(valorAtual||'')}">`,
+    botoes:[
+      {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+      {rotulo:opts.okLabel||'Salvar', tipo:'primary', id:'cmSalvar', resolver:()=>(document.getElementById('cmInput').value||'').trim()}
+    ],
+    aoMontar:(ov)=>{
+      const inp=ov.querySelector('#cmInput'), btn=ov.querySelector('#cmSalvar');
+      const valido=()=>(inp.value||'').trim().length>0;
+      const atualiza=()=>{ if(btn) btn.disabled=!valido(); };
+      inp.oninput=atualiza; atualiza();
+      inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(valido()) btn.click(); } });
+      setTimeout(()=>{ inp.focus(); inp.select(); }, 30);   // vence o foco-padrão do botão primário
+    }
+  });
+}
 
 /* ---------- tema ---------- */
 function toggleTema(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
@@ -536,7 +563,7 @@ function crow(x,rot,tipo){
   const codigo=x.codigo_externo?` <span class="tag">${esc(x.codigo_externo)}</span>`:'';
   const km=(x.tipo_calculo==='km')?' <span class="tag">km</span>':'';
   return `<div class="crow"><span class="cnome" title="${esc(x.nome)}">${esc(x.nome)}${km}${codigo}</span>
-    <button class="ic-btn" title="Renomear" onclick="renomear('${tipo}','${x.id}')"><i data-lucide="pencil" class="i-sm"></i></button>
+    <button class="ic-btn" title="Renomear" data-nome="${esc(x.nome)}" onclick="renomear('${tipo}','${x.id}',this.dataset.nome)"><i data-lucide="pencil" class="i-sm"></i></button>
     <label class="switch" title="${x.ativo?'Ativo':'Inativo'}"><input type="checkbox" ${x.ativo?'checked':''} onchange="toggleItem('${tipo}','${x.id}',this.checked)"><span class="slider"></span></label></div>`;
 }
 async function addCategoria(){ const n=(el('novaCat').value||'').trim(); if(!n){toast('Informe o nome','erro');return;}
@@ -547,8 +574,8 @@ async function addSetor(){ const n=(el('novoSet').value||'').trim(); if(!n){toas
   if(error){ mostrarErro(error,'adicionar setor'); return; } renderCategorias(); }
 async function toggleItem(tipo,id,ativo){ const tab=tipo==='cat'?'categorias':'setores';
   const {error}=await sb.from(tab).update({ativo:!!ativo}).eq('id',id); if(error){ mostrarErro(error,'ativar/desativar item'); renderCategorias(); } }
-async function renomear(tipo,id){ const tab=tipo==='cat'?'categorias':'setores';
-  const nome=prompt('Novo nome:'); if(nome===null) return; const n=nome.trim(); if(!n){toast('Nome inválido','erro');return;}
+async function renomear(tipo,id,atual){ const tab=tipo==='cat'?'categorias':'setores';
+  const n=await pedirTexto('Renomear', atual||''); if(n===null || n===(atual||'')) return;
   carregando(true,'Renomeando...'); const {error}=await sb.from(tab).update({nome:n}).eq('id',id); carregando(false);
   if(error){ mostrarErro(error,'renomear item'); return; } toast('Renomeado','ok'); renderCategorias(); }
 

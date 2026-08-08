@@ -687,8 +687,6 @@ body.nav-open .nav-backdrop{display:block}
       <div id="dashCharts"></div>
       <!-- LEVA 1.1: resumo rápido dos últimos 5 lançamentos (clicáveis). -->
       <div id="dashUltimos" class="mt12"></div>
-      <!-- Bloco enxugar: "Vencendo em breve" removido (redundante com Lançamentos). -->
-      <div id="dashPessoas" class="mt12"></div>
     </section>
 
     <!-- FORMULÁRIO -->
@@ -1098,7 +1096,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '36';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '37';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1486,8 +1484,7 @@ function renderInicio(){
   renderKpis();
   renderDashCharts();
   renderDashUltimos();   // LEVA 1.1: últimos 5 lançamentos (resumo rápido)
-  // Bloco enxugar: "Vencendo em breve" saiu (redundante com Lançamentos). Mantém ranking.
-  renderDashPessoas();
+  // "Por pessoa" saiu do rodapé (v37): o seletor de pessoa do topo já recalcula tudo.
   icons();
 }
 /* LEVA 1.1: bloco simples com os 5 lançamentos mais recentes (fornecedor · NF · valor · data).
@@ -1508,21 +1505,6 @@ function renderDashUltimos(){
   box.querySelectorAll('.ult-row').forEach(row=>{
     row.onclick = ()=>{ const l=arr[Number(row.getAttribute('data-ult'))]; if(l) abrirEdicao(l,'scInicio'); };
   });
-}
-/* Ranking por pessoa no Dashboard (só admin/financeiro). Respeita o escopo. */
-function renderDashPessoas(){
-  const box=el('dashPessoas');
-  if(!veTudo()){ box.innerHTML=''; return; }
-  const arr=baseLista();
-  const pp={};
-  arr.forEach(l=>{ const p=l.usuario||'(sem nome)'; (pp[p]=pp[p]||{qtd:0,total:0,aberto:0,pago:0}); pp[p].qtd++; pp[p].total+=Number(l.valor_total); if(l.status==='pago') pp[p].pago+=Number(l.valor_total); else pp[p].aberto+=Number(l.valor_total); });
-  const pessoas=Object.entries(pp).sort((a,b)=>b[1].aberto-a[1].aberto);
-  const corpo = pessoas.length
-    ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pessoa</th><th class="num">Lançs.</th><th class="num">A pagar</th><th class="num">Pago</th><th class="num">Total</th></tr></thead><tbody>`+
-      pessoas.map(([p,v])=>`<tr><td>${esc(p)}</td><td class="num">${v.qtd}</td><td class="num">${money(v.aberto)}</td><td class="num">${money(v.pago)}</td><td class="num">${money(v.total)}</td></tr>`).join('')+
-      `</tbody></table></div>`
-    : '<div class="empty" style="padding:16px">Sem lançamentos.</div>';
-  box.innerHTML = `<div class="chart" style="margin-top:8px"><h3><i data-lucide="users" class="i-sm"></i> Por pessoa</h3>${corpo}</div>`;
 }
 function renderKpis(){
   const abertos=emAberto(), at=atrasados(), pv=proxVencIso();
@@ -3206,8 +3188,7 @@ async function importarCategoriasERP(){
 }
 async function renomearSetor(id){
   const s=cacheSetores.find(x=>String(x.id)===String(id)); if(!s) return;
-  const entrada=prompt('Novo nome do setor:', s.nome); if(entrada===null) return;
-  const nome=entrada.trim(); if(!nome){ toast('Nome inválido','erro'); return; } if(nome===s.nome) return;
+  const nome=await pedirTexto('Renomear setor', s.nome); if(nome===null||nome===s.nome) return;
   carregando(true,'Renomeando...');
   const { error } = await sb.from('setores').update({ nome }).eq('id', id);
   carregando(false);
@@ -3245,8 +3226,7 @@ async function toggleMotivo(id, ativo){
 }
 async function renomearMotivo(id){
   const m=cacheMotivos.find(x=>String(x.id)===String(id)); if(!m) return;
-  const entrada=prompt('Novo nome do motivo:', m.nome); if(entrada===null) return;
-  const nome=entrada.trim(); if(!nome){ toast('Nome inválido','erro'); return; } if(nome===m.nome) return;
+  const nome=await pedirTexto('Renomear motivo', m.nome); if(nome===null||nome===m.nome) return;
   carregando(true,'Renomeando...');
   const { error } = await sb.from('motivos_exclusao').update({ nome }).eq('id', id);
   carregando(false);
@@ -3282,11 +3262,8 @@ async function toggleCategoria(id, ativo){
 }
 async function renomearCategoria(id){
   const c = cacheCategorias.find(x=>String(x.id)===String(id)); if(!c) return;
-  const entrada = prompt('Novo nome da categoria:', c.nome);
-  if(entrada===null) return;
-  const nome = entrada.trim();
-  if(!nome){ toast('Nome inválido','erro'); return; }
-  if(nome===c.nome) return;
+  const nome = await pedirTexto('Renomear categoria', c.nome);
+  if(nome===null||nome===c.nome) return;
   carregando(true,'Renomeando...');
   try{
     const { error } = await sb.from('categorias').update({ nome }).eq('id', id);
@@ -3594,6 +3571,27 @@ function confirmar(titulo, mensagem, opts={}){
   ]});
 }
 function escolher(titulo, mensagem, botoes){ return modal({titulo, mensagem, botoes, dismissValor:null}); }
+/* Modal de INPUT (renomear): campo pré-preenchido com o valor atual, foco+seleção ao abrir,
+   Enter confirma, Salvar bloqueado se vazio/só espaços. Retorna o texto (trim) ou null. */
+function pedirTexto(titulo, valorAtual, opts={}){
+  return modal({
+    titulo, dismissValor:null,
+    corpoHtml:`<input id="cmInput" class="cm-inp" type="text" maxlength="${opts.max||80}" value="${esc(valorAtual||'')}">`,
+    botoes:[
+      {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+      {rotulo:opts.okLabel||'Salvar', tipo:'primary', id:'cmSalvar', resolver:()=>(document.getElementById('cmInput').value||'').trim()}
+    ],
+    aoMontar:(ov)=>{
+      const inp=ov.querySelector('#cmInput'), btn=ov.querySelector('#cmSalvar');
+      const valido=()=>(inp.value||'').trim().length>0;
+      const atualiza=()=>{ if(btn) btn.disabled=!valido(); };
+      inp.oninput=atualiza; atualiza();
+      inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(valido()) btn.click(); } });
+      // foco no campo num tick adiado, para vencer o foco-padrão que o modal dá no botão primário.
+      setTimeout(()=>{ inp.focus(); inp.select(); }, 30);
+    }
+  });
+}
 
 /* Ao cruzar o limite celular/computador, re-renderiza a tela ativa (tabela x cartões) */
 let _rzTimer=null, _rzWide=null;
