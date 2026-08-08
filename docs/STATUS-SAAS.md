@@ -5,14 +5,28 @@
 
 ---
 
-## Estado atual — fim de 07/08/2026 (v39 publicado e estável)
+## Estado atual — fim de 08/08/2026 (v42 publicado e estável)
 
-- **Versão no ar: `sw.js` v39 / `APP_VERSION` 39** — publicada e **estável** (site 200; run do Pages
-  `completed/success`; commit `5b68689`). Working tree limpo, branch em sincronia.
-- **Migrations aplicadas: até `0011`** — **sem mudança de banco hoje** (tudo 100% front). Bump conjunto
-  `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+- **Versão no ar: `sw.js` v42 / `APP_VERSION` 42** — publicada e **estável** (site 200; run do Pages
+  `completed/success`; commit `9af9adc`). Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo 100% front). Bump
+  conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
 
-### Feito hoje (07/08)
+### Feito em 08/08
+- **Balancete: tabela de informações + orientação EXIF (v40)** — no PDF "Balancete", a seção do comprovante
+  virou **tabela** (cabeçalho "Informações da despesa", `theme:'grid'` + zebra + rótulo em negrito); e a
+  **foto entra em pé** (helper `dataUrlOrientado` via `createImageBitmap({imageOrientation:'from-image'})`,
+  só no ramo de foto; PDF anexado inalterado; fallback se indisponível). Lib: jsPDF 2.5.1 + autotable 3.8.2.
+- **Scroll do comprovante no desktop (v41)** — `.fc-body` deixou de centralizar (era `align-items:center`,
+  que escondia o topo de documentos compridos) → `display:block; overflow-y:auto`; documento rola do
+  cabeçalho ao rodapé dentro do painel.
+- **Grid único de 2 colunas (v42)** — **consolidação**: Novo lançamento (`scForm`) E Edição (`scEditar`)
+  usam o MESMO grid `body.tela-doc` **proporcional `minmax(0,1fr) minmax(0,1fr)`**, **alinhado no topo**
+  (`align-items:start`, sem `margin-top`). **Removido o mecanismo legado** `#docViewer`/`.docviewer`/
+  `has-viewer main` e a coluna fixa de 600px. `abrirViewer`/`fecharViewer` agora enchem **todos os
+  `.form-comp`** por classe (`.fc-img`/`.fc-frame`/`.fc-empty`). Scroll interno do v41 mantido.
+
+### Feito em 07/08
 - **Memória de categoria por estabelecimento (v35)** — IA em "Outros"/vazio → sugere a categoria mais
   usada do fornecedor (consulta a `lista` em memória; casa por CNPJ→`normNome`; só ativa; empate = mais
   recente; preenche em silêncio).
