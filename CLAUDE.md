@@ -29,9 +29,11 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0011)
 
-**Versão publicada: `sw.js` v36 / `APP_VERSION` 36** — no ar e estável (o incidente
-Actions/Pages do GitHub de 06/08 foi encerrado; v35 e v36 publicaram normalmente).
+**Versão publicada: `sw.js` v39 / `APP_VERSION` 39** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
+Últimas levas (todas 100% front, sem mudança de banco): memória de categoria (v35),
+"por pessoa" vira filtro (v36), modal de input + remoção do bloco "por pessoa" (v37),
+layout desktop (v38), ajustes finos (v39). Detalhes e fila em `docs/STATUS-SAAS.md`.
 
 Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
 

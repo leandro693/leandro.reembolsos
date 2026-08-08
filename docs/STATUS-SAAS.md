@@ -5,34 +5,64 @@
 
 ---
 
-## Estado atual — 07/08/2026 (v36 publicado e estável)
+## Estado atual — fim de 07/08/2026 (v39 publicado e estável)
 
-- **Versão no ar: `sw.js` v36 / `APP_VERSION` 36** — publicada e **estável** (site 200; run do
-  Pages `completed/success`). O incidente Actions/Pages do GitHub (06/08) foi **encerrado**;
-  v35 e v36 publicaram normalmente. Working tree limpo.
-- **Migrations aplicadas em produção: até `0011`** (idempotentes, via workflow Run SQL Migration).
+- **Versão no ar: `sw.js` v39 / `APP_VERSION` 39** — publicada e **estável** (site 200; run do Pages
+  `completed/success`; commit `5b68689`). Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0011`** — **sem mudança de banco hoje** (tudo 100% front). Bump conjunto
+  `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
 
-### Feito nas últimas levas
-- **Memória de categoria por estabelecimento (v35)** — quando a IA cai em "Outros"/vazio, sugere a
-  categoria mais usada do fornecedor; consulta a `lista` em memória (RLS por empresa, `deleted_at is null`);
-  casa por CNPJ→`normNome`; só categoria ativa; empate pela mais recente; preenchimento silencioso.
-- **"Por pessoa" vira filtro (v36)** — filtro de pessoa em **`baseLista()`** (só `veTudo() && escopoVer==='todos' && pessoaFiltro`)
-  recalcula **dashboard (KPIs/gráficos/últimos/"por pessoa") E lista** de uma vez; **seletor também no topo
-  do Dashboard** (`#dashPessoa`), gêmeo do de Lançamentos, **gated por `veTudo()`**; `setPessoa` sincroniza os
-  2 selects + persiste em `localStorage['mrd_pessoa']` + re-render da tela ativa; `validarPessoaSalva` no load
-  (volta a "Todas" se a pessoa não tem mais lançamentos).
+### Feito hoje (07/08)
+- **Memória de categoria por estabelecimento (v35)** — IA em "Outros"/vazio → sugere a categoria mais
+  usada do fornecedor (consulta a `lista` em memória; casa por CNPJ→`normNome`; só ativa; empate = mais
+  recente; preenche em silêncio).
+- **"Por pessoa" vira filtro (v36)** — filtro em `baseLista()` recalcula **dashboard (KPIs/gráficos/últimos)
+  e lista**; seletor também no topo do Dashboard (`#dashPessoa`), gated por `veTudo()`; persiste em
+  `localStorage['mrd_pessoa']`, validado no load.
+- **Modal de input + limpeza (v37)** — `pedirTexto()` (reusa o modal Maradel) substitui os `prompt()` de
+  renomear (setor/categoria/motivo no index e o renomear do console); removido o bloco "por pessoa"
+  redundante do rodapé do dashboard.
+- **Layout desktop (v38)** — Novo lançamento em **2 colunas** (form fixo à esquerda + comprovante à direita,
+  `#formComp`, guardado por `body.tela-form`); **cores do filtro de status** ecoam os selos (âmbar/vermelho/
+  verde/accent) — **também no mobile**; filtros **agrupados ao lado do seletor de pessoa**; **fornecedores
+  em tabela** no desktop (cards no mobile).
+- **Ajustes finos (v39)** — comprovante desce `margin-top:84px` (alinha ao 1º campo, ajustável); tabela de
+  fornecedores com **Telefone/E-mail/Cidade-Região** (col. `telefone`/`email`/`endereco`; vazio="—"); e o
+  lançar **permanece no Novo lançamento** no sucesso (troca `irInicio()` por `irForm('novo')`) + limpa o
+  form → **lançar em série**. Erro NÃO limpa; duplicata (hash/documento) barra antes do insert; parcelado ok.
 
-### Fila (próximos)
-- **Modal de input** — trocar os `prompt()` de renomear (setor/categoria/motivo) por um modal, no padrão
-  do componente de confirmação Maradel.
-- **Grandes (exigem quiz/decisão própria):** produtos proibidos + desconto automático; profissionalizar
-  infra (**Supabase Pro** + backup + **banco DEV**).
+### PRÓXIMO (já decidido) — Redesenho do módulo FECHAMENTO, Parte A (só UX, sem IA)
+Começar pelo **DE-PARA**. Decisões fechadas:
+- Texto de topo explicando a função; filtro **mês/todos**.
+- Lista com **checkbox de seleção** (múltipla + "selecionar todos") **+ baixa individual**.
+- **Barra de ação** que aparece com seleção: "N selecionados · total", **data do pagamento única do lote**
+  (pré-preenchida com hoje, editável), **anexo de comprovante do lote OPCIONAL**, botão **"Dar baixa nos
+  selecionados"**.
+- Espaço reservado **"Conciliação por IA — em breve"** (só visual).
+- **Reusar** o fluxo de "marcar recebido" (`status='pago'` + `data_pagamento`), o **gate de papel**, e o
+  **parcelado com baixa por parcela independente**.
+
+### Fila (grandes — exigem quiz próprio), em ordem sugerida
+1. **Conciliação por IA no Fechamento (Parte B)** — NOVA ideia: anexar comprovante de **pagamento**, a IA lê
+   o valor, **casa com os reembolsos em aberto que somam aquele valor** e dá baixa automática guardando o
+   comprovante. IA + casamento de valores + segurança (tipo de documento novo). Quiz: o que fazer quando não
+   bate exato, ambiguidade de combinações, baixa automática vs sugestão, blindagem anti-injeção.
+2. **Produtos proibidos + desconto automático.**
+3. **Profissionalizar infra** (Supabase Pro + backup + **banco DEV**) — precisa do Leandro presente.
+
+### Pendências de UX do desktop (adiadas de propósito)
+- **Administração** com "muita coisa solta" → organizar em **submenus**.
+- **Console de Gestão** sai de perto da Administração e vai para o **rodapé do menu**, em lugar próprio, só
+  para o dono (estilo "Sistema de Gestão").
+- Organizar o módulo **Ajustes**.
 
 ### Ponto aberto (mantido)
-- As **59 linhas** em `lancamentos` com `deleted_at` preenchido — confirmar, **logado como a empresa**,
-  se os lançamentos ativos esperados aparecem. Registro em `supabase/auditoria/pago-campos.txt`.
+- As **59 linhas** em `lancamentos` com `deleted_at` preenchido — confirmar, **logado como a empresa**, se os
+  lançamentos ativos esperados aparecem. Registro em `supabase/auditoria/pago-campos.txt`.
 
 ---
+
+## Estado anterior — 06/08/2026 (v36)
 
 ## Estado anterior — fim de 05/08/2026
 
