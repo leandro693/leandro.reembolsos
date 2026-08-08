@@ -1142,7 +1142,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '39';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '40';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -3472,6 +3472,22 @@ function gerarPdf(){
 function blobParaDataUrl(blob){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(blob); }); }
 /* Dimensões de uma imagem a partir do dataURL */
 function dimImagem(dataUrl){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res({w:img.naturalWidth,h:img.naturalHeight}); img.onerror=rej; img.src=dataUrl; }); }
+/* AJUSTE 2: normaliza a orientação EXIF ANTES de inserir no PDF. O jsPDF ignora o EXIF
+   (foto sairia deitada); createImageBitmap({imageOrientation:'from-image'}) aplica a rotação,
+   e o canvas fixa os pixels já EM PÉ (sem EXIF). Retorna dataUrl + dimensões corrigidas.
+   Fallback: se createImageBitmap/imageOrientation não existir, usa o dataURL cru. */
+async function dataUrlOrientado(blob){
+  try{
+    if(typeof createImageBitmap!=='function') throw new Error('sem createImageBitmap');
+    const bmp=await createImageBitmap(blob, {imageOrientation:'from-image'});
+    const cv=document.createElement('canvas'); cv.width=bmp.width; cv.height=bmp.height;
+    cv.getContext('2d').drawImage(bmp,0,0);
+    return { dataUrl:cv.toDataURL('image/jpeg',0.9), w:bmp.width, h:bmp.height };
+  }catch(e){
+    const dataUrl=await blobParaDataUrl(blob); const dim=await dimImagem(dataUrl);
+    return { dataUrl, w:dim.w, h:dim.h };
+  }
+}
 /* Renderiza cada página de um PDF (arrayBuffer) em imagem JPEG */
 async function pdfParaImagens(arrayBuffer){
   const pdfjs=window.pdfjsLib; if(!pdfjs) throw new Error('pdfjs indisponível');
@@ -3524,9 +3540,12 @@ async function addPaginaComprovante(doc, l){
     ['Observações', l.observacoes||'-'],
     ['Valor da parcela', money(l.valor_total)],
   ];
-  doc.autoTable({ startY, body:desc, theme:'plain',
+  // AJUSTE 1: tabela de 2 colunas (rótulo | dado) com cabeçalho, bordas leves e zebra.
+  doc.autoTable({ startY, head:[[{content:'Informações da despesa', colSpan:2}]], body:desc, theme:'grid',
+    headStyles:{fillColor:GRA, textColor:[255,255,255], fontStyle:'bold', fontSize:9.5, halign:'left'},
     columnStyles:{0:{fontStyle:'bold',cellWidth:40,textColor:GRA},1:{textColor:[40,40,40]}},
-    styles:{fontSize:9.5,cellPadding:1.6}, margin:{left:14,right:14} });
+    alternateRowStyles:{fillColor:[247,246,244]},
+    styles:{fontSize:9.5,cellPadding:2,lineWidth:0.1,lineColor:[225,222,217]}, margin:{left:14,right:14} });
 
   let imgY=doc.lastAutoTable.finalY+6;
   doc.setDrawColor(220,218,214); doc.line(14,imgY,196,imgY); imgY+=6;
@@ -3543,9 +3562,8 @@ async function addPaginaComprovante(doc, l){
       return 'img';
     }
     const blob=await resp.blob();
-    const dataUrl=await blobParaDataUrl(blob);
-    const dim=await dimImagem(dataUrl);
-    addImagemAjustada(doc, {dataUrl,w:dim.w,h:dim.h}, imgY);
+    const im=await dataUrlOrientado(blob);   // AJUSTE 2: já em pé (EXIF aplicado) — só o ramo de FOTO
+    addImagemAjustada(doc, im, imgY);
     return 'img';
   }catch(e){
     console.warn('comprovante',e);
