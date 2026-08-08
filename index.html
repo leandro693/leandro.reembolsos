@@ -488,6 +488,7 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
   body.tela-form .form-grid{display:grid;grid-template-columns:600px minmax(0,1fr);gap:24px;align-items:start}
   body.tela-form .form-col{min-width:0}
   body.tela-form .form-comp{display:flex;flex-direction:column;position:sticky;top:24px;
+    margin-top:84px;   /* AJUSTE 1: desce p/ alinhar com o 1º campo abaixo do anexo (ajustável) */
     max-height:calc(100vh - 48px);background:var(--surface);border:1px solid var(--border);
     border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
   body.tela-form .fc-head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;
@@ -1141,7 +1142,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '38';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '39';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1638,6 +1639,7 @@ function renderFornecedores(){
   if(ehDesktop()){
     // ITEM 4: no computador, TABELA (um fornecedor por linha) aproveitando o espaço.
     const acCol = admin ? '<th class="acts-td">Ações</th>' : '';
+    const tr = v => v ? esc(v) : '—';   // vazio vira traço
     const linhas = arr.map(f=>{
       const q=qtdPorForn[f.id]||0, tot=totalPorForn[f.id]||0;
       const acts = admin ? `<td class="acts-td">
@@ -1646,13 +1648,16 @@ function renderFornecedores(){
       return `<tr>
         <td>${esc(f.nome)}</td>
         <td class="code">${f.cnpj?esc(fmtCpfCnpj(f.cnpj)):'—'}</td>
+        <td class="code">${f.telefone?esc(fmtTelefone(f.telefone)):'—'}</td>
+        <td>${tr(f.email)}</td>
+        <td>${tr(f.endereco)}</td>
         <td class="num">${q||0}</td>
         <td class="num">${tot?money(tot):'—'}</td>
         ${acts}
       </tr>`;
     }).join('');
     el('fornLista').innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr>
-      <th>Fornecedor</th><th>CPF/CNPJ</th><th class="num">Lançs.</th><th class="num">Total</th>${acCol}
+      <th>Fornecedor</th><th>CPF/CNPJ</th><th>Telefone</th><th>E-mail</th><th>Cidade/Região</th><th class="num">Lançs.</th><th class="num">Total</th>${acCol}
     </tr></thead><tbody>${linhas}</tbody></table></div>`;
     icons(); return;
   }
@@ -2497,7 +2502,9 @@ async function lancar(){
     await carregarLista();
     carregando(false);
     toast(rows.length>1?`${rows.length} parcelas lançadas`:'Reembolso lançado','ok');
-    irInicio();
+    // AJUSTE 3: no SUCESSO, permanece no Novo lançamento e limpa o form (emendar vários seguidos).
+    // Só roda aqui, depois do insert OK; em erro cai no catch e NÃO limpa.
+    irForm('novo');
   }catch(e){ carregando(false); mostrarErro(e,'lancar reembolso'); }  // erro amigável + código
 }
 
