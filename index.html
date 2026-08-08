@@ -467,43 +467,25 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .preview-img{width:100%;max-height:220px;object-fit:contain;border-radius:9px;border:1px solid var(--border);
   background:var(--surface-2);margin-bottom:12px}
 
-/* ---- Visualizador do documento (lado direito, só em telas largas) ---- */
-.docviewer{display:none}
+/* ---- Comprovante lado a lado (desktop): scForm e scEditar num grid 2 colunas ---- */
 @media(min-width:980px){
-  /* quando há documento aberto, o conteúdo desloca para a esquerda e o viewer ocupa a direita */
-  body.has-viewer main{margin-left:max(24px,calc(50% - 620px));margin-right:calc(42% + 24px)}
-  .docviewer{display:flex;flex-direction:column;position:fixed;top:74px;right:24px;
-    width:40%;max-width:560px;height:calc(100vh - 98px);background:var(--surface);
-    border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;z-index:35}
-  body:not(.has-viewer) .docviewer{display:none}
-  .docviewer .dvhead{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;
-    font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px}
-  .docviewer .dvbody{flex:1;overflow:auto;padding:12px;background:var(--surface-2);display:flex}
-  .docviewer .dvbody img{width:100%;height:auto;object-fit:contain;border-radius:8px;margin:auto}
-  .docviewer .dvbody iframe{width:100%;height:100%;border:none;border-radius:8px;background:#fff}
-  body.has-viewer #fotoPreview{display:none}   /* miniatura some quando há viewer grande */
-  /* ITEM 1: "Novo lançamento" em 2 colunas. Form fixo à esquerda; comprovante preenche
-     a coluna direita, com o TOPO alinhado ao início do form (área de anexo). Sem
-     comprovante, a coluna direita fica reservada (placeholder) e o form NÃO espalha. */
-  body.tela-form .form-grid{display:grid;grid-template-columns:600px minmax(0,1fr);gap:24px;align-items:start}
-  body.tela-form .form-col{min-width:0}
-  body.tela-form .form-comp{display:flex;flex-direction:column;position:sticky;top:24px;
-    margin-top:84px;   /* desce p/ alinhar com o 1º campo abaixo do anexo (ajustável) */
-    max-height:calc(100vh - 120px);background:var(--surface);border:1px solid var(--border);
+  body.has-viewer #fotoPreview{display:none}   /* some a mini-prévia quando o doc aparece na coluna */
+  /* Grid 50/50 PROPORCIONAL (encolhe junto no zoom; nada de px fixo). Topos ALINHADOS
+     (align-items:start; sem margin-top). Vale para scForm E scEditar (body.tela-doc). */
+  body.tela-doc .form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
+  body.tela-doc .form-col{min-width:0}
+  body.tela-doc .form-comp{display:flex;flex-direction:column;position:sticky;top:24px;
+    max-height:calc(100vh - 96px);background:var(--surface);border:1px solid var(--border);
     border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
-  body.tela-form .fc-head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;
+  body.tela-doc .fc-head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;
     font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:8px}
   /* Rolagem PRÓPRIA do painel: bloco + overflow-y (NÃO centralizar, senão o topo do doc
      comprido fica inacessível). Documento alto rola do cabeçalho ao rodapé; curto fica no topo. */
-  body.tela-form .fc-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;background:var(--surface-2);
+  body.tela-doc .fc-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;background:var(--surface-2);
     display:block;text-align:center;min-height:240px}
-  body.tela-form .fc-body img{width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
-  body.tela-form .fc-body iframe{width:100%;height:100%;min-height:72vh;border:none;border-radius:8px;background:#fff}
-  body.tela-form .fc-empty{color:var(--text-4);font-size:13px;text-align:center;padding:24px}
-  /* No scForm o layout é o grid: anula o deslocamento/viewer fixo do has-viewer. */
-  body.tela-form.has-viewer main{margin-left:248px;margin-right:24px}
-  body.tela-form.sb-collapsed.has-viewer main{margin-left:88px}
-  body.tela-form .docviewer{display:none!important}
+  body.tela-doc .fc-body img{width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
+  body.tela-doc .fc-body iframe{width:100%;height:100%;min-height:72vh;border:none;border-radius:8px;background:#fff}
+  body.tela-doc .fc-empty{color:var(--text-4);font-size:13px;text-align:center;padding:24px}
 }
 
 /* ---- Indicadores (KPIs) do Dashboard ---- */
@@ -612,7 +594,6 @@ body.nav-open .nav-backdrop{display:block}
   header.top{display:none}
   nav.bottom{display:none}
   main{margin-left:248px;margin-right:24px;max-width:none;padding:24px 24px 48px}
-  body.has-viewer main{margin-left:248px;margin-right:calc(40% + 40px)}
   /* Recolhido: mostra só os ícones */
   body.sb-collapsed .sidebar{width:64px}
   body.sb-collapsed .sidebar .brand,
@@ -627,8 +608,6 @@ body.nav-open .nav-backdrop{display:block}
   body.sb-collapsed .sb-mini{justify-content:center;padding-left:0;padding-right:0}
   body.sb-collapsed .sb-user{justify-content:center;padding-left:0;padding-right:0}
   body.sb-collapsed main{margin-left:88px}
-  body.sb-collapsed.has-viewer main{margin-left:88px}
-  .docviewer{top:24px;height:calc(100vh - 48px)}
   .dashgrid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 }
 </style>
@@ -829,12 +808,12 @@ body.nav-open .nav-backdrop{display:block}
       <button class="btn btn-primary" id="btnLancar" onclick="lancar()"><i data-lucide="check" class="i-md"></i> Lançar reembolso</button>
       <button class="btn btn-ghost mt10" onclick="irInicio()">Cancelar</button>
       </div><!-- /form-col -->
-      <aside id="formComp" class="form-comp only-desktop" aria-label="Comprovante">
+      <aside class="form-comp only-desktop" aria-label="Comprovante">
         <div class="fc-head"><i data-lucide="file-text" class="i-sm"></i> Comprovante</div>
         <div class="fc-body">
-          <img id="formCompImg" alt="Comprovante" class="hidden">
-          <iframe id="formCompFrame" class="hidden" title="Comprovante"></iframe>
-          <div class="fc-empty" id="formCompEmpty">O comprovante aparece aqui</div>
+          <img alt="Comprovante" class="fc-img hidden">
+          <iframe class="fc-frame hidden" title="Comprovante"></iframe>
+          <div class="fc-empty">O comprovante aparece aqui</div>
         </div>
       </aside>
       </div><!-- /form-grid -->
@@ -904,6 +883,8 @@ body.nav-open .nav-backdrop{display:block}
     <!-- EDITAR -->
     <section id="scEditar" class="screen hidden">
       <h2 class="pagetitle">Editar lançamento</h2>
+      <!-- Desktop: mesmo grid 2 colunas do Novo lançamento (form à esquerda, comprovante à direita). -->
+      <div class="form-grid"><div class="form-col">
       <div class="note info"><i data-lucide="pencil-line" class="i-md"></i><div>Ajuste qualquer campo e salve.</div></div>
       <!-- LEVA 1: ver o comprovante na edição (imagem e PDF), reusando o #compOverlay. -->
       <button type="button" class="btn btn-sec mb8 hidden" id="btnVerCompEdit" onclick="verComprovante(edicaoAtual)"><i data-lucide="paperclip" class="i-md"></i> Ver comprovante</button>
@@ -921,7 +902,16 @@ body.nav-open .nav-backdrop{display:block}
       <div class="field mt12"><label>Observações</label><textarea id="eObs"></textarea></div>
       <button class="btn btn-primary" onclick="salvarEdicao()"><i data-lucide="save" class="i-md"></i> Salvar alterações</button>
       <button class="btn btn-ghost mt10" onclick="voltar()">Cancelar</button>
-    </section>
+      </div><!-- /form-col -->
+      <aside class="form-comp only-desktop" aria-label="Comprovante">
+        <div class="fc-head"><i data-lucide="file-text" class="i-sm"></i> Comprovante</div>
+        <div class="fc-body">
+          <img alt="Comprovante" class="fc-img hidden">
+          <iframe class="fc-frame hidden" title="Comprovante"></iframe>
+          <div class="fc-empty">O comprovante aparece aqui</div>
+        </div>
+      </aside>
+      </div><!-- /form-grid -->
 
     <!-- MARCAR VÁRIOS -->
     <section id="scMarcar" class="screen hidden">
@@ -1053,14 +1043,6 @@ body.nav-open .nav-backdrop{display:block}
   </main>
 
   <!-- Visualizador do documento no computador (lado direito), para conferência -->
-  <aside id="docViewer" class="docviewer">
-    <div class="dvhead"><i data-lucide="file-search" class="i-sm"></i> Comprovante</div>
-    <div class="dvbody">
-      <img id="docViewerImg" alt="Comprovante" class="hidden">
-      <iframe id="docViewerFrame" class="hidden" title="Comprovante"></iframe>
-    </div>
-  </aside>
-
   <!-- Bloco enxugar: barra com 3 itens e FAB central (Dashboard · Lançar · Lançamentos).
        Recebidos virou o card "Recebido mês" no dashboard; Ajustes foi para o header. -->
   <nav class="bottom">
@@ -1144,7 +1126,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '41';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '42';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1249,7 +1231,7 @@ function tela(id, origem){
   SCREENS.forEach(s=>el(s).classList.add('hidden'));
   el(id).classList.remove('hidden');
   telaAtual=id;
-  document.body.classList.toggle('tela-form', id==='scForm');   // ITEM 1: ativa o layout 2 colunas do desktop
+  document.body.classList.toggle('tela-doc', id==='scForm'||id==='scEditar');   // layout 2 colunas (desktop): Novo lançamento e Edição
   try{ sessionStorage.setItem('tela_atual', id); }catch(e){}   // item c: lembra a tela para o refresh
   try{ if(history.state && history.state.a) history.replaceState({...history.state, tela:id},''); }catch(e){}
   toggleGaveta(false); // fecha a gaveta do menu no celular ao navegar
@@ -2055,22 +2037,28 @@ function dzLeave(e){ e.preventDefault(); el('dropzone').classList.remove('over')
 function dzDrop(e){ e.preventDefault(); el('dropzone').classList.remove('over'); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); }
 
 /* Visualizador do documento no lado direito (telas largas). */
+/* Alimenta TODOS os painéis de comprovante (.form-comp) — cobre scForm e scEditar sem
+   duplicar lógica. Por classe: cada painel tem .fc-img/.fc-frame/.fc-empty. */
 function abrirViewer(url, mime){
-  // ITEM 1: alimenta os DOIS alvos — #docViewer (edição, fixo) e #formComp (coluna do scForm).
-  [['docViewerImg','docViewerFrame'],['formCompImg','formCompFrame']].forEach(([iId,fId])=>{
-    const img=el(iId), fr=el(fId); if(!img||!fr) return;
-    if(mime==='application/pdf'){ fr.src=url; fr.classList.remove('hidden'); img.classList.add('hidden'); }
-    else{ img.src=url; img.classList.remove('hidden'); fr.classList.add('hidden'); fr.removeAttribute('src'); }
+  document.querySelectorAll('.form-comp').forEach(p=>{
+    const img=p.querySelector('.fc-img'), fr=p.querySelector('.fc-frame'), vazio=p.querySelector('.fc-empty');
+    if(img&&fr){
+      if(mime==='application/pdf'){ fr.src=url; fr.classList.remove('hidden'); img.classList.add('hidden'); }
+      else{ img.src=url; img.classList.remove('hidden'); fr.classList.add('hidden'); fr.removeAttribute('src'); }
+    }
+    if(vazio) vazio.classList.add('hidden');   // some o placeholder
   });
-  el('formCompEmpty')?.classList.add('hidden');   // some o placeholder da coluna direita
   document.body.classList.add('has-viewer');
   icons();
 }
 function fecharViewer(){
   document.body.classList.remove('has-viewer');
-  ['docViewerFrame','formCompFrame'].forEach(id=>{ const fr=el(id); if(fr){ fr.removeAttribute('src'); fr.classList.add('hidden'); } });
-  ['formCompImg'].forEach(id=>{ const im=el(id); if(im){ im.classList.add('hidden'); im.removeAttribute('src'); } });
-  el('formCompEmpty')?.classList.remove('hidden');   // volta o placeholder (coluna reservada e vazia)
+  document.querySelectorAll('.form-comp').forEach(p=>{
+    const img=p.querySelector('.fc-img'), fr=p.querySelector('.fc-frame'), vazio=p.querySelector('.fc-empty');
+    if(fr){ fr.removeAttribute('src'); fr.classList.add('hidden'); }
+    if(img){ img.classList.add('hidden'); img.removeAttribute('src'); }
+    if(vazio) vazio.classList.remove('hidden');   // volta o placeholder (coluna reservada e vazia)
+  });
 }
 
 /* Converte arquivo em base64 (sem o prefixo data:) para enviar à IA */
