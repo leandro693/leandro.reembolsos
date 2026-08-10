@@ -474,7 +474,7 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
      (align-items:start; sem margin-top). Vale para scForm E scEditar (body.tela-doc). */
   body.tela-doc .form-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
   body.tela-doc .form-col{min-width:0}
-  body.tela-doc .form-comp{display:flex;flex-direction:column;position:sticky;top:24px;
+  body.tela-doc .form-comp{display:flex;flex-direction:column;position:sticky;top:24px;min-width:0;
     max-height:calc(100vh - 96px);background:var(--surface);border:1px solid var(--border);
     border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
   body.tela-doc .fc-head{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;
@@ -483,9 +483,21 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
      comprido fica inacessível). Documento alto rola do cabeçalho ao rodapé; curto fica no topo. */
   body.tela-doc .fc-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px;background:var(--surface-2);
     display:block;text-align:center;min-height:240px}
-  body.tela-doc .fc-body img{width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
+  /* AJUSTE 2 (v43): max-width (não width) evita UPSCALE — a imagem respeita a largura da
+     coluna sem inchar em zoom baixo; grid minmax(0,1fr) já mantém a proporção 50/50. */
+  body.tela-doc .fc-body img{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
   body.tela-doc .fc-body iframe{width:100%;height:100%;min-height:72vh;border:none;border-radius:8px;background:#fff}
   body.tela-doc .fc-empty{color:var(--text-4);font-size:13px;text-align:center;padding:24px}
+  /* AJUSTE 1 (v43): pares SÓ no desktop. No mobile .grid-desk é block (ordem do DOM preservada).
+     order dos campos forma os pares sem reordenar o HTML; .span-2 ocupa a linha inteira. */
+  body.tela-doc .grid-desk{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
+  body.tela-doc .grid-desk>.field{margin-bottom:0}
+  body.tela-doc .grid-desk .span-2{grid-column:1/-1}
+  body.tela-doc .o1{order:1} body.tela-doc .o2{order:2} body.tela-doc .o3{order:3} body.tela-doc .o4{order:4}
+  body.tela-doc .o5{order:5} body.tela-doc .o6{order:6} body.tela-doc .o7{order:7}
+  /* Ler à ESQUERDA, Recortar à DIREITA (DOM mantém Recortar antes; só o desktop troca) */
+  body.tela-doc .pair-btns>#btnLer{grid-column:1;margin-top:0}
+  body.tela-doc .pair-btns>#btnRecortar{grid-column:2;margin-top:0}
 }
 
 /* ---- Indicadores (KPIs) do Dashboard ---- */
@@ -730,10 +742,13 @@ body.nav-open .nav-backdrop{display:block}
         </div>
         <img id="fotoPreview" class="preview-img hidden" alt="Comprovante" style="margin-top:12px">
         <div id="lblFoto" class="dz-file hidden"></div>
-        <!-- Recorte (opcional, so imagem). A leitura NAO dispara por tempo: e acao do usuario. -->
-        <button type="button" class="btn btn-sec mt8 hidden" id="btnRecortar" onclick="abrirRecorte()"><i data-lucide="crop" class="i-md"></i> Recortar</button>
-        <!-- Acao principal: o usuario decide quando ler o comprovante. -->
-        <button type="button" class="btn btn-primary mt8 hidden" id="btnLer" onclick="lerComprovante()"><i data-lucide="sparkles" class="i-md"></i> Ler comprovante</button>
+        <!-- Recorte + Ler: no desktop viram par (Ler à esquerda). No mobile empilham (ordem do DOM). -->
+        <div class="grid-desk pair-btns">
+          <!-- Recorte (opcional, so imagem). A leitura NAO dispara por tempo: e acao do usuario. -->
+          <button type="button" class="btn btn-sec mt8 hidden" id="btnRecortar" onclick="abrirRecorte()"><i data-lucide="crop" class="i-md"></i> Recortar</button>
+          <!-- Acao principal: o usuario decide quando ler o comprovante. -->
+          <button type="button" class="btn btn-primary mt8 hidden" id="btnLer" onclick="lerComprovante()"><i data-lucide="sparkles" class="i-md"></i> Ler comprovante</button>
+        </div>
         <!-- Bloco 3: fallback escondido; so aparece se a leitura falhar -->
         <button type="button" class="btn btn-dark mt8 hidden" id="btnAnalisar" onclick="analisarFoto()">
           <i data-lucide="sparkles" class="i-md"></i> Ler novamente
@@ -770,32 +785,32 @@ body.nav-open .nav-backdrop{display:block}
         <div class="panel" id="kmResumo" style="margin-bottom:14px"></div>
       </div>
 
-      <!-- Valor padrão -->
-      <div id="boxValor">
-        <div class="field"><label>Fornecedor / estabelecimento</label>
+      <!-- Valor padrão. Desktop: pares (Fornecedor+CNPJ / NºNota+Valor) via order; Forma de pagamento
+           em linha própria. Mobile: .grid-desk vira block -> ordem do DOM preservada. -->
+      <div id="boxValor" class="grid-desk">
+        <div class="field o1"><label>Fornecedor / estabelecimento</label>
           <input type="text" id="fFornecedor" placeholder="Ex.: Tenda Atacado" list="fornDatalist" autocomplete="off" onchange="autoPreencherForn()">
           <datalist id="fornDatalist"></datalist></div>
-        <!-- LEVA 1: CPF/CNPJ em linha inteira (18 dígitos não cabem em meia coluna; a fonte
-             fica 16px de propósito, pois abaixo disso o iOS dá zoom ao focar o campo). -->
-        <div class="field"><label>Nº da nota / cupom</label>
+        <!-- CPF/CNPJ: no celular fica em linha inteira (fonte 16px, evita zoom do iOS); no desktop pareia. -->
+        <div class="field o3"><label>Nº da nota / cupom</label>
           <input type="text" id="fNumeroNota" placeholder="opcional"></div>
-        <div class="field"><label>CPF / CNPJ</label>
+        <div class="field o2"><label>CPF / CNPJ</label>
           <input type="text" id="fCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
-        <div class="field">
+        <div class="field o5 span-2">
           <label>Forma de pagamento</label>
           <div class="seg">
             <button type="button" id="pgVista" class="on" onclick="setParcelado(false)">À vista</button>
             <button type="button" id="pgParc" onclick="setParcelado(true)">Parcelado</button>
           </div>
         </div>
-        <div class="field"><label id="lblValor">Valor (R$) *</label>
+        <div class="field o4"><label id="lblValor">Valor (R$) *</label>
           <input type="number" id="fValor" placeholder="0,00" inputmode="decimal" oninput="calcParcelas()"></div>
-        <div class="field hidden" id="boxNumParc">
+        <div class="field hidden span-2 o6" id="boxNumParc">
           <label>Número de parcelas</label>
           <input type="number" id="fNumParc" value="2" min="2" max="48" inputmode="numeric" oninput="calcParcelas()">
           <div class="hint">Informe o valor TOTAL acima. Divido igualmente. Vencimentos no dia 10 dos meses seguintes.</div>
         </div>
-        <div class="panel hidden" id="parcResumo" style="margin-bottom:14px"></div>
+        <div class="panel hidden span-2 o7" id="parcResumo" style="margin-bottom:14px"></div>
       </div>
 
       <div class="row2">
@@ -889,11 +904,14 @@ body.nav-open .nav-backdrop{display:block}
       <!-- LEVA 1: ver o comprovante na edição (imagem e PDF), reusando o #compOverlay. -->
       <button type="button" class="btn btn-sec mb8 hidden" id="btnVerCompEdit" onclick="verComprovante(edicaoAtual)"><i data-lucide="paperclip" class="i-md"></i> Ver comprovante</button>
       <div class="field"><label>Categoria</label><select id="eCategoria"></select></div>
-      <div class="field"><label>Fornecedor / estabelecimento</label><input type="text" id="eFornecedor"></div>
-      <!-- LEVA 1: CPF/CNPJ em linha inteira (mesma razão do formulário de novo lançamento). -->
-      <div class="field"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
-      <div class="field"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
-      <div class="field"><label>Valor (R$)</label><input type="number" id="eValor" inputmode="decimal"></div>
+      <!-- Desktop: pares (Fornecedor+CNPJ / NºNota+Valor) via order. Mobile: block, ordem do DOM. -->
+      <div class="grid-desk">
+        <div class="field o1"><label>Fornecedor / estabelecimento</label><input type="text" id="eFornecedor"></div>
+        <!-- CPF/CNPJ em linha inteira no celular; no desktop pareia. -->
+        <div class="field o3"><label>Nº da nota / cupom</label><input type="text" id="eNumeroNota" placeholder="opcional"></div>
+        <div class="field o2"><label>CPF / CNPJ</label><input type="text" id="eCnpj" placeholder="opcional" inputmode="numeric" oninput="this.value=fmtCpfCnpj(this.value)"></div>
+        <div class="field o4"><label>Valor (R$)</label><input type="number" id="eValor" inputmode="decimal"></div>
+      </div>
       <div class="row2">
         <div class="field"><label>Data de emissão</label><input type="date" id="eDataEmissao"></div>
         <div class="field"><label>Vencimento</label><input type="date" id="eVenc"></div>
@@ -1126,7 +1144,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '42';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '43';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
