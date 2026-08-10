@@ -5,12 +5,34 @@
 
 ---
 
-## Estado atual — fim de 08/08/2026 (v42 publicado e estável)
+## Estado atual — fim de 10/08/2026 (v47 publicado e estável)
 
-- **Versão no ar: `sw.js` v42 / `APP_VERSION` 42** — publicada e **estável** (site 200; run do Pages
-  `completed/success`; commit `9af9adc`). Working tree limpo, branch em sincronia.
+- **Versão no ar: `sw.js` v47 / `APP_VERSION` 47** — publicada e **estável** (site 200; run do Pages
+  `completed/success`; commit `205deb8`). Working tree limpo, branch em sincronia.
 - **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo 100% front). Bump
   conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+
+### Feito em 09-10/08
+- **Campos pareados no desktop (v43)** — no Novo lançamento/Edição, pares (Ler+Recortar, Fornecedor+CNPJ,
+  NºNota+Valor) via CSS `order` (form mais compacto, sem reordenar o DOM; mobile inalterado) + **correção
+  da proporção em zoom** do comprovante (`max-width:100%`, sem estourar a coluna).
+- **Ajustes finos do par e rótulos (v44)** — alinhamento do par **Ler/Recortar** (via `order`), **respiro
+  dos rótulos** (label 6→8px, global) e **dropzone mais compacta** (padding 26→14px, só desktop).
+- **Respiro forma de pagamento × datas (v45)** — espaço entre o bloco "À vista/Parcelado" e Data/Vencimento
+  no desktop (`body.tela-doc .grid-desk{margin-bottom:14px}`).
+- **Redesenho do Fechamento — Parte A (v46, só UX, SEM IA)** — texto de ajuda claro; **seleção múltipla**
+  (checkbox + "selecionar todos") **e individual** (botão discreto por linha); **barra de ação** com
+  "N selecionados · total", **data única do lote** (hoje, editável) e **comprovante do lote OPCIONAL**;
+  botão "Dar baixa nos selecionados"; placeholder **"Conciliação por IA — em breve"** (só visual, sem
+  onclick); **gate de gestão** (`veTudo()`); core único **`darBaixa(ids, dp, arquivo)`** reusado por
+  **lote, baixa individual E Lançamentos**. **Sem tocar banco** (coluna `comprovante_pagamento` já existia).
+- **FIX CRÍTICO (v47)** — o `scEditar` estava **sem o `</section>`** (perdido no refactor do v42), o que
+  **aninhava as telas seguintes** (Fechamento/Ajustes/Fornecedores/Administração) **dentro do `scEditar`**
+  (oculto), deixando-as **em branco** ao navegar. Corrigido o fechamento + adicionado **guard de regressão**
+  no harness que conta `<section>`×`</section>` e valida que nenhuma tela fica aninhada dentro de outra.
+  - **LIÇÃO:** teste automatizado de **lógica** não pega **erro de estrutura HTML** nem substitui o **teste
+    de olho no aparelho** — principalmente após refactors de layout/estrutura, **clicar por TODAS as telas**,
+    não só as que mudaram.
 
 ### Feito em 08/08
 - **Balancete: tabela de informações + orientação EXIF (v40)** — no PDF "Balancete", a seção do comprovante
@@ -45,22 +67,12 @@
   lançar **permanece no Novo lançamento** no sucesso (troca `irInicio()` por `irForm('novo')`) + limpa o
   form → **lançar em série**. Erro NÃO limpa; duplicata (hash/documento) barra antes do insert; parcelado ok.
 
-### PRÓXIMO (já decidido) — Redesenho do módulo FECHAMENTO, Parte A (só UX, sem IA)
-Começar pelo **DE-PARA**. Decisões fechadas:
-- Texto de topo explicando a função; filtro **mês/todos**.
-- Lista com **checkbox de seleção** (múltipla + "selecionar todos") **+ baixa individual**.
-- **Barra de ação** que aparece com seleção: "N selecionados · total", **data do pagamento única do lote**
-  (pré-preenchida com hoje, editável), **anexo de comprovante do lote OPCIONAL**, botão **"Dar baixa nos
-  selecionados"**.
-- Espaço reservado **"Conciliação por IA — em breve"** (só visual).
-- **Reusar** o fluxo de "marcar recebido" (`status='pago'` + `data_pagamento`), o **gate de papel**, e o
-  **parcelado com baixa por parcela independente**.
-
 ### Fila (grandes — exigem quiz próprio), em ordem sugerida
-1. **Conciliação por IA no Fechamento (Parte B)** — NOVA ideia: anexar comprovante de **pagamento**, a IA lê
-   o valor, **casa com os reembolsos em aberto que somam aquele valor** e dá baixa automática guardando o
-   comprovante. IA + casamento de valores + segurança (tipo de documento novo). Quiz: o que fazer quando não
-   bate exato, ambiguidade de combinações, baixa automática vs sugestão, blindagem anti-injeção.
+1. **Conciliação por IA no Fechamento (Parte B)** — **JÁ PLANEJADA E APROVADA** (desenho completo e prompt
+   no arquivo de plano). Fluxo: anexa comprovante de **pagamento**, a IA lê **valor + destinatário**, **casa
+   combinações de até 3-4 reembolsos** filtrando por **pessoa/período/fornecedor**; **sempre PROPÕE e o
+   usuário DECIDE, nunca automático**; **segurança anti-injeção obrigatória** (com teste de injeção); **reusa
+   `darBaixa`**; **gate de gestão**.
 2. **Produtos proibidos + desconto automático.**
 3. **Profissionalizar infra** (Supabase Pro + backup + **banco DEV**) — precisa do Leandro presente.
 

@@ -29,13 +29,18 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0011)
 
-**Versão publicada: `sw.js` v42 / `APP_VERSION` 42** — no ar e estável.
+**Versão publicada: `sw.js` v47 / `APP_VERSION` 47** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
-Últimas levas (todas 100% front, sem mudança de banco): memória de categoria (v35),
-"por pessoa" vira filtro (v36), modal de input + remoção do bloco "por pessoa" (v37),
-layout desktop (v38), ajustes finos (v39), balancete com tabela de informações + correção
-de orientação EXIF das fotos (v40), scroll do comprovante no desktop (v41), grid único de 2
-colunas (Novo lançamento + Edição, alinhado/proporcional, sem docviewer legado) (v42).
+Últimas levas (todas 100% front, sem mudança de banco): balancete com tabela de informações +
+correção de orientação EXIF das fotos (v40), scroll do comprovante no desktop (v41), grid único
+de 2 colunas (Novo lançamento + Edição, alinhado/proporcional, sem docviewer legado) (v42),
+campos pareados no desktop + correção da proporção em zoom (v43), alinhamento do par Ler/Recortar,
+respiro dos rótulos e dropzone compacta (v44), respiro entre forma de pagamento e datas (v45),
+redesenho do Fechamento Parte A (seleção múltipla/individual, baixa em lote com data e comprovante
+opcional, core único `darBaixa` reusado por lote/individual/Lançamentos, gate de gestão, placeholder
+"Conciliação por IA — em breve") (v46), fix crítico do `</section>` faltante do v42 que aninhava
+Fechamento/Ajustes/Fornecedores/Administração dentro do `scEditar` (deixava as telas em branco) +
+guard de regressão que valida abertura/fechamento de `section` (v47).
 Detalhes e fila em `docs/STATUS-SAAS.md`.
 
 Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
