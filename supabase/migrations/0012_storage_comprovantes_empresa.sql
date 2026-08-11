@@ -49,34 +49,7 @@ create policy comp_select on storage.objects for select to authenticated
     and public.pode_ver_comprovante((storage.foldername(name))[1])
   );
 
--- ---------------------------------------------------------------------------
--- PARTE 2 (SEPARADA — aprovar à parte) — endurecer a leitura de pagamentos/
--- ---------------------------------------------------------------------------
--- Hoje comp_pag_select deixa QUALQUER autenticado ler a pasta 'pagamentos/'
--- (inclusive de outra empresa, se souber o path UUID). Como o comprovante de lote é
--- referenciado por lancamentos.comprovante_pagamento (= o próprio nome do objeto),
--- restringimos a leitura a: dono do SaaS, OU gestor/financeiro de uma empresa que tenha
--- um lançamento apontando para aquele arquivo. (O upload/baixa do lote já é só gestão.)
-create or replace function public.pode_ver_pagamento(p_name text)
-returns boolean
-language sql stable security definer set search_path = public as $$
-  select
-    public.usuario_e_owner()
-    or exists (
-      select 1
-      from public.lancamentos l
-      where l.comprovante_pagamento = p_name
-        and public.meu_papel(l.empresa_id) in ('gestor','financeiro')
-    );
-$$;
-grant execute on function public.pode_ver_pagamento(text) to authenticated, anon;
+-- PARTE 2 (endurecer a leitura de pagamentos/) fica SEPARADA em
+-- 0013_storage_pagamentos_empresa.sql — aplicar depois de validar a Parte 1.
 
-drop policy if exists comp_pag_select on storage.objects;
-create policy comp_pag_select on storage.objects for select to authenticated
-  using (
-    bucket_id = 'comprovantes'
-    and (storage.foldername(name))[1] = 'pagamentos'
-    and public.pode_ver_pagamento(name)
-  );
-
-select 'storage comprovantes: leitura por empresa (0012) ok' as status;
+select 'storage comprovantes: comp_select por empresa (0012, Parte 1) ok' as status;
