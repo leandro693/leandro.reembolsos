@@ -134,14 +134,21 @@ Deno.serve(async (req) => {
         return json({ erro: existe ? "Este e-mail já tem conta no sistema." : "Falha ao criar a conta." }, existe ? 409 : 502);
       }
       const uid = String((cr.data as { id?: string }).id || "");
+      if (!uid) { return json({ erro: "Falha ao criar a conta." }, 502); }
 
-      // Cadastro + vínculo. Se falhar, apaga a conta do Auth (sem órfã).
-      const up = await db("usuarios?on_conflict=id", "POST", { id: uid, nome, email, ativo: true }, "resolution=merge-duplicates");
+      // Cadastro + vínculo. `usuarios` NÃO tem coluna `ativo` (status é empresa_usuarios.ativo).
+      // Se QUALQUER passo falhar, apaga a conta do Auth para não deixar órfã (garantido).
+      const up = await db("usuarios?on_conflict=id", "POST", { id: uid, nome, email }, "resolution=merge-duplicates");
+      if (!up.ok) {
+        await authAdmin(`admin/users/${uid}`, "DELETE");   // sem órfã
+        return json({ erro: "Falha ao cadastrar o usuário." }, 502);
+      }
       const vin = await db("empresa_usuarios?on_conflict=empresa_id,usuario_id", "POST",
         { empresa_id, usuario_id: uid, papel, ativo: true }, "resolution=merge-duplicates");
-      if (!up.ok || !vin.ok) {
-        await authAdmin(`admin/users/${uid}`, "DELETE");
-        return json({ erro: "Falha ao cadastrar/vincular o usuário." }, 502);
+      if (!vin.ok) {
+        await db(`usuarios?id=eq.${uid}`, "DELETE");        // desfaz o cadastro recém-criado
+        await authAdmin(`admin/users/${uid}`, "DELETE");    // e a conta do Auth (sem órfã)
+        return json({ erro: "Falha ao vincular o usuário à empresa." }, 502);
       }
       await auditar(empresa_id, caller.id, "usuario_criado", { email: mascararEmail(email), perfil, troca_obrigatoria: true });
       return json({ ok: true, user_id: uid });

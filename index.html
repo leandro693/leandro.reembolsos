@@ -499,6 +499,9 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .cm-lbl{font-size:12px;color:var(--text-2);font-weight:600}
 .cm-sel,.cm-inp{width:100%;padding:10px 12px;min-height:42px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);color:var(--text);font-size:13.5px}
 .cm-inp::placeholder{color:var(--text-4)}
+/* Erro inline DENTRO do modal (ações de usuário): aparece perto da ação, não some com o modal. */
+.cm-erro{display:flex;gap:8px;align-items:flex-start;background:var(--err-bg);border:1px solid var(--err-border);color:var(--err-fg);border-radius:9px;padding:9px 11px;font-size:12.5px;margin-top:12px}
+.cm-erro.hidden{display:none}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
@@ -1239,7 +1242,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '52';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '53';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -2846,6 +2849,9 @@ function prepararFiltrosExtra(){
   el('btnData').classList.toggle('on-filter', periodoPreset!=='tudo');
 }
 function atualizarVisibPessoa(){
+  // Achado 1 (defensivo): quem não é gestão NUNCA tem escopo/pessoa — força 'meus' e limpa o filtro,
+  // mesmo que sobre valor no localStorage. O isolamento real é da RLS; isto endurece o gate visual.
+  if(!veTudo()){ escopoVer='meus'; pessoaFiltro=''; }
   const mostra = veTudo() && escopoVer==='todos';
   // ITEM 3: esconde só o seletor de pessoa; os filtros (head-actions) seguem sempre visíveis.
   el('grpPessoa')?.classList.toggle('hidden', !mostra);
@@ -3737,72 +3743,83 @@ async function renderAdminUsuarios(){
   }catch(e){ box.innerHTML=''; }
 }
 /* Novo usuário: cria conta (Auth) + vínculo, com senha provisória (troca obrigatória). */
+/* Erro INLINE dentro do modal (Achado 4): mostra perto da ação e mantém o modal aberto. */
+function erroModal(ov, msg){ const b=ov.querySelector('#cmErro'); if(b){ b.textContent=msg; b.classList.remove('hidden'); } return { fechar:false }; }
+function limpaErroModal(ov){ const b=ov.querySelector('#cmErro'); if(b) b.classList.add('hidden'); }
+
 async function adminNovoUsuario(){
   if(!ehGestor()){ toast('Sem acesso','erro'); return; }
-  const dados = await modal({ titulo:'Novo usuário', dismissValor:null,
+  const res = await modal({ titulo:'Novo usuário', dismissValor:null, travado:true,   // Achado 3: não fecha no backdrop
     corpoHtml:`
       <div class="field"><label>Nome completo</label><input id="nuNome" class="cm-inp" type="text" maxlength="80"></div>
       <div class="field"><label>E-mail (login)</label><input id="nuEmail" class="cm-inp" type="email" inputmode="email"></div>
       <div class="field"><label>Perfil</label><select id="nuPerfil" class="cm-sel">${opcoesPerfil('operador')}</select></div>
       <div class="field"><label>Senha provisória</label>
         <div style="display:flex;gap:8px;align-items:center"><input id="nuSenha" class="cm-inp" type="text" style="flex:1"><button type="button" class="btn-compact" id="nuGerar">Gerar</button></div>
-        <p class="pagesub" style="margin-top:4px">Mínimo 8. O usuário troca no 1º acesso. Mostrada uma vez para você enviar por canal seguro.</p></div>`,
+        <p class="pagesub" style="margin-top:4px">Mínimo 8. O usuário troca no 1º acesso. Mostrada uma vez para você enviar por canal seguro.</p></div>
+      <div class="cm-erro hidden" id="cmErro"></div>`,
     botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
-            {rotulo:'Criar usuário', tipo:'primary', resolver:()=>({ nome:val('nuNome'), email:val('nuEmail'), perfil:val('nuPerfil'), senha:val('nuSenha') })}],
+            {rotulo:'Criar usuário', tipo:'primary', id:'nuOk', acao: async(ov)=>{
+              limpaErroModal(ov);
+              const nome=val('nuNome').trim(), email=val('nuEmail').trim(), senha=val('nuSenha'), perfil=val('nuPerfil');
+              if(nome.length<2) return erroModal(ov,'Informe o nome completo.');
+              if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroModal(ov,'E-mail inválido.');
+              if(senha.length<8) return erroModal(ov,'Senha provisória: mínimo 8 caracteres.');
+              const r = await invokeGestao('criar', { nome, email, perfil, senha });
+              if(r.erro) return erroModal(ov, r.erro);                    // Achado 4: erro DENTRO do modal
+              return { fechar:true, valor:{ ok:true, email, senha } };
+            }}],
     aoMontar:(ov)=>{ const s=ov.querySelector('#nuSenha'); if(s) s.value=gerarSenha();
       const g=ov.querySelector('#nuGerar'); if(g) g.onclick=()=>{ s.value=gerarSenha(); }; } });
-  if(!dados) return;
-  const nome=(dados.nome||'').trim(), email=(dados.email||'').trim(), senha=dados.senha||'';
-  if(nome.length<2){ toast('Informe o nome completo','erro'); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('E-mail inválido','erro'); return; }
-  if(senha.length<8){ toast('Senha provisória: mínimo 8 caracteres','erro'); return; }
-  carregando(true,'Criando usuário...');
-  const r = await invokeGestao('criar', { nome, email, perfil:dados.perfil, senha });
-  carregando(false);
-  if(r.erro){ toast(r.erro,'erro'); return; }
+  if(!res || !res.ok) return;
   await renderAdminUsuarios();
-  await mostrarCredencial('Usuário criado', 'Senha provisória de '+email, senha, 'Envie por canal seguro (WhatsApp). O usuário será obrigado a trocar no 1º acesso.');
+  await mostrarCredencial('Usuário criado', 'Senha provisória de '+res.email, res.senha, 'Envie por canal seguro (WhatsApp). O usuário será obrigado a trocar no 1º acesso.');
 }
-/* Editar nome/e-mail/perfil. */
+/* Editar nome/e-mail/perfil (modal travado, erro inline). */
 async function adminEditarUsuario(uid){
   if(!ehGestor()){ toast('Sem acesso','erro'); return; }
   const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
-  const dados = await modal({ titulo:'Editar usuário', dismissValor:null,
+  const res = await modal({ titulo:'Editar usuário', dismissValor:null, travado:true,
     corpoHtml:`
       <div class="field"><label>Nome completo</label><input id="euNome" class="cm-inp" type="text" maxlength="80" value="${esc(u.nome)}"></div>
       <div class="field"><label>E-mail (login)</label><input id="euEmail" class="cm-inp" type="email" inputmode="email" value="${esc(u.email)}"></div>
-      <div class="field"><label>Perfil</label><select id="euPerfil" class="cm-sel">${opcoesPerfil(u.papel)}</select></div>`,
+      <div class="field"><label>Perfil</label><select id="euPerfil" class="cm-sel">${opcoesPerfil(u.papel)}</select></div>
+      <div class="cm-erro hidden" id="cmErro"></div>`,
     botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
-            {rotulo:'Salvar', tipo:'primary', resolver:()=>({ nome:val('euNome'), email:val('euEmail'), perfil:val('euPerfil') })}] });
-  if(!dados) return;
-  const nome=(dados.nome||'').trim(), email=(dados.email||'').trim();
-  if(nome.length<2){ toast('Informe o nome completo','erro'); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('E-mail inválido','erro'); return; }
-  carregando(true,'Salvando...');
-  const r = await invokeGestao('editar', { id:uid, nome, email, perfil:dados.perfil });
-  carregando(false);
-  if(r.erro){ toast(r.erro,'erro'); return; }
+            {rotulo:'Salvar', tipo:'primary', id:'euOk', acao: async(ov)=>{
+              limpaErroModal(ov);
+              const nome=val('euNome').trim(), email=val('euEmail').trim(), perfil=val('euPerfil');
+              if(nome.length<2) return erroModal(ov,'Informe o nome completo.');
+              if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return erroModal(ov,'E-mail inválido.');
+              const r = await invokeGestao('editar', { id:uid, nome, email, perfil });
+              if(r.erro) return erroModal(ov, r.erro);
+              return { fechar:true, valor:{ ok:true } };
+            }}] });
+  if(!res || !res.ok) return;
   toast('Usuário atualizado','ok'); await renderAdminUsuarios();
 }
-/* Definir/redefinir senha provisória (mostra uma vez). */
+/* Definir/redefinir senha provisória (modal travado, erro inline, mostra uma vez). */
 async function adminSenhaUsuario(uid){
   if(!ehGestor()){ toast('Sem acesso','erro'); return; }
   const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
-  const dados = await modal({ titulo:'Senha provisória', dismissValor:null,
+  const res = await modal({ titulo:'Senha provisória', dismissValor:null, travado:true,
     corpoHtml:`<p class="pagesub" style="margin:-2px 0 10px">Para <b>${esc(u.email)}</b>. O usuário troca no 1º acesso.</p>
       <div class="field"><label>Nova senha provisória</label>
-        <div style="display:flex;gap:8px;align-items:center"><input id="spSenha" class="cm-inp" type="text" style="flex:1"><button type="button" class="btn-compact" id="spGerar">Gerar</button></div></div>`,
+        <div style="display:flex;gap:8px;align-items:center"><input id="spSenha" class="cm-inp" type="text" style="flex:1"><button type="button" class="btn-compact" id="spGerar">Gerar</button></div></div>
+      <div class="cm-erro hidden" id="cmErro"></div>`,
     botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
-            {rotulo:'Definir', tipo:'primary', resolver:()=>({ senha:val('spSenha') })}],
+            {rotulo:'Definir', tipo:'primary', id:'spOk', acao: async(ov)=>{
+              limpaErroModal(ov);
+              const senha=val('spSenha');
+              if((senha||'').length<8) return erroModal(ov,'Senha provisória: mínimo 8 caracteres.');
+              const r = await invokeGestao('senha_provisoria', { id:uid, senha });
+              if(r.erro) return erroModal(ov, r.erro);
+              return { fechar:true, valor:{ ok:true, senha } };
+            }}],
     aoMontar:(ov)=>{ const s=ov.querySelector('#spSenha'); if(s) s.value=gerarSenha();
       const g=ov.querySelector('#spGerar'); if(g) g.onclick=()=>{ s.value=gerarSenha(); }; } });
-  if(!dados) return;
-  if((dados.senha||'').length<8){ toast('Senha provisória: mínimo 8 caracteres','erro'); return; }
-  carregando(true,'Definindo senha...');
-  const r = await invokeGestao('senha_provisoria', { id:uid, senha:dados.senha });
-  carregando(false);
-  if(r.erro){ toast(r.erro,'erro'); return; }
-  await mostrarCredencial('Senha definida', 'Senha provisória de '+u.email, dados.senha, 'Envie por canal seguro. Troca obrigatória no próximo acesso.');
+  if(!res || !res.ok) return;
+  await mostrarCredencial('Senha definida', 'Senha provisória de '+u.email, res.senha, 'Envie por canal seguro. Troca obrigatória no próximo acesso.');
 }
 /* Gerar link de acesso (plano B — enviar por WhatsApp). */
 async function adminLinkUsuario(uid){
@@ -4065,11 +4082,14 @@ function mostrarErro(erro, contexto){
    `valor` do botão clicado, ou `dismissValor` ao fechar no overlay/Esc/voltar.
    Substitui os confirm()/alert() nativos. Nunca trava (sempre resolve).
    ========================================================================== */
-let _modalResolver=null, _modalDismiss=null;
+let _modalResolver=null, _modalDismiss=null, _modalTravado=false;
 /* corpoHtml: HTML customizado (lista/checkboxes) entre a mensagem e os botões.
    botao.resolver(): opcional — calcula o valor NO CLIQUE (ex.: ler os marcados).
+   botao.acao(ov): opcional ASSÍNCRONO — decide se fecha. Retorna {fechar:bool, valor}.
+     Mantém o modal ABERTO em erro (ex.: erro inline de criar/editar usuário).
+   travado:true — o modal NÃO fecha por backdrop/Esc/voltar; só pelos botões.
    aoMontar(ov): opcional — roda após render (liga listeners, estado inicial, foco). */
-function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar, largura}){
+function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar, largura, travado=false}){
   const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
   if(_modalResolver) _fecharModal(_modalDismiss);   // fecha um modal anterior (não empilha)
   // Largura: SEMPRE reseta para o padrão (400px) e só aplica 'lg' (920px) quando pedido.
@@ -4081,11 +4101,21 @@ function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar
   if(corpo){ corpo.innerHTML = corpoHtml||''; corpo.classList.toggle('hidden', !corpoHtml); }
   const box=el('cmAcoes');
   box.innerHTML = (botoes||[]).map((b,i)=>`<button class="cm-btn ${b.tipo||'ghost'}" data-cmi="${i}"${b.id?` id="${b.id}"`:''}>${esc(b.rotulo)}</button>`).join('');
-  _modalDismiss = dismissValor;
+  _modalDismiss = dismissValor; _modalTravado = !!travado;   // trava dismissal por backdrop/Esc/voltar
   return new Promise(res=>{
     _modalResolver = res;
     box.querySelectorAll('button[data-cmi]').forEach(btn=>{
-      btn.onclick=()=>{ const b=botoes[Number(btn.getAttribute('data-cmi'))]; _fecharModal(b ? (b.resolver ? b.resolver() : b.valor) : dismissValor); };
+      btn.onclick=async ()=>{
+        const b=botoes[Number(btn.getAttribute('data-cmi'))];
+        if(b && typeof b.acao==='function'){                 // botão com ação assíncrona (decide fechar)
+          btn.disabled=true;
+          let r; try{ r=await b.acao(ov); }catch(e){ r={fechar:false}; }
+          btn.disabled=false;
+          if(r && r.fechar) _fecharModal(r.valor);
+          return;
+        }
+        _fecharModal(b ? (b.resolver ? b.resolver() : b.valor) : dismissValor);
+      };
     });
     ov.classList.remove('hidden');
     if(typeof aoMontar==='function') aoMontar(ov);   // pós-render: liga checkboxes, estado do botão
@@ -4095,12 +4125,14 @@ function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar
 }
 function _fecharModal(valor){
   const ov=el('confirmOverlay'); if(ov) ov.classList.add('hidden');
+  _modalTravado=false;
   const r=_modalResolver; _modalResolver=null;
   if(r) r(valor);
 }
 /* true quando o modal está aberto (o voltar físico o fecha como "cancelar"). */
 function modalAberto(){ const ov=el('confirmOverlay'); return !!ov && !ov.classList.contains('hidden'); }
-function fecharModalDismiss(){ if(modalAberto()) _fecharModal(_modalDismiss); }
+/* Fecha por backdrop/Esc/voltar — MAS respeita o modal travado (criar/editar/senha). */
+function fecharModalDismiss(){ if(_modalTravado) return; if(modalAberto()) _fecharModal(_modalDismiss); }
 window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modalAberto()) fecharModalDismiss(); });
 /* Atalhos. aviso: 1 botão OK (cobre alert). confirmar: Cancelar/OK -> boolean.
    escolher: N opções -> resolve o `valor` escolhido (ou dismissValor). */
