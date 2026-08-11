@@ -9,7 +9,7 @@ select json_build_object(
     ) a),
   'usuarios_leandrolfsg', (
     select json_agg(row_to_json(u)) from (
-      select id, email, is_owner, ativo from public.usuarios
+      select id, email, is_owner, deleted_at from public.usuarios
       where lower(email) = lower('leandrolfsg@gmail.com')
     ) u),
   'vinculos_leandrolfsg', (
