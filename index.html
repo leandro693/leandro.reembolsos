@@ -282,17 +282,6 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .fech-item .fech-ck input{width:18px;height:18px;cursor:pointer;accent-color:var(--accent)}
 .fech-bar{margin-top:12px}
 @media(max-width:979px){ .fech-bar{position:sticky;bottom:8px;z-index:40;box-shadow:0 6px 24px rgba(0,0,0,.18)} }
-/* Conciliação por IA (Parte B): proposta no modal. A IA só propõe; a pessoa confirma. */
-.conc-cab{font-size:13px;color:var(--text-2);margin-bottom:6px}
-.conc-intro{font-size:13px;margin-bottom:10px;color:var(--text-strong)}
-.conc-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto}
-.conc-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border-strong);border-radius:10px;padding:10px;cursor:pointer}
-.conc-opt input{margin-top:3px;accent-color:var(--accent)}
-.conc-body{flex:1;min-width:0}
-.conc-it{display:flex;justify-content:space-between;gap:10px;font-size:13px}
-.conc-soma{margin-top:4px;font-size:12.5px;color:var(--text-2)}
-.conc-diff{margin-top:5px;font-size:12.5px;color:var(--accent);font-weight:600}
-.conc-nota{margin-top:10px;font-size:11.5px;color:var(--text-4)}
 .chk{width:17px;height:17px;cursor:pointer;accent-color:var(--accent)}
 
 /* Área de anexo: arraste e solte (PC) / botões (celular) */
@@ -441,7 +430,23 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 /* LEVA 2.1: modal de confirmação (Maradel). Centralizado, overlay grafite, terracota. */
 .cm-ov{position:fixed;inset:0;z-index:130;background:rgba(43,43,45,.55);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px}
 .cm-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.30);width:100%;max-width:400px;padding:20px 20px 18px;animation:cmIn .16s ease}
+/* Variante larga (conciliação por IA: tabela de conferência). Aplicada só quando modal({largura:'lg'}); resetada a cada abertura. */
+.cm-box.lg{max-width:920px}
 @keyframes cmIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+/* Tabela de conferência da conciliação por IA (Parte B, Ajuste 2). */
+.conc-cab{font-size:13px;color:var(--text-2);margin-bottom:10px}
+.conc-tbl-wrap{overflow:auto;max-height:56vh;border:1px solid var(--border-strong);border-radius:10px}
+.conc-tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+.conc-tbl th,.conc-tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.conc-tbl thead th{position:sticky;top:0;background:var(--surface);z-index:1;font-size:11.5px;color:var(--text-2);text-transform:uppercase;letter-spacing:.03em}
+.conc-tbl td.num,.conc-tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.conc-tbl tr.on td{background:var(--accent-subtle)}
+.conc-tbl input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--accent)}
+.conc-foot{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:flex-end;margin-top:12px;font-size:13px}
+.conc-foot .fv{font-weight:600;color:var(--text-strong);font-variant-numeric:tabular-nums}
+.conc-foot .fd.zero{color:var(--ok,#2e9e5b)}
+.conc-foot .fd.diff{color:var(--accent);font-weight:700}
+.conc-nota{margin-top:8px;font-size:11.5px;color:var(--text-4)}
 .cm-title{font-size:16px;font-weight:700;color:var(--text-strong);margin-bottom:8px}
 .cm-msg{font-size:13.5px;color:var(--text-2);line-height:1.5;white-space:pre-line;margin-bottom:18px}
 .cm-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
@@ -1175,7 +1180,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '48';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '49';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -3068,40 +3073,31 @@ async function baixaIndividual(id){
   await after(error, 'Reembolso pago');
 }
 /* ============================================================================
-   CONCILIAÇÃO POR IA (Parte B) — a IA só LÊ (valor+destinatário); o sistema PROPÕE
-   combinações de reembolsos em aberto que somam o valor; a pessoa DECIDE e confirma.
-   NUNCA há baixa automática (nem quando bate exato). Baixa reusa darBaixa (Parte A),
-   com o próprio comprovante de pagamento como comprovante do lote. Só gestão (veTudo).
+   CONCILIAÇÃO POR IA (Parte B) — a IA só LÊ (valor+destinatário). O sistema agrupa os
+   reembolsos em aberto por DATA DE VENCIMENTO, soma cada grupo e PRÉ-MARCA o que fecha
+   o valor numa TABELA de conferência; a pessoa marca/desmarca (total e diferença
+   recalculam ao vivo) e DECIDE. NUNCA há baixa automática (nem quando bate exato).
+   Baixa reusa darBaixa (Parte A), com o comprovante de pagamento como comprovante do
+   lote. Só gestão (veTudo). Segurança do ler-pagamento inalterada.
    ========================================================================== */
 function centavosDe(v){ return Math.round((Number(String(v).replace(',','.'))||0)*100); }
-/* Motor de casamento no FRONT, sobre a lista em aberto já carregada (RLS aplicada).
-   Aritmética em CENTAVOS inteiros (evita erro de float). Pré-filtra por destinatário
-   (prioriza o SOLICITANTE que recebe o reembolso; fornecedor como reforço) e busca
-   subconjuntos de ATÉ 4 itens: exatos primeiro; senão a combinação mais próxima. */
-function casarPagamento(valorAlvoNum, destinatario){
+/* Casamento por DATA DE VENCIMENTO (Ajuste 1). Sobre a lista em aberto já na tela
+   (listaMarcar, que respeita mês/Ver todos). Aritmética em CENTAVOS inteiros. NÃO é
+   subset-sum: agrupa os em aberto por `vencimento` (data exata), SOMA cada grupo e
+   escolhe o grupo cuja soma bate com o valor lido (ou o MAIS PRÓXIMO, com a diferença).
+   A tabela editável (propostaConciliacaoTabela) é o fallback universal para o resto. */
+function grupoVencimentoAlvo(valorAlvoNum){
   const alvo=centavosDe(valorAlvoNum);
-  const abertos=listaMarcar();                                   // em aberto, respeita filtro de mês
-  const dn=normNome(destinatario);
-  const tokens=dn?dn.split(' ').filter(t=>t.length>=3):[];
-  const casaPessoa=(l)=>{ if(!tokens.length) return false;
-    const alvosNome=[normNome(l.usuario), normNome(l.fornecedor)];
-    return tokens.some(t=>alvosNome.some(a=>a.includes(t))); };
-  const comPessoa=abertos.filter(casaPessoa);
-  let candidatos=comPessoa.length?comPessoa:abertos;             // prioriza a pessoa lida; senão, todos
-  const CAP=40; let limitado=false;                              // guarda de performance (subset-sum ≤4)
-  if(candidatos.length>CAP){ limitado=true; candidatos=candidatos.slice(0,CAP); } // já ordenados por vencimento
-  const itens=candidatos.map(l=>({ id:String(l.id), c:centavosDe(l.valor_total), l }));
-  const n=itens.length; const exatas=[]; let melhor=null;
-  const avaliar=(combo)=>{ const s=combo.reduce((a,x)=>a+x.c,0); const diff=s-alvo;
-    if(diff===0) exatas.push(combo);
-    if(!melhor || Math.abs(diff)<Math.abs(melhor.diff)) melhor={combo, soma:s, diff}; };
-  for(let i=0;i<n;i++){ avaliar([itens[i]]);
-    for(let j=i+1;j<n;j++){ avaliar([itens[i],itens[j]]);
-      for(let k=j+1;k<n;k++){ avaliar([itens[i],itens[j],itens[k]]);
-        for(let m=k+1;m<n;m++){ avaliar([itens[i],itens[j],itens[k],itens[m]]); } } } }
-  const vkey=combo=>combo.map(x=>x.l.vencimento||'').sort()[0]||''; // vencimento mais cedo do conjunto
-  exatas.sort((a,b)=> a.length-b.length || vkey(a).localeCompare(vkey(b))); // menos itens, mais cedo
-  return { alvo, exatas:exatas.slice(0,5), melhor, limitado, temPessoa:comPessoa.length>0 };
+  const abertos=listaMarcar();                                   // em aberto, respeita o filtro da tela
+  const grupos=new Map();                                        // venc(data exata) -> {ids:[], soma}
+  abertos.forEach(l=>{ const v=l.vencimento||''; const g=grupos.get(v)||{ids:[],soma:0};
+    g.ids.push(String(l.id)); g.soma+=centavosDe(l.valor_total); grupos.set(v,g); });
+  let melhor=null;                                               // grupo mais próximo do alvo (empate: venc mais cedo)
+  grupos.forEach((g,v)=>{ const diff=g.soma-alvo;
+    if(!melhor || Math.abs(diff)<Math.abs(melhor.diff) || (Math.abs(diff)===Math.abs(melhor.diff) && v<melhor.venc))
+      melhor={ venc:v, ids:g.ids, soma:g.soma, diff }; });
+  return { alvo, preIds:new Set(melhor?melhor.ids:[]), venc:melhor?melhor.venc:'',
+           exato: !!melhor && melhor.diff===0, soma:melhor?melhor.soma:0, diff:melhor?melhor.diff:0 };
 }
 /* Abre o seletor de arquivo do comprovante de PAGAMENTO (gate de gestão). */
 function abrirConciliacao(){
@@ -3128,9 +3124,9 @@ async function conciliarPagamento(input){
   if(error || !data || data.erro){ toast('Não consegui ler com a IA agora. Selecione manualmente no Fechamento.','erro'); return; }
   if(data.legivel===false || !(Number(data.valor)>0)){ toast('Não consegui ler o valor deste comprovante. Selecione manualmente.','erro'); return; }
   const valorNum=Number(data.valor); const destinatario=String(data.destinatario||'');
-  const res=casarPagamento(valorNum, destinatario);
-  const escolha=await propostaConciliacao(res, valorNum, destinatario, data.revisao);  // pessoa DECIDE
-  if(!escolha || !escolha.length) return;                                  // cancelou -> NADA é pago
+  const grupo=grupoVencimentoAlvo(valorNum);                               // pré-marca o grupo de vencimento
+  const escolha=await propostaConciliacaoTabela(valorNum, destinatario, data.revisao, grupo.preIds); // pessoa DECIDE
+  if(!escolha || !escolha.length) return;                                  // cancelou/zero -> NADA é pago
   carregando(true,'Dando baixa...');
   const dp=el('fechData').value||isoToday();
   const { error:eb } = await darBaixa(escolha, dp, file);                   // comprovante -> comprovante_pagamento
@@ -3138,45 +3134,59 @@ async function conciliarPagamento(input){
   selFech.clear();
   await after(eb, escolha.length+' reembolso(s) pago(s) por conciliação');
 }
-/* Monta a proposta no modal. Devolve os ids escolhidos (Promise) ou null se cancelar.
-   Botão de confirmar SEMPRE exigido — inclusive quando a combinação bate exato. */
-function propostaConciliacao(res, valorNum, destinatario, revisao){
-  const cab=`<div class="conc-cab">Comprovante: <b class="num">${money(valorNum)}</b>${destinatario?` · Destinatário lido: <b>${esc(destinatario)}</b>`:''}</div>`;
-  if(!res.exatas.length && !res.melhor){
+/* Modal LARGO (largura:'lg') com TABELA de conferência (Ajuste 2). Mostra TODOS os
+   reembolsos em aberto da tela; vêm marcados os do grupo de vencimento que fecha o
+   valor (preIds). Total e Diferença recalculam AO VIVO ao marcar/desmarcar; Confirmar
+   fica desabilitado com zero marcados. Devolve os ids marcados (Promise) ou null. */
+function propostaConciliacaoTabela(valorNum, destinatario, revisao, preIds){
+  const alvo=centavosDe(valorNum);
+  const rows=listaMarcar();                                          // em aberto na tela, ordenados por vencimento
+  const cab=`<div class="conc-cab">Comprovante: <b class="fv">${money(valorNum)}</b>${destinatario?` · Destinatário lido: <b>${esc(destinatario)}</b>`:''}</div>`;
+  if(!rows.length){
     return modal({ titulo:'Conciliação por IA', dismissValor:null,
-      corpoHtml: cab+`<div class="note warn">Não há reembolsos em aberto no filtro atual para conciliar. Ajuste o mês/filtro ou selecione manualmente.</div>`,
+      corpoHtml: cab+`<div class="note warn">Não há reembolsos em aberto no filtro atual. Ajuste o mês (ou "Ver todos") e tente de novo.</div>`,
       botoes:[{rotulo:'Fechar', tipo:'ghost', resolver:()=>null}] });
   }
-  const opts = res.exatas.length ? res.exatas.map(c=>({combo:c, exato:true}))
-                                 : [{combo:res.melhor.combo, exato:false, diff:res.melhor.diff}];
-  let intro;
-  if(res.exatas.length===1) intro=`Encontramos uma combinação que soma exatamente <b class="num">${money(valorNum)}</b>. Confira e confirme.`;
-  else if(res.exatas.length>1) intro=`Encontramos ${res.exatas.length} combinações possíveis que somam <b class="num">${money(valorNum)}</b>. Escolha qual corresponde a este pagamento.`;
-  else intro=`Não encontramos combinação exata. Veja a mais próxima, com a diferença, e decida.`;
-  const linhaItem=(x)=>{ const xy=rotuloParcela(x.l); const tag=xy?` <span class="tag">${xy}</span>`:'';
-    return `<div class="conc-it"><span>${esc(x.l.categoria||'')}${tag} · ${esc(x.l.fornecedor||x.l.usuario||'')} · venc ${brDate(x.l.vencimento)}</span><span class="num">${money(x.l.valor_total)}</span></div>`; };
-  const optHtml=opts.map((o,i)=>{
-    const s=o.combo.reduce((a,x)=>a+x.c,0);
-    let extra='';
-    if(!o.exato){ const sinal=o.diff>0?'a mais no comprovante':'a menos no comprovante';
-      extra=`<div class="conc-diff">A pagar (combinação): <b class="num">${money(s/100)}</b> · Comprovante: <b class="num">${money(valorNum)}</b> · Diferença: <b class="num">${money(Math.abs(o.diff)/100)}</b> ${sinal}</div>`; }
-    return `<label class="conc-opt"><input type="radio" name="concOpt" value="${i}" ${i===0?'checked':''}>
-      <div class="conc-body">${o.combo.map(linhaItem).join('')}
-        <div class="conc-soma">Soma: <b class="num">${money(s/100)}</b>${o.exato?' · bate exato':''}</div>${extra}</div></label>`;
-  }).join('');
-  const avisoLim = res.limitado?`<div class="note warn" style="margin-top:8px">Muitos reembolsos no filtro — considerei os mais próximos do vencimento. Estreite o mês/pessoa para abranger todos.</div>`:'';
-  const rev = revisao?`<div class="note warn" style="margin-top:8px">Atenção: ${esc(revisao)}</div>`:'';
-  const nota=`<div class="conc-nota">Nada é pago até você confirmar. A baixa usa a Data do pagamento do Fechamento e anexa este comprovante ao lote.</div>`;
-  let sel = opts[0].combo.map(x=>x.id);
+  const cent={}; rows.forEach(l=>cent[String(l.id)]=centavosDe(l.valor_total));  // centavos por id (soma ao vivo)
+  const rev=revisao?`<div class="note warn" style="margin:8px 0">Atenção: ${esc(revisao)}</div>`:'';
+  const trs=rows.map(l=>{ const id=String(l.id); const on=preIds && preIds.has(id);
+    const xy=rotuloParcela(l); const tag=xy?` <span class="tag">${xy}</span>`:'';
+    return `<tr class="${on?'on':''}" data-id="${id}">
+      <td><input type="checkbox" class="conc-ck" ${on?'checked':''}></td>
+      <td>${brDate(l.vencimento)}</td>
+      <td>${esc(l.categoria||'')}${tag}</td>
+      <td>${esc(l.fornecedor||'')}</td>
+      <td>${esc(l.usuario||'')}</td>
+      <td class="num">${money(l.valor_total)}</td></tr>`; }).join('');
+  const tabela=`<div class="conc-tbl-wrap"><table class="conc-tbl">
+    <thead><tr><th></th><th>Vencimento</th><th>Categoria</th><th>Fornecedor</th><th>Pessoa</th><th class="num">Valor</th></tr></thead>
+    <tbody>${trs}</tbody></table></div>`;
+  const foot=`<div class="conc-foot">
+    <span>Total selecionado: <b class="fv" id="concTotal">0,00</b></span>
+    <span>Comprovante: <b class="fv">${money(valorNum)}</b></span>
+    <span>Diferença: <b class="fd" id="concDiff">—</b></span></div>`;
+  const nota=`<div class="conc-nota">Nada é pago até você confirmar. A baixa marca como pagos SÓ os reembolsos marcados, usa a Data do pagamento do Fechamento e anexa este comprovante ao lote.</div>`;
+  let sel=[];
+  const recompute=(ov)=>{                                            // total + diferença ao vivo; gate do botão
+    let soma=0; sel=[];
+    ov.querySelectorAll('.conc-ck').forEach(ck=>{ const tr=ck.closest('tr'); const id=tr.getAttribute('data-id');
+      if(ck.checked){ soma+=cent[id]||0; sel.push(id); tr.classList.add('on'); } else tr.classList.remove('on'); });
+    const diff=soma-alvo, zero=diff===0;
+    const tEl=ov.querySelector('#concTotal'); if(tEl) tEl.textContent=money(soma/100);
+    const dEl=ov.querySelector('#concDiff'); if(dEl){
+      dEl.textContent = zero ? money(0)+' (bate exato)'
+        : `${money(Math.abs(diff)/100)} ${diff>0?'a mais que o comprovante':'a menos que o comprovante'}`;
+      dEl.classList.toggle('zero', zero); dEl.classList.toggle('diff', !zero); }
+    const okb=ov.querySelector('#concOk'); if(okb) okb.disabled = sel.length===0;  // (5) zero marcados = desabilitado
+  };
   return modal({
-    titulo:'Conciliação por IA', dismissValor:null,
-    corpoHtml: cab+`<div class="conc-intro">${intro}</div><div class="conc-list">${optHtml}</div>`+avisoLim+rev+nota,
+    titulo:'Conciliação por IA', dismissValor:null, largura:'lg',
+    corpoHtml: cab+rev+tabela+foot+nota,
     botoes:[
       {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
-      {rotulo:'Confirmar baixa', tipo:'primary', id:'concOk', resolver:()=>sel}
+      {rotulo:'Confirmar baixa', tipo:'primary', id:'concOk', resolver:()=>sel.slice()}
     ],
-    aoMontar:(ov)=>{ ov.querySelectorAll('input[name="concOpt"]').forEach(r=>{
-      r.onchange=()=>{ const i=Number(r.value); if(opts[i]) sel=opts[i].combo.map(x=>x.id); }; }); }
+    aoMontar:(ov)=>{ ov.querySelectorAll('.conc-ck').forEach(ck=>ck.onchange=()=>recompute(ov)); recompute(ov); }
   });
 }
 
@@ -3813,9 +3823,12 @@ let _modalResolver=null, _modalDismiss=null;
 /* corpoHtml: HTML customizado (lista/checkboxes) entre a mensagem e os botões.
    botao.resolver(): opcional — calcula o valor NO CLIQUE (ex.: ler os marcados).
    aoMontar(ov): opcional — roda após render (liga listeners, estado inicial, foco). */
-function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar}){
+function modal({titulo, mensagem, corpoHtml, botoes, dismissValor=null, aoMontar, largura}){
   const ov=el('confirmOverlay'); if(!ov) return Promise.resolve(dismissValor);
   if(_modalResolver) _fecharModal(_modalDismiss);   // fecha um modal anterior (não empilha)
+  // Largura: SEMPRE reseta para o padrão (400px) e só aplica 'lg' (920px) quando pedido.
+  // Reset a cada abertura evita vazar a largura para os outros modais (confirmar/aviso/pedirTexto).
+  const cx=ov.querySelector('.cm-box'); if(cx) cx.classList.toggle('lg', largura==='lg');
   el('cmTitulo').textContent = titulo||'';
   el('cmMsg').textContent = mensagem||'';
   const corpo=el('cmCorpo');

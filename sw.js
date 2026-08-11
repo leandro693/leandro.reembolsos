@@ -4,7 +4,7 @@
      só quando estiver offline. Assim novas versões aparecem sem forçar atualização.
    - Os demais arquivos locais (ícones, manifest) usam cache primeiro (rápido).
    - Dados (Supabase) e bibliotecas de CDN passam direto pela rede, sem cache aqui. */
-const CACHE = 'reembolsos-maradel-v48-saas';
+const CACHE = 'reembolsos-maradel-v49-saas';
 const SHELL = ['./', './index.html', './console.html', './manifest.webmanifest', './icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
