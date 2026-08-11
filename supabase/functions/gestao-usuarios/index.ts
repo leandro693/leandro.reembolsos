@@ -155,9 +155,10 @@ Deno.serve(async (req) => {
         await authAdmin(`admin/users/${uid}`, "DELETE");   // sem órfã
         return json({ erro: "Falha ao cadastrar o usuário." }, 502);
       }
-      // INSERT SIMPLES: um uid recém-criado nunca conflita em (empresa_id, usuario_id).
-      // (O upsert multi-coluna `on_conflict=empresa_id,usuario_id` via PostgREST falhava; v54.)
-      const vin = await db("empresa_usuarios", "POST", { empresa_id, usuario_id: uid, papel, ativo: true });
+      // INSERT SIMPLES do vínculo. A coluna é `papel`; o VALOR é `perfil` (a variável local).
+      // BUG v52-v54: aqui estava `papel` (variável inexistente) -> ReferenceError -> "erro ao
+      // processar" e órfã (o throw pulava a limpeza). Correto: papel: perfil. (v55)
+      const vin = await db("empresa_usuarios", "POST", { empresa_id, usuario_id: uid, papel: perfil, ativo: true });
       if (!vin.ok) {
         await db(`usuarios?id=eq.${uid}`, "DELETE");        // desfaz o cadastro recém-criado
         await authAdmin(`admin/users/${uid}`, "DELETE");    // e a conta do Auth (sem órfã)
@@ -203,7 +204,7 @@ Deno.serve(async (req) => {
         if (emailMudou) await authAdmin(`admin/users/${id}`, "PUT", { email: atual.email, email_confirm: true });
         return json({ erro: "Falha ao salvar o cadastro." }, 502);
       }
-      await db(`empresa_usuarios?empresa_id=eq.${empresa_id}&usuario_id=eq.${id}`, "PATCH", { papel });
+      await db(`empresa_usuarios?empresa_id=eq.${empresa_id}&usuario_id=eq.${id}`, "PATCH", { papel: perfil });
       await auditar(empresa_id, caller.id, "usuario_editado", {
         antes: { nome: atual.nome, email: mascararEmail(atual.email), perfil: papelAtual },
         depois: { nome, email: mascararEmail(email), perfil },
