@@ -36,3 +36,6 @@ jobs:
 
       - name: Deploy ler-pagamento
         run: supabase functions deploy ler-pagamento --project-ref "$PROJECT_ID"
+
+      - name: Deploy gestao-usuarios
+        run: supabase functions deploy gestao-usuarios --project-ref "$PROJECT_ID"

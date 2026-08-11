@@ -608,7 +608,16 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .ic-btn:hover{background:var(--surface-2);color:var(--text-strong)}
 .ic-btn.danger{border-color:var(--err-border);color:var(--err-fg)}
 .ic-btn.danger:hover{background:var(--err-bg)}
+.ic-btn.ok{border-color:var(--ok-border);color:var(--ok-fg)}
+.ic-btn.ok:hover{background:var(--ok-bg)}
 .tbl td.chk-td{width:34px;text-align:center}
+/* Gestão de usuários: cabeçalho do card com botão, selos de status, ações em linha. */
+.chart .ch-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.chart .ch-head h3{margin:0}
+.st.ok{background:var(--ok-bg);color:var(--ok-fg);border:1px solid var(--ok-border)}
+.st.off{background:var(--neutral);color:var(--text-4);border:1px solid var(--border-strong)}
+.u-acoes{white-space:nowrap;text-align:right}
+.u-acoes .ic-btn{margin-left:4px}
 /* Contraste reforçado: grades vertical + horizontal (estilo Excel) + zebra cinza-clara */
 body[data-density="reforcado"] .tbl thead th,
 body[data-density="reforcado"] .tbl tbody td{border:1px solid var(--border-2)}
@@ -713,6 +722,24 @@ body.nav-open .nav-backdrop{display:block}
     <button type="button" class="btn btn-ghost mt10" onclick="toggleTemaLogin()"><i data-lucide="sun-moon" class="i-sm"></i> Alternar tema</button>
   </form>
   <div class="foot">Acesso restrito aos diretores da Maradel.</div>
+</div>
+
+<!-- Troca de senha OBRIGATÓRIA no 1º acesso (senha provisória) ou via link de recuperação. -->
+<div id="scTrocarSenha" class="auth hidden">
+  <div class="logo-badge"><img src="icons/symbol.png" alt="Maradel"></div>
+  <div class="mk">MARADEL</div>
+  <div class="pd">Reembolsos</div>
+  <form class="box" id="trocaForm" autocomplete="off">
+    <h1 style="font-size:17px;margin:0 0 4px">Defina sua senha</h1>
+    <p class="sub" style="color:var(--text-3);font-size:13px;margin-bottom:16px">Este é seu primeiro acesso. Crie uma senha pessoal para continuar.</p>
+    <div class="field"><label>Nova senha</label>
+      <input type="password" id="trocaNova" placeholder="mínimo 8 caracteres" autocomplete="new-password" required></div>
+    <div class="field"><label>Repetir senha</label>
+      <input type="password" id="trocaConf" placeholder="repita a nova senha" autocomplete="new-password" required></div>
+    <label class="chk-line"><input type="checkbox" id="trocaVer" onchange="verTroca(this.checked)"> Mostrar senha</label>
+    <button type="submit" class="btn btn-primary mt8"><i data-lucide="key-round" class="i-md"></i> Salvar e entrar</button>
+  </form>
+  <div class="foot">A senha é pessoal. Não compartilhe.</div>
 </div>
 
 <!-- ===================== APP (telas internas) ===================== -->
@@ -1212,7 +1239,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '51';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '52';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1282,6 +1309,7 @@ function proxVencIso(){ const h=new Date(); let a=h.getFullYear(),m=h.getMonth()
 function isoPagamento(add){ const b=proxVencIso(); const d=new Date(b+'T00:00:00'); const v=new Date(d.getFullYear(),d.getMonth()+(add||0),10); const z=n=>String(n).padStart(2,'0'); return `${v.getFullYear()}-${z(v.getMonth()+1)}-10`; }
 function num(id){ return parseFloat((el(id).value||'0').replace(',','.'))||0; }
 function el(id){ return document.getElementById(id); }
+function val(id){ const e=el(id); return e ? e.value : ''; }   // valor cru de um input por id
 function icons(){ if(window.lucide) lucide.createIcons(); }
 
 /* ============================================================================
@@ -1461,21 +1489,45 @@ async function iniciar(){
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data:{ session } } = await sb.auth.getSession();
   if(session){ await entrar(session); } else { mostrarLogin(); }
-  sb.auth.onAuthStateChange((_e, sess)=>{ if(!sess){ mostrarLogin(); } });
+  sb.auth.onAuthStateChange((ev, sess)=>{
+    if(ev==='PASSWORD_RECOVERY'){ mostrarTrocaSenha(); return; }   // veio pelo link de acesso
+    if(!sess){ mostrarLogin(); }
+  });
 }
 
 function mostrarLogin(){
   el('app').classList.add('hidden');
   el('scSetup').classList.add('hidden');
+  el('scTrocarSenha').classList.add('hidden');
   el('scLogin').classList.remove('hidden');
   icons();
 }
+/* Tela de troca obrigatória (senha provisória / recuperação): bloqueia o app até trocar. */
+function mostrarTrocaSenha(){
+  el('app').classList.add('hidden');
+  el('scLogin').classList.add('hidden');
+  el('scSetup').classList.add('hidden');
+  el('trocaNova').value=''; el('trocaConf').value='';
+  el('scTrocarSenha').classList.remove('hidden');
+  icons();
+}
+function verTroca(mostrar){ const t=mostrar?'text':'password'; el('trocaNova').type=t; el('trocaConf').type=t; }
 
 async function entrar(session){
   user = session.user;
+  // Gate 1: senha provisória -> força trocar antes de usar o app (marca no user_metadata do Auth).
+  if(user.user_metadata && user.user_metadata.senha_provisoria===true){ mostrarTrocaSenha(); return; }
   await garantirPerfil();
   await carregarEmpresa();
+  // Gate 2: sem vínculo ativo (desativado) e não é dono -> acesso bloqueado.
+  if(!empresaId && !isOwner){
+    el('scLogin').classList.add('hidden'); el('scTrocarSenha').classList.add('hidden'); el('app').classList.add('hidden');
+    await sb.auth.signOut();
+    await aviso('Acesso indisponível', 'Sua conta está desativada ou ainda não foi vinculada. Fale com o gestor.');
+    mostrarLogin(); return;
+  }
   el('scLogin').classList.add('hidden');
+  el('scTrocarSenha').classList.add('hidden');
   el('app').classList.remove('hidden');
   const nome = perfil.nome || (user.email||'').split('@')[0];
   const inicial = (nome[0]||'?').toUpperCase();
@@ -1560,6 +1612,22 @@ el('loginForm').addEventListener('submit', async (e)=>{
   carregando(false);
   if(error){ console.error('[login]', error); toast('E-mail ou senha inválidos','erro'); return; }
   await entrar(data.session);
+});
+
+/* Troca obrigatória: valida (mín. 8, confere, diferente), atualiza a senha e LIMPA a
+   marca senha_provisoria no próprio user_metadata; depois segue para o app. */
+el('trocaForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const nova = el('trocaNova').value, conf = el('trocaConf').value;
+  if(nova.length<8){ toast('A nova senha precisa de ao menos 8 caracteres','erro'); return; }
+  if(nova!==conf){ toast('A confirmação não confere','erro'); return; }
+  carregando(true,'Salvando senha...');
+  const { error } = await sb.auth.updateUser({ password:nova, data:{ senha_provisoria:false } });
+  if(error){ carregando(false); toast('Não foi possível salvar a senha. Tente novamente.','erro'); return; }
+  const { data:{ session:s2 } } = await sb.auth.getSession();
+  carregando(false);
+  toast('Senha definida','ok');
+  if(s2) await entrar(s2); else mostrarLogin();
 });
 
 async function sair(){
@@ -3328,21 +3396,8 @@ async function renderAdmin(){
       <div class="line"><span style="width:${pct}%"></span></div></div>
       <p class="pagesub" style="margin:8px 2px 0">Lançamento manual não consome cota. Ao esgotar, a leitura por IA é bloqueada e o manual continua liberado.</p></div>`;
   }catch(e){ el('adminConsumo').innerHTML = `<div class="chart"><h3><i data-lucide="cpu" class="i-sm"></i> Plano e consumo de IA</h3><div class="empty" style="padding:14px">Sem dados de consumo ainda.</div></div>`; }
-  // Usuários e papéis
-  try{
-    const { data } = await sb.from('empresa_usuarios')
-      .select('id, papel, usuario_id, usuarios(nome, email)').eq('empresa_id', empresaId);
-    const arr=data||[];
-    const linhas = arr.map(v=>{
-      const u=v.usuarios||{};
-      const sel=['operador','financeiro','gestor'].map(p=>`<option value="${p}"${v.papel===p?' selected':''}>${PAPEIS_LABEL[p]}</option>`).join('');
-      return `<tr><td>${esc(u.nome||'')}</td><td>${esc(u.email||'')}</td>
-        <td><select class="ctl-sm" onchange="mudarPapel('${v.id}',this.value)">${sel}</select></td></tr>`;
-    }).join('');
-    el('adminUsuarios').innerHTML = `<div class="chart"><h3><i data-lucide="users" class="i-sm"></i> Usuários e papéis</h3>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Papel</th></tr></thead>
-      <tbody>${linhas||'<tr><td colspan="3">—</td></tr>'}</tbody></table></div></div>`;
-  }catch(e){ el('adminUsuarios').innerHTML=''; }
+  // Usuários (gestão completa: criar, senha provisória, editar, ativar/desativar, link)
+  await renderAdminUsuarios();
   // Alertas em aberto
   try{
     const { data } = await sb.from('alertas').select('*').eq('empresa_id', empresaId).eq('resolvido', false).order('criado_em',{ascending:false}).limit(20);
@@ -3613,11 +3668,164 @@ async function excluirPolitica(id){
   const { error } = await sb.from('politicas_limite').delete().eq('id', id);
   if(!error) renderAdminPoliticas(); else mostrarErro(error,'remover política');
 }
-async function mudarPapel(id, papel){
-  carregando(true,'Salvando papel...');
-  const { error } = await sb.from('empresa_usuarios').update({papel}).eq('id', id);
+/* ============================================================================
+   GESTÃO DE USUÁRIOS (Administração) — espelha o padrão do sistema de Cobrança.
+   Toda ação sensível vai para a Edge Function `gestao-usuarios` (service role,
+   gate no backend). Aqui: listagem (RLS), modais e apresentação. Só gestão.
+   ========================================================================== */
+let usuariosCache=[];   // {uid, nome, email, papel, ativo}
+/* Wrapper da Edge: injeta empresa_id, lê {erro} tanto no corpo 200 quanto no 4xx. */
+async function invokeGestao(acao, payload){
+  try{
+    const { data, error } = await sb.functions.invoke('gestao-usuarios', { body:Object.assign({ acao, empresa_id:empresaId }, payload||{}) });
+    if(error){
+      let corpo=null; try{ corpo=await error.context.json(); }catch(_){}
+      return { erro:(corpo&&corpo.erro)||'Falha na operação', status:error.context&&error.context.status };
+    }
+    if(data&&data.erro) return { erro:data.erro };
+    return data||{ ok:true };
+  }catch(e){ return { erro:'Falha de rede' }; }
+}
+/* Senha provisória forte (sem caracteres ambíguos), gerada no cliente. */
+function gerarSenha(n=12){
+  const cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#%+';
+  const a=new Uint32Array(n); crypto.getRandomValues(a);
+  let s=''; for(let i=0;i<n;i++) s+=cs[a[i]%cs.length]; return s;
+}
+/* Mostra uma credencial (senha/link) UMA vez, com botão copiar (não fecha ao copiar). */
+function mostrarCredencial(titulo, rotulo, valor, extra){
+  return modal({ titulo, dismissValor:null,
+    corpoHtml:`${extra?`<p class="pagesub" style="margin:-2px 0 10px">${esc(extra)}</p>`:''}
+      <div class="field"><label>${esc(rotulo)}</label>
+        <input id="credVal" class="cm-inp" type="text" readonly value="${esc(valor)}" style="font-variant-numeric:tabular-nums">
+        <button type="button" class="btn-compact mt8" id="credCopy"><i data-lucide="copy" class="i-sm"></i> Copiar</button></div>`,
+    botoes:[{rotulo:'Fechar', tipo:'primary', resolver:()=>true}],
+    aoMontar:(ov)=>{ const b=ov.querySelector('#credCopy'); const inp=ov.querySelector('#credVal');
+      if(b) b.onclick=()=>{ copiarTexto(valor); if(inp){ inp.focus(); inp.select(); } };
+      icons(); } });
+}
+function opcoesPerfil(sel){ return ['operador','financeiro','gestor'].map(p=>`<option value="${p}"${sel===p?' selected':''}>${PAPEIS_LABEL[p]}</option>`).join(''); }
+
+async function renderAdminUsuarios(){
+  const box=el('adminUsuarios'); if(!box) return;
+  if(!ehGestor()){ box.innerHTML=''; return; }   // só gestão gerencia usuários (reforço; backend valida)
+  try{
+    const { data } = await sb.from('empresa_usuarios')
+      .select('id, papel, usuario_id, ativo, criado_em, usuarios(nome, email)')
+      .eq('empresa_id', empresaId).order('criado_em',{ascending:true});
+    const arr=data||[];
+    usuariosCache = arr.map(v=>({ uid:v.usuario_id, nome:(v.usuarios&&v.usuarios.nome)||'', email:(v.usuarios&&v.usuarios.email)||'', papel:v.papel, ativo:v.ativo!==false }));
+    const linhas = usuariosCache.map(u=>{
+      const st = u.ativo ? `<span class="st ok">Ativo</span>` : `<span class="st off">Inativo</span>`;
+      const criadoRow = arr.find(x=>x.usuario_id===u.uid);
+      const criado = criadoRow&&criadoRow.criado_em ? brDate(criadoRow.criado_em) : '—';
+      return `<tr>
+        <td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${PAPEIS_LABEL[u.papel]||esc(u.papel)}</td>
+        <td>${st}</td><td>${criado}</td>
+        <td class="u-acoes">
+          <button class="ic-btn" title="Definir senha provisória" onclick="adminSenhaUsuario('${u.uid}')"><i data-lucide="key-round" class="i-sm"></i></button>
+          <button class="ic-btn" title="Gerar link de acesso" onclick="adminLinkUsuario('${u.uid}')"><i data-lucide="link" class="i-sm"></i></button>
+          <button class="ic-btn" title="Editar" onclick="adminEditarUsuario('${u.uid}')"><i data-lucide="pencil" class="i-sm"></i></button>
+          <button class="ic-btn ${u.ativo?'':'ok'}" title="${u.ativo?'Desativar':'Ativar'}" onclick="adminAtivarUsuario('${u.uid}',${u.ativo?'false':'true'})"><i data-lucide="power" class="i-sm"></i></button>
+        </td></tr>`;
+    }).join('');
+    box.innerHTML = `<div class="chart"><div class="ch-head"><h3><i data-lucide="users" class="i-sm"></i> Usuários</h3>
+      <button class="btn-compact" onclick="adminNovoUsuario()"><i data-lucide="user-plus" class="i-sm"></i> Novo usuário</button></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Criado em</th><th>Ações</th></tr></thead>
+      <tbody>${linhas||'<tr><td colspan="6">Nenhum usuário.</td></tr>'}</tbody></table></div></div>`;
+    icons();
+  }catch(e){ box.innerHTML=''; }
+}
+/* Novo usuário: cria conta (Auth) + vínculo, com senha provisória (troca obrigatória). */
+async function adminNovoUsuario(){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const dados = await modal({ titulo:'Novo usuário', dismissValor:null,
+    corpoHtml:`
+      <div class="field"><label>Nome completo</label><input id="nuNome" class="cm-inp" type="text" maxlength="80"></div>
+      <div class="field"><label>E-mail (login)</label><input id="nuEmail" class="cm-inp" type="email" inputmode="email"></div>
+      <div class="field"><label>Perfil</label><select id="nuPerfil" class="cm-sel">${opcoesPerfil('operador')}</select></div>
+      <div class="field"><label>Senha provisória</label>
+        <div style="display:flex;gap:8px;align-items:center"><input id="nuSenha" class="cm-inp" type="text" style="flex:1"><button type="button" class="btn-compact" id="nuGerar">Gerar</button></div>
+        <p class="pagesub" style="margin-top:4px">Mínimo 8. O usuário troca no 1º acesso. Mostrada uma vez para você enviar por canal seguro.</p></div>`,
+    botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+            {rotulo:'Criar usuário', tipo:'primary', resolver:()=>({ nome:val('nuNome'), email:val('nuEmail'), perfil:val('nuPerfil'), senha:val('nuSenha') })}],
+    aoMontar:(ov)=>{ const s=ov.querySelector('#nuSenha'); if(s) s.value=gerarSenha();
+      const g=ov.querySelector('#nuGerar'); if(g) g.onclick=()=>{ s.value=gerarSenha(); }; } });
+  if(!dados) return;
+  const nome=(dados.nome||'').trim(), email=(dados.email||'').trim(), senha=dados.senha||'';
+  if(nome.length<2){ toast('Informe o nome completo','erro'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('E-mail inválido','erro'); return; }
+  if(senha.length<8){ toast('Senha provisória: mínimo 8 caracteres','erro'); return; }
+  carregando(true,'Criando usuário...');
+  const r = await invokeGestao('criar', { nome, email, perfil:dados.perfil, senha });
   carregando(false);
-  if(error){ mostrarErro(error,'mudar papel'); } else toast('Papel atualizado','ok');
+  if(r.erro){ toast(r.erro,'erro'); return; }
+  await renderAdminUsuarios();
+  await mostrarCredencial('Usuário criado', 'Senha provisória de '+email, senha, 'Envie por canal seguro (WhatsApp). O usuário será obrigado a trocar no 1º acesso.');
+}
+/* Editar nome/e-mail/perfil. */
+async function adminEditarUsuario(uid){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
+  const dados = await modal({ titulo:'Editar usuário', dismissValor:null,
+    corpoHtml:`
+      <div class="field"><label>Nome completo</label><input id="euNome" class="cm-inp" type="text" maxlength="80" value="${esc(u.nome)}"></div>
+      <div class="field"><label>E-mail (login)</label><input id="euEmail" class="cm-inp" type="email" inputmode="email" value="${esc(u.email)}"></div>
+      <div class="field"><label>Perfil</label><select id="euPerfil" class="cm-sel">${opcoesPerfil(u.papel)}</select></div>`,
+    botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+            {rotulo:'Salvar', tipo:'primary', resolver:()=>({ nome:val('euNome'), email:val('euEmail'), perfil:val('euPerfil') })}] });
+  if(!dados) return;
+  const nome=(dados.nome||'').trim(), email=(dados.email||'').trim();
+  if(nome.length<2){ toast('Informe o nome completo','erro'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('E-mail inválido','erro'); return; }
+  carregando(true,'Salvando...');
+  const r = await invokeGestao('editar', { id:uid, nome, email, perfil:dados.perfil });
+  carregando(false);
+  if(r.erro){ toast(r.erro,'erro'); return; }
+  toast('Usuário atualizado','ok'); await renderAdminUsuarios();
+}
+/* Definir/redefinir senha provisória (mostra uma vez). */
+async function adminSenhaUsuario(uid){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
+  const dados = await modal({ titulo:'Senha provisória', dismissValor:null,
+    corpoHtml:`<p class="pagesub" style="margin:-2px 0 10px">Para <b>${esc(u.email)}</b>. O usuário troca no 1º acesso.</p>
+      <div class="field"><label>Nova senha provisória</label>
+        <div style="display:flex;gap:8px;align-items:center"><input id="spSenha" class="cm-inp" type="text" style="flex:1"><button type="button" class="btn-compact" id="spGerar">Gerar</button></div></div>`,
+    botoes:[{rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+            {rotulo:'Definir', tipo:'primary', resolver:()=>({ senha:val('spSenha') })}],
+    aoMontar:(ov)=>{ const s=ov.querySelector('#spSenha'); if(s) s.value=gerarSenha();
+      const g=ov.querySelector('#spGerar'); if(g) g.onclick=()=>{ s.value=gerarSenha(); }; } });
+  if(!dados) return;
+  if((dados.senha||'').length<8){ toast('Senha provisória: mínimo 8 caracteres','erro'); return; }
+  carregando(true,'Definindo senha...');
+  const r = await invokeGestao('senha_provisoria', { id:uid, senha:dados.senha });
+  carregando(false);
+  if(r.erro){ toast(r.erro,'erro'); return; }
+  await mostrarCredencial('Senha definida', 'Senha provisória de '+u.email, dados.senha, 'Envie por canal seguro. Troca obrigatória no próximo acesso.');
+}
+/* Gerar link de acesso (plano B — enviar por WhatsApp). */
+async function adminLinkUsuario(uid){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
+  carregando(true,'Gerando link...');
+  const r = await invokeGestao('link_acesso', { id:uid });
+  carregando(false);
+  if(r.erro){ toast(r.erro,'erro'); return; }
+  if(!r.link){ toast('Não foi possível gerar o link','erro'); return; }
+  await mostrarCredencial('Link de acesso', 'Link de '+u.email, r.link, 'Link de uso único para definir a senha. Envie por canal seguro.');
+}
+/* Ativar/desativar (conta nunca é excluída; desativado não acessa). */
+async function adminAtivarUsuario(uid, ativo){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const u=usuariosCache.find(x=>x.uid===uid); if(!u) return;
+  const acaoTxt = ativo ? 'Ativar' : 'Desativar';
+  if(!await confirmar(acaoTxt+' usuário', `${acaoTxt} o acesso de ${esc(u.nome||u.email)}?`, {okLabel:acaoTxt, danger:!ativo})) return;
+  carregando(true, acaoTxt+'...');
+  const r = await invokeGestao('ativar', { id:uid, ativo });
+  carregando(false);
+  if(r.erro){ toast(r.erro,'erro'); return; }
+  toast(ativo?'Usuário ativado':'Usuário desativado','ok'); await renderAdminUsuarios();
 }
 async function resolverAlerta(id){
   const { error } = await sb.from('alertas').update({resolvido:true}).eq('id', id);
