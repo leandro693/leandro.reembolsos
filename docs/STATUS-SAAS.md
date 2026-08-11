@@ -5,12 +5,52 @@
 
 ---
 
-## Estado atual — 11/08/2026 (v51 publicado e estável)
+## Estado atual — fim de 11/08/2026 (v56 publicado e estável)
 
-- **Versão no ar: `sw.js` v51 / `APP_VERSION` 51** — publicada e **estável** (site 200; run do Pages
-  `completed/success`; commit `f8754fb`). Working tree limpo, branch em sincronia.
-- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo front + 1 Edge
-  Function nova, sem tocar schema). Bump conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+- **Versão no ar: `sw.js` v56 / `APP_VERSION` 56** — publicada e **estável** (site 200; Pages success;
+  commit `854d53b`). Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0012` (Parte 1)** — banco tocado só na **0012 Parte 1** (policy de Storage,
+  ritual seguido; registro do "antes" + rollback prontos). **0013 (Storage Parte 2) NÃO aplicada.**
+- **Edge Functions no ar (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, **`gestao-usuarios`**.
+
+### Feito em 11/08 — Gestão de usuários completa (v52–v56) + Storage + toasts
+- **Gestão de usuários na Administração (v52):** Edge Function nova **`gestao-usuarios`** (service role, gate
+  no backend por dono/gestor). Ações: **criar** (Auth + `usuarios` + `empresa_usuarios` + senha provisória
+  com troca obrigatória no 1º acesso), **editar** (nome/e-mail/perfil), **ativar/desativar**, **senha
+  provisória**, **gerar link de acesso** (recovery). O app **força a troca** no 1º acesso; desativado é
+  bloqueado. Só gestão gerencia (front + backend). Reenviar por e-mail: pendente (SMTP não configurado).
+- **Saga de bugs até a RAIZ (v53–v55):** v47-style. (1) v53: modal de criar/editar **travado** (não fecha
+  no backdrop/Esc/voltar) + **erro inline** no modal + gate defensivo do seletor de pessoa. (2) v54: vínculo
+  por insert simples + helpers `db()`/`authAdmin()` blindados. (3) **v55 = RAIZ:** o vínculo usava a variável
+  **`papel` (inexistente) em vez de `papel: perfil`** → ReferenceError mascarado pelo `"erro ao processar"`
+  genérico, deixando órfã. Corrigido; teste real provou os 3 registros criados ponta a ponta.
+  - **LIÇÃO (registrada):** bug de Edge Function que persiste → **ler o deploy linha a linha + log de
+    execução**, não teorizar; trocar catch genérico por mensagem do passo que falhou. Ver
+    `[[depurar-edge-function]]` (memória).
+- **Blindagem de adoção de órfã (v56):** (a) `if(!uid)` apaga a conta do Auth; (b) **"e-mail já existe"
+  AUTOCURÁVEL** — se a conta é órfã (sem vínculo), a função **adota** (cria vínculo + senha provisória) em
+  vez de dar erro; (c) se a limpeza falhar, registra `orfa_nao_removida` em `eventos_seguranca`.
+  **PENDENTE DE VALIDAÇÃO:** o teste real da adoção (criar `orfa.teste` que já existe como órfã → adotar)
+  **não foi confirmado** (a órfã de teste seguia sem vínculo; foi removida no fecho). Retestar quando quiser.
+- **RLS/Storage 0012 Parte 1 (APLICADA):** `comp_select` do bucket `comprovantes` ampliada — **gestor/
+  financeiro/dono leem os comprovantes da empresa inteira** (helper `pode_ver_comprovante`, `security
+  definer`). **Corrigiu o ERR-1500** (gestor abrindo comprovante de operador). Rollback pronto em
+  `supabase/auditoria/rollback-0012-parte1.sql`.
+- **Toasts de sucesso destacados (v56):** sucesso vira **pílula verde sólida** (#1E9E57), texto branco,
+  **check** bem visível, maior, com "pop" e um pouco mais de tempo; erro com fundo vermelho tênue. Nos dois
+  fronts. (Toast mantido embaixo/centralizado — no topo colidiria com o header no mobile.)
+
+### Pendente de APLICAR (não aplicado)
+- **Storage Parte 2 (`0013_storage_pagamentos_empresa.sql`)** — endurece a leitura da pasta `pagamentos/`
+  (restringe a leitura do comprovante de lote à empresa). **Só aplicar depois** de testar a leitura de um
+  comprovante de LOTE como gestor. SQL pronto, ritual pendente.
+
+### PRÓXIMO (12/08) — Sistema de crédito/saldo (conta corrente do operador)
+- **Plano aprovado em `docs/PLANO-CREDITO-SALDO.md`** (decisões A–E). Migration **0014**:
+  `empresa_usuarios.modo_lancamento` (default 'despesa') + tabela `creditos_operador` + **3 RPCs** security
+  definer (`lancar_credito` com `lancado_por=auth.uid()`, `set_modo_operador`, `saldo_operador`), com RLS.
+  Inclui **excluir operadores-crédito do "A receber"/Fechamento** (decisão D, crítico). **Ritual de produção
+  completo** antes de aplicar a 0014.
 
 ### Feito em 11/08 — Identidade visual (Inter + tema Preto + divisória do menu)
 - **Fonte Inter self-hosted + números tabulares (v50)** — trocada a fonte do app para **Inter** (nítida em

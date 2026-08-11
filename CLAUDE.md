@@ -27,10 +27,19 @@ Dois front-ends, mesmo backend e mesmo login:
 Documento de referência mais amplo: `docs/ARQUITETURA.md`, `docs/STATUS-SAAS.md`
 e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
-## 2. Estado atual (migrations aplicadas 0000 → 0011)
+## 2. Estado atual (migrations aplicadas 0000 → 0012 Parte 1)
 
-**Versão publicada: `sw.js` v51 / `APP_VERSION` 51** — no ar e estável.
+**Versão publicada: `sw.js` v56 / `APP_VERSION` 56** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
+**Edge Functions (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, `gestao-usuarios`.
+Gestão de usuários (v52-v56): **`gestao-usuarios`** faz criar/editar/ativar-desativar/senha provisória/
+gerar link, com **força de troca no 1º acesso** e gate no backend (dono/gestor); saga de bugs corrigida até
+a **RAIZ** (`papel` → `papel: perfil`, era ReferenceError mascarado por catch genérico — ver memória
+`depurar-edge-function`) + **adoção de órfã** (e-mail já existe sem vínculo → adota) — *adoção pendente de
+validação real*. **Storage 0012 Parte 1 APLICADA** (gestor/financeiro/dono leem comprovantes da empresa
+inteira; corrigiu o ERR-1500; rollback em `supabase/auditoria/rollback-0012-parte1.sql`). Toasts de sucesso
+destacados (verde/check/maior) nos dois fronts (v56). **Pendente de aplicar:** Storage Parte 2 (`0013`).
+**Próximo:** sistema de crédito/saldo — plano em `docs/PLANO-CREDITO-SALDO.md`, migration **0014** (ritual).
 Identidade visual (v50-v51): **fonte Inter self-hosted** (`fonts/inter-latin.woff2`+`-ext`, no `SHELL` do
 `sw.js` → offline; sem CDN; JetBrains Mono removida) com **números tabulares** nos contextos numéricos;
 **3º tema "Preto"** (fundo `#000`, texto branco, laranja `#DB8438` mantido, superfícies quase-pretas) —
