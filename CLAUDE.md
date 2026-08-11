@@ -29,8 +29,13 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0011)
 
-**Versão publicada: `sw.js` v49 / `APP_VERSION` 49** — no ar e estável.
+**Versão publicada: `sw.js` v51 / `APP_VERSION` 51** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
+Identidade visual (v50-v51): **fonte Inter self-hosted** (`fonts/inter-latin.woff2`+`-ext`, no `SHELL` do
+`sw.js` → offline; sem CDN; JetBrains Mono removida) com **números tabulares** nos contextos numéricos;
+**3º tema "Preto"** (fundo `#000`, texto branco, laranja `#DB8438` mantido, superfícies quase-pretas) —
+seletor Claro/Escuro/Preto nos dois fronts, toggle cicla os 3, persiste em `mrd_tema`/`tema`; **linha
+divisória** `border-right:var(--border)` na sidebar (desktop, 3 temas) + sidebar `#0A0A0B` no Preto (v51).
 Últimas levas (front + 1 Edge Function nova, sem tocar schema): redesenho do Fechamento Parte A
 (seleção múltipla/individual, baixa em lote, core único `darBaixa`, gate de gestão) (v46), fix
 crítico do `</section>` faltante do v42 que aninhava Fechamento/Ajustes/Fornecedores/Administração
@@ -180,9 +185,11 @@ Segredos ficam em **GitHub → Settings → Secrets and variables → Actions**
 ## 8. Identidade visual (design system Maradel)
 
 - **Cor de marca:** terracota **`#DB8438`** (hover `#B96C28`) sobre neutros;
-  temas **claro e escuro** (variáveis CSS `--accent`, `--bg-page`, `--surface`…).
-- **Tipografia:** **Raleway** (texto) e **JetBrains Mono** (números/códigos,
-  `font-variant-numeric: tabular-nums`).
+  temas **Claro / Escuro / Preto** (variáveis CSS `--accent`, `--bg-page`, `--surface`…; blocos
+  `:root/[data-theme="light"]`, `[data-theme="dark"]`, `[data-theme="black"]`). No Preto o `--accent` se
+  mantém. Sidebar (desktop) tem `border-right:var(--border)` como divisória.
+- **Tipografia:** **Inter** (texto, self-hosted em `fonts/`), com **números tabulares**
+  (`font-variant-numeric: tabular-nums`) nos contextos numéricos. Não usa mais Raleway/JetBrains Mono.
 - **Ícones:** Lucide. **Sem emojis.**
 - **Formatos:** dinheiro `1.234,56` (sem "R$", ver §11.2); datas `DD/MM/AAAA`.
 - **Padrões de UI:** cartões (`.card`/`.chart`), tabelas (`.tbl`), selos de status

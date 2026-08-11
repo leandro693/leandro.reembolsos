@@ -5,12 +5,27 @@
 
 ---
 
-## Estado atual — 11/08/2026 (v49 publicado e estável)
+## Estado atual — 11/08/2026 (v51 publicado e estável)
 
-- **Versão no ar: `sw.js` v49 / `APP_VERSION` 49** — publicada e **estável** (site 200; run do Pages
-  `completed/success`; commit `9bb6642`). Working tree limpo, branch em sincronia.
-- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo 100% front + 1 Edge
+- **Versão no ar: `sw.js` v51 / `APP_VERSION` 51** — publicada e **estável** (site 200; run do Pages
+  `completed/success`; commit `f8754fb`). Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo front + 1 Edge
   Function nova, sem tocar schema). Bump conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+
+### Feito em 11/08 — Identidade visual (Inter + tema Preto + divisória do menu)
+- **Fonte Inter self-hosted + números tabulares (v50)** — trocada a fonte do app para **Inter** (nítida em
+  tela), **self-hosted** (`fonts/inter-latin.woff2` + `-ext`, no `SHELL` do `sw.js` → offline, sem CDN) via
+  `@font-face` com `font-display:swap` (fallback de sistema). **Removida a JetBrains Mono** (unificado em
+  Inter). Números com **`font-variant-numeric:tabular-nums`** nos contextos numéricos (valores, tabelas,
+  dashboard, tabela da conciliação) → dígitos de **largura fixa**, colunas alinhadas; texto proporcional.
+- **3º tema "Preto" (v50)** — além de Claro/Escuro, tema **Preto**: `--bg-page:#000`, texto branco,
+  **laranja Maradel `#DB8438` mantido**; superfícies quase-pretas (`--surface:#101012`/`#0A0A0B`) para os
+  cards não sumirem. Seletor em Ajustes vira **Claro/Escuro/Preto**; toggle **cicla os 3**; persiste em
+  `mrd_tema` (console: `tema`). Vale nos **dois fronts**.
+- **Linha divisória do menu (v51)** — `border-right:1px solid var(--border)` na sidebar (desktop) nos dois
+  fronts, consistente nos 3 temas (no Preto a linha branca leve separa); e no **tema Preto** a sidebar ganha
+  tom `#0A0A0B` (levanta o menu do fundo `#000`, acabamento "Claude web"). **Mobile intacto** (a divisória
+  fica só no `@media(min-width:980px)`; no celular o menu é gaveta sobreposta). Só CSS.
 
 ### Feito em 11/08 — Parte B: Conciliação por IA no Fechamento (validada no aparelho)
 - **Parte B (v48)** — anexa **comprovante de PAGAMENTO** no Fechamento; **Edge Function nova `ler-pagamento`**
