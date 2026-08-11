@@ -1,0 +1,39 @@
+REGISTRO DO "ANTES" — policies de storage.objects (bucket "comprovantes")
+Data: 2026-08-11. Fonte: consulta read-only a pg_policy (Management API).
+Uso: rollback da migration 0012 (recriar exatamente estas expressões).
+
+Bucket:
+  comprovantes  ->  public = false  (privado)
+
+Policies vivas em storage.objects (bucket comprovantes):
+
+comp_select   (SELECT, to authenticated)
+  USING:  (bucket_id = 'comprovantes') AND ((storage.foldername(name))[1] = (auth.uid())::text)
+
+comp_insert   (INSERT, to authenticated)
+  WITH CHECK: (bucket_id = 'comprovantes') AND ((storage.foldername(name))[1] = (auth.uid())::text)
+
+comp_delete   (DELETE, to authenticated)
+  USING:  (bucket_id = 'comprovantes') AND ((storage.foldername(name))[1] = (auth.uid())::text)
+
+comp_pag_insert (INSERT, to authenticated)
+  WITH CHECK: (bucket_id = 'comprovantes') AND ((storage.foldername(name))[1] = 'pagamentos')
+
+comp_pag_select (SELECT, to authenticated)
+  USING:  (bucket_id = 'comprovantes') AND ((storage.foldername(name))[1] = 'pagamentos')
+
+Observações:
+- Comprovante de DESPESA é salvo em  <uploader_user_id>/<uuid>.<ext>  -> a 1a pasta é o uid do uploader.
+- Comprovante de PAGAMENTO (lote) é salvo em  pagamentos/<uuid>.<ext>.
+- Bug atual: comp_select só libera a leitura para o proprio uploader (pasta = auth.uid()),
+  entao gestor/financeiro/dono NAO conseguem abrir o comprovante de um operador -> ERR-1500.
+
+ROLLBACK (se preciso reverter a 0012), reaplicar exatamente:
+  drop policy if exists comp_select on storage.objects;
+  create policy comp_select on storage.objects for select to authenticated
+    using (bucket_id = 'comprovantes' and (storage.foldername(name))[1] = (auth.uid())::text);
+  drop policy if exists comp_pag_select on storage.objects;
+  create policy comp_pag_select on storage.objects for select to authenticated
+    using (bucket_id = 'comprovantes' and (storage.foldername(name))[1] = 'pagamentos');
+  -- e (se criadas) remover as funcoes: drop function if exists public.pode_ver_comprovante(text);
+  --                                    drop function if exists public.pode_ver_pagamento(text);
