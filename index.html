@@ -505,8 +505,13 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:110;max-width:92%;
   background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;padding:12px 16px;
   font-size:13.5px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.22);display:flex;gap:9px;align-items:center}
-.toast.ok{border-color:var(--ok-border)} .toast.ok .ic{color:var(--ok-fg)}
-.toast.erro{border-color:var(--err-border)} .toast.erro .ic{color:var(--err-fg)}
+/* Sucesso: verde sólido, maior, check branco e "pop" — o usuário tem certeza que salvou. */
+.toast.ok{background:#1E9E57;border-color:#1E9E57;color:#fff;padding:14px 22px;font-size:15px;font-weight:600;
+  box-shadow:0 12px 34px rgba(30,158,87,.40);animation:toastPop .22s ease}
+.toast.ok .ic{color:#fff;width:22px;height:22px;stroke-width:2.4}
+/* Erro: fundo vermelho tênue do tema (continua bem visível). */
+.toast.erro{background:var(--err-bg);border-color:var(--err-border);color:var(--err-title)} .toast.erro .ic{color:var(--err-fg)}
+@keyframes toastPop{from{opacity:0;transform:translateX(-50%) translateY(10px) scale(.95)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
 
 /* ---- Aparência (cards de opção) ---- */
 .optgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -1242,7 +1247,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '55';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '56';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -4052,7 +4057,7 @@ function toast(msg,tipo){
   const t=document.createElement('div'); t.className='toast '+(tipo||'');
   const ic=tipo==='ok'?'check-circle-2':tipo==='erro'?'alert-circle':'info';
   t.innerHTML=`<i data-lucide="${ic}" class="i-sm ic"></i><span>${esc(msg)}</span>`;
-  document.body.appendChild(t); icons(); setTimeout(()=>t.remove(),3200);
+  document.body.appendChild(t); icons(); setTimeout(()=>t.remove(), tipo==='ok'?4200:3200);   // sucesso fica um pouco mais
 }
 
 /* Tratador central de erros (regra da casa): o detalhe técnico vai SÓ para o

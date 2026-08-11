@@ -96,6 +96,39 @@ async function auditar(empresa: string | null, porUsuario: string, tipo: string,
     p_tipo: tipo, p_severidade: "info", p_detalhe: detalhe,
   });
 }
+// (v56-a) Remove a conta do Auth quando não temos o uid direto (cria pelo e-mail o
+// caminho de limpeza): acha o id em public.usuarios e apaga. Best-effort.
+async function removerAuthPorEmail(email: string): Promise<boolean> {
+  const u = await db(`usuarios?email=eq.${encodeURIComponent(email)}&select=id`);
+  const id = Array.isArray(u.data) && u.data[0] ? String((u.data[0] as { id?: string }).id || "") : "";
+  if (!id) return false;
+  const d = await authAdmin(`admin/users/${id}`, "DELETE");
+  return d.ok;
+}
+// (v56-b) "E-mail já existe": se a conta for ÓRFÃ (sem vínculo em NENHUMA empresa),
+// ADOTA (cria vínculo + define senha provisória). Se já for usuário (desta ou de outra
+// empresa), NÃO mexe — devolve mensagem clara. Retorna uma Response (json()).
+async function adotarOuRecusar(empresa_id: string, callerId: string,
+  dados: { nome: string; email: string; perfil: string; senha: string }) {
+  const { nome, email, perfil, senha } = dados;
+  const u = await db(`usuarios?email=eq.${encodeURIComponent(email)}&select=id`);
+  const uid = Array.isArray(u.data) && u.data[0] ? String((u.data[0] as { id?: string }).id || "") : "";
+  if (!uid) return json({ erro: "Este e-mail já tem conta no sistema." }, 409);   // sem cadastro localizável -> não adota
+  const v = await db(`empresa_usuarios?usuario_id=eq.${uid}&select=empresa_id`);
+  const vinc = Array.isArray(v.data) ? (v.data as { empresa_id?: string }[]) : [];
+  if (vinc.length > 0) {
+    const nesta = vinc.some((r) => r.empresa_id === empresa_id);
+    return json({ erro: nesta ? "Este e-mail já é usuário desta empresa." : "Este e-mail já pertence a um usuário de outra empresa." }, 409);
+  }
+  // ÓRFÃ -> adota: atualiza cadastro, cria o vínculo e (re)define a senha provisória.
+  await db(`usuarios?id=eq.${uid}`, "PATCH", { nome, email });
+  const vin = await db("empresa_usuarios", "POST", { empresa_id, usuario_id: uid, papel: perfil, ativo: true });
+  if (!vin.ok) return json({ erro: "Falha ao vincular o usuário à empresa." }, 502);
+  const pw = await authAdmin(`admin/users/${uid}`, "PUT", { password: senha, user_metadata: { nome, senha_provisoria: true } });
+  if (!pw.ok) return json({ erro: "Vínculo criado, mas falhou definir a senha provisória." }, 502);
+  await auditar(empresa_id, callerId, "usuario_adotado", { email: mascararEmail(email), perfil, troca_obrigatoria: true });
+  return json({ ok: true, adotado: true, user_id: uid });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -140,28 +173,37 @@ Deno.serve(async (req) => {
         email, password: senha, email_confirm: true,
         user_metadata: { nome, senha_provisoria: true },
       });
+      // (v56-b) E-mail já existe: adota se for órfã; senão, mensagem clara.
       if (!cr.ok) {
         const msg = JSON.stringify(cr.data);
         const existe = /already|registered|exists|duplicate/i.test(msg);
-        return json({ erro: existe ? "Este e-mail já tem conta no sistema." : "Falha ao criar a conta." }, existe ? 409 : 502);
+        if (!existe) return json({ erro: "Falha ao criar a conta." }, 502);
+        return await adotarOuRecusar(empresa_id, caller.id, { nome, email, perfil, senha });
       }
-      const uid = String((cr.data as { id?: string }).id || "");
-      if (!uid) { return json({ erro: "Falha ao criar a conta." }, 502); }
+      // (v56-a) conta criada no Auth, mas sem id utilizável -> tenta remover (sem órfã) e registra.
+      const uid = String((cr.data as { id?: string; user?: { id?: string } }).id || (cr.data as { user?: { id?: string } }).user?.id || "");
+      if (!uid) {
+        const limpou = await removerAuthPorEmail(email);
+        if (!limpou) await auditar(empresa_id, caller.id, "orfa_nao_removida", { passo: "sem_uid", email: mascararEmail(email) });
+        return json({ erro: "Falha ao criar a conta." }, 502);
+      }
 
       // Cadastro + vínculo. `usuarios` NÃO tem coluna `ativo` (status é empresa_usuarios.ativo).
-      // Se QUALQUER passo falhar, apaga a conta do Auth para não deixar órfã (garantido).
+      // Se QUALQUER passo falhar, apaga a conta do Auth para não deixar órfã; (v56-c) se a
+      // própria limpeza falhar, registra em eventos_seguranca (sem silêncio).
       const up = await db("usuarios?on_conflict=id", "POST", { id: uid, nome, email }, "resolution=merge-duplicates");
       if (!up.ok) {
-        await authAdmin(`admin/users/${uid}`, "DELETE");   // sem órfã
+        const d = await authAdmin(`admin/users/${uid}`, "DELETE");
+        if (!d.ok) await auditar(empresa_id, caller.id, "orfa_nao_removida", { passo: "usuarios", alvo: uid, email: mascararEmail(email) });
         return json({ erro: "Falha ao cadastrar o usuário." }, 502);
       }
       // INSERT SIMPLES do vínculo. A coluna é `papel`; o VALOR é `perfil` (a variável local).
-      // BUG v52-v54: aqui estava `papel` (variável inexistente) -> ReferenceError -> "erro ao
-      // processar" e órfã (o throw pulava a limpeza). Correto: papel: perfil. (v55)
+      // (v55 corrigiu o ReferenceError `papel` -> `papel: perfil`.)
       const vin = await db("empresa_usuarios", "POST", { empresa_id, usuario_id: uid, papel: perfil, ativo: true });
       if (!vin.ok) {
         await db(`usuarios?id=eq.${uid}`, "DELETE");        // desfaz o cadastro recém-criado
-        await authAdmin(`admin/users/${uid}`, "DELETE");    // e a conta do Auth (sem órfã)
+        const d = await authAdmin(`admin/users/${uid}`, "DELETE");
+        if (!d.ok) await auditar(empresa_id, caller.id, "orfa_nao_removida", { passo: "vinculo", alvo: uid, email: mascararEmail(email) });
         return json({ erro: "Falha ao vincular o usuário à empresa." }, 502);
       }
       await auditar(empresa_id, caller.id, "usuario_criado", { email: mascararEmail(email), perfil, troca_obrigatoria: true });

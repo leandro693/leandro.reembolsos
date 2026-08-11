@@ -221,7 +221,11 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 .cm-btn.primary:hover{opacity:.92}
 .cm-btn.danger{background:transparent;border-color:var(--err-border);color:var(--err-fg)}
 .cm-btn.danger:hover{background:var(--err-bg)}
-.tmsg.ok{border-left-color:var(--ok-fg)} .tmsg.erro{border-left-color:var(--err-fg)}
+/* Sucesso: verde sólido, maior, com check — bem visível. Erro: fundo vermelho tênue. */
+.tmsg.ok{background:#1E9E57;border-color:#1E9E57;color:#fff;font-size:15px;padding:13px 20px;box-shadow:0 12px 34px rgba(30,158,87,.40);animation:tmsgPop .22s ease}
+.tmsg.ok::before{content:'\2713';font-weight:800;margin-right:9px}
+.tmsg.erro{background:var(--err-bg);border-color:var(--err-border);border-left-color:var(--err-fg);color:var(--err-title)}
+@keyframes tmsgPop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
 #load{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
 #load .card{display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text)}
 .spin{width:20px;height:20px;border:2.5px solid var(--border-strong);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite}
@@ -323,7 +327,7 @@ function money(n){ n=Number(n)||0; return Math.abs(n).toFixed(2).replace('.',','
 function brDate(iso){ if(!iso) return ''; const p=String(iso).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:iso; }
 function icons(){ if(window.lucide) lucide.createIcons(); }
 function carregando(v,txt){ el('load').classList.toggle('hidden',!v); if(txt) el('loadTxt').textContent=txt; }
-function toast(msg,tipo){ const d=document.createElement('div'); d.className='tmsg '+(tipo||'ok'); d.textContent=msg; el('toast').appendChild(d); setTimeout(()=>d.remove(),3200); }
+function toast(msg,tipo){ const d=document.createElement('div'); d.className='tmsg '+(tipo||'ok'); d.textContent=msg; el('toast').appendChild(d); setTimeout(()=>d.remove(), (tipo||'ok')==='ok'?4200:3200); }
 /* Tratador central de erros (regra da casa): detalhe técnico só no console.error;
    a tela mostra frase amigável em PT + código curto. Nunca vaza texto cru. */
 function mostrarErro(erro, contexto){
