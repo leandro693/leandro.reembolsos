@@ -13,10 +13,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Reembolsos">
 
-<!-- Fontes da marca -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Fonte da marca: Inter self-hosted (offline-proof, no cache do SW). Ver @font-face no CSS. -->
+<link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 
 <!-- Bibliotecas: Supabase (dados/nuvem), Lucide (ícones), jsPDF (relatório) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -29,8 +27,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
+/* Fonte Inter self-hosted (variável, todos os pesos). Latin cobre o português;
+   latin-ext por garantia. font-display:swap -> fallback de sistema até carregar. */
+@font-face{ font-family:'Inter'; font-style:normal; font-weight:100 900; font-display:swap;
+  src:url('./fonts/inter-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face{ font-family:'Inter'; font-style:normal; font-weight:100 900; font-display:swap;
+  src:url('./fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 /* ============================================================================
-   MARADEL DESIGN SYSTEM — tokens (claro/escuro) + contraste
+   MARADEL DESIGN SYSTEM — tokens (claro/escuro/preto) + contraste
    ========================================================================== */
 :root, [data-theme="light"]{
   --bg-page:#F5F4F2; --surface:#FFFFFF; --surface-2:#FAF9F7;
@@ -68,17 +74,38 @@
   --scroll:rgba(255,255,255,.20); --scroll-hover:rgba(255,255,255,.34);
   --shadow:0 1px 3px rgba(0,0,0,.28);
 }
+/* 3º tema — PRETO: fundo #000 puro, superfícies quase-pretas (cards não somem),
+   texto branco, laranja Maradel MANTIDO como cor de ação/marca. Espelha o dark. */
+[data-theme="black"]{
+  --bg-page:#000000; --surface:#101012; --surface-2:#0A0A0B;
+  --row-hover:#161619; --row-hover-strong:#1E1E22; --zebra:#0D0D0F;
+  --text:#FFFFFF; --text-strong:#FFFFFF; --text-2:#D6D6D8; --text-3:#B4B4B7; --text-4:#9A9A9E;
+  --border-faint:rgba(255,255,255,.07); --border:rgba(255,255,255,.12);
+  --border-2:rgba(255,255,255,.18); --border-strong:rgba(255,255,255,.30);
+  --sidebar:#000000; --btn-dark:#1C1C20; --btn-dark-hover:#26262B;
+  --accent:#DB8438; --accent-hover:#B96C28; --accent-subtle:#2A2016;
+  --neutral:#1A1A1D; --warn-row:#241E12; --track:#161619;
+  --money-in:#4ADE80; --money-out:#F87171;
+  --input-text:#FFFFFF; --input-bg:#141416;
+  --ok-bg:#12211A;  --ok-border:rgba(122,200,150,.30); --ok-title:#9BE7B6; --ok-fg:#8FD6A8;
+  --warn-bg:#241E10; --warn-border:rgba(230,190,80,.32); --warn-title:#F3DC9A; --warn-fg:#E6C878;
+  --err-bg:#2A1616; --err-border:rgba(248,113,113,.35); --err-title:#F6ADA4; --err-fg:#F1948B;
+  --info-fg:#8FB4DA;
+  --scroll:rgba(255,255,255,.22); --scroll-hover:rgba(255,255,255,.36);
+  --shadow:0 1px 3px rgba(0,0,0,.55);
+}
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
 body{
   background:var(--bg-page); color:var(--text);
-  font-family:'Raleway',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:400;
+  font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; font-weight:400;
   min-height:100vh; -webkit-font-smoothing:antialiased; overflow-x:hidden;
 }
 main{overflow-x:hidden}
 h1,h2,h3,h4{color:var(--text-strong);font-weight:600;letter-spacing:-.01em}
-.num,.code{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+/* Números: Inter herdada + tabular-nums (dígitos de largura fixa, colunas alinhadas). */
+.num,.code{font-variant-numeric:tabular-nums;letter-spacing:0}
 .hidden{display:none!important}
 button{font-family:inherit}
 input,select,textarea{color:var(--input-text);font-weight:500;font-family:inherit}
@@ -127,7 +154,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .pagesub{color:var(--text-3);font-size:13px;margin-bottom:16px}
 #consultaResumo{color:var(--text-2);font-size:14px}
 #consultaResumo .cr-tit{color:var(--text-strong);font-weight:600}
-#consultaResumo .cr-val{color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+#consultaResumo .cr-val{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
 
 /* ---- Cards de resumo ---- */
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
@@ -138,7 +165,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
   display:flex;align-items:center;gap:5px;font-weight:600}
 .card .sub{font-size:10.5px;color:var(--text-4);margin:3px 0 2px}
 .card .val{font-size:20px;font-weight:600;color:var(--text-strong);margin-top:5px}
-.card.money .val{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums}
+.card.money .val{font-variant-numeric:tabular-nums}
 .card.top-graf{border-top-color:var(--text-2)}
 .card.top-err{border-top-color:var(--money-out)}
 .card.wide{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between}
@@ -202,7 +229,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .switch .slider:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
 .switch input:checked+.slider{background:var(--accent)}
 .switch input:checked+.slider:before{transform:translateX(16px)}
-.numseq{font-family:'JetBrains Mono',monospace;color:var(--text-4);font-weight:600;font-size:.9em}
+.numseq{font-variant-numeric:tabular-nums;color:var(--text-4);font-weight:600;font-size:.9em}
 .empresa-chip{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.04em;text-transform:uppercase;opacity:.9}
 
 /* ---- Toggle (segmented) ---- */
@@ -357,7 +384,7 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .gh-chev{transition:transform .15s;color:var(--text-3)}
 .grupo-body{padding:2px 10px 10px;background:var(--surface-2);border-top:1px solid var(--border)}
 .grupo-body .item{box-shadow:none;margin-top:10px;margin-bottom:0}
-.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-3);
+.tag{display:inline-block;font-variant-numeric:tabular-nums;font-size:10.5px;color:var(--text-3);
   background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 5px;margin-left:5px}
 
 /* ---- Chips de status ---- */
@@ -553,11 +580,11 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .ult-forn{min-width:0;flex:1;font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ult-right{display:flex;align-items:center;gap:10px;flex:none}
 .ult-right .val{font-weight:700;color:var(--text-strong)}
-.ult-data{font-size:11.5px;color:var(--text-4);font-family:'JetBrains Mono',monospace}
+.ult-data{font-size:11.5px;color:var(--text-4);font-variant-numeric:tabular-nums}
 .bar{margin-bottom:12px}
 .bar .top{display:flex;justify-content:space-between;gap:12px;align-items:baseline;margin-bottom:5px}
 .bar .lbl{color:var(--text-2);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
-.bar .v{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-strong);font-weight:600;white-space:nowrap;flex:none}
+.bar .v{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--text-strong);font-weight:600;white-space:nowrap;flex:none}
 .bar .line{height:6px;background:var(--track);border-radius:9999px;overflow:hidden}
 .bar .line>span{display:block;height:100%;background:var(--accent);border-radius:9999px;transition:width .3s}
 
@@ -569,8 +596,8 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .tbl thead th,.tbl tbody td{white-space:nowrap}
 .tbl thead th.num,.tbl td.num{text-align:right}
 .tbl td.num,.tbl td.code{white-space:nowrap}
-.tbl td.num{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:12.5px}
-.tbl td.code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-2)}
+.tbl td.num{font-variant-numeric:tabular-nums;font-size:12.5px}
+.tbl td.code{font-variant-numeric:tabular-nums;font-size:12px;color:var(--text-2)}
 .tbl tbody td{padding:11px 12px;border-bottom:1px solid var(--border-faint);color:var(--text);vertical-align:middle}
 .tbl tbody tr:last-child td{border-bottom:none}
 .tbl tbody tr:hover>*{background:var(--row-hover)}
@@ -1009,6 +1036,10 @@ body.nav-open .nav-backdrop{display:block}
           <i data-lucide="check-circle-2" class="i-sm ck"></i>
           <i data-lucide="moon" class="i-md"></i><div class="t">Escuro</div><div class="s">Fundo grafite</div>
         </div>
+        <div class="optcard" id="tcBlack" onclick="setTema('black')">
+          <i data-lucide="check-circle-2" class="i-sm ck"></i>
+          <i data-lucide="circle" class="i-md"></i><div class="t">Preto</div><div class="s">Fundo preto puro</div>
+        </div>
       </div>
       <div class="optgrid mt10">
         <div class="optcard" id="dcNormal" onclick="setDensidade('normal')">
@@ -1180,7 +1211,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '49';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '50';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1255,22 +1286,28 @@ function icons(){ if(window.lucide) lucide.createIcons(); }
 /* ============================================================================
    TEMA & CONTRASTE (persistentes)
    ========================================================================== */
+const TEMAS=['light','dark','black'];   // ordem do ciclo do toggle (Claro -> Escuro -> Preto)
+const THEME_COLOR={ light:'#F5F4F2', dark:'#39393B', black:'#000000' };
 function aplicarPrefs(){
-  const t = localStorage.getItem('mrd_tema') || 'light';
+  let t = localStorage.getItem('mrd_tema') || 'light';
+  if(!TEMAS.includes(t)) t='light';       // valor desconhecido cai no claro
   const d = localStorage.getItem('mrd_dens') || 'normal';
   document.body.setAttribute('data-theme', t);
   document.body.setAttribute('data-density', d);
-  document.querySelector('meta[name=theme-color]').setAttribute('content', t==='dark' ? '#39393B' : '#F5F4F2');
+  document.querySelector('meta[name=theme-color]').setAttribute('content', THEME_COLOR[t]||THEME_COLOR.light);
   marcarPrefs();
 }
 function marcarPrefs(){
   const t=document.body.getAttribute('data-theme'), d=document.body.getAttribute('data-density');
   el('tcLight')?.classList.toggle('on', t==='light'); el('tcDark')?.classList.toggle('on', t==='dark');
+  el('tcBlack')?.classList.toggle('on', t==='black');
   el('dcNormal')?.classList.toggle('on', d==='normal'); el('dcReforcado')?.classList.toggle('on', d==='reforcado');
 }
 function setTema(t){ localStorage.setItem('mrd_tema', t); aplicarPrefs(); }
 function setDensidade(d){ localStorage.setItem('mrd_dens', d); aplicarPrefs(); }
-function toggleTema(){ setTema(document.body.getAttribute('data-theme')==='dark'?'light':'dark'); }
+/* Toggle cicla os 3 temas na ordem Claro -> Escuro -> Preto -> Claro. */
+function toggleTema(){ const at=document.body.getAttribute('data-theme'); const i=TEMAS.indexOf(at);
+  setTema(TEMAS[(i+1)%TEMAS.length] || 'light'); }
 function toggleTemaLogin(){ toggleTema(); }
 
 /* ============================================================================

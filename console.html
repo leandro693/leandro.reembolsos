@@ -7,14 +7,20 @@
 <title>Console de Gestão — Maradel Reembolsos</title>
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Fonte da marca: Inter self-hosted (mesma do app; offline-proof). Ver @font-face no CSS. -->
+<link rel="preload" href="./fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
+/* Fonte Inter self-hosted (variável, todos os pesos; latin cobre o português). */
+@font-face{ font-family:'Inter'; font-style:normal; font-weight:100 900; font-display:swap;
+  src:url('./fonts/inter-latin.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face{ font-family:'Inter'; font-style:normal; font-weight:100 900; font-display:swap;
+  src:url('./fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 :root, [data-theme="light"]{
   --bg-page:#F5F4F2; --surface:#FFFFFF; --surface-2:#FAF9F7;
   --row-hover:#FCFBFA; --row-hover-strong:#F2EFEB; --zebra:#FAF9F7;
@@ -49,11 +55,29 @@
   --scroll:rgba(255,255,255,.20); --scroll-hover:rgba(255,255,255,.34);
   --shadow:0 1px 3px rgba(0,0,0,.28);
 }
+/* 3º tema — PRETO (mesmo do app): fundo #000, superfícies quase-pretas, texto branco, laranja mantido. */
+[data-theme="black"]{
+  --bg-page:#000000; --surface:#101012; --surface-2:#0A0A0B;
+  --row-hover:#161619; --row-hover-strong:#1E1E22; --zebra:#0D0D0F;
+  --text:#FFFFFF; --text-strong:#FFFFFF; --text-2:#D6D6D8; --text-3:#B4B4B7; --text-4:#9A9A9E;
+  --border-faint:rgba(255,255,255,.07); --border:rgba(255,255,255,.12);
+  --border-2:rgba(255,255,255,.18); --border-strong:rgba(255,255,255,.30);
+  --sidebar:#000000; --btn-dark:#1C1C20; --btn-dark-hover:#26262B;
+  --accent:#DB8438; --accent-hover:#B96C28; --accent-subtle:#2A2016;
+  --neutral:#1A1A1D; --track:#161619;
+  --money-in:#4ADE80; --money-out:#F87171;
+  --input-text:#FFFFFF; --input-bg:#141416;
+  --ok-bg:#12211A;  --ok-border:rgba(122,200,150,.30); --ok-fg:#8FD6A8;
+  --warn-bg:#241E10; --warn-border:rgba(230,190,80,.32); --warn-fg:#E6C878;
+  --err-bg:#2A1616; --err-border:rgba(248,113,113,.35); --err-fg:#F1948B;
+  --scroll:rgba(255,255,255,.22); --scroll-hover:rgba(255,255,255,.36);
+  --shadow:0 1px 3px rgba(0,0,0,.55);
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{background:var(--bg-page);color:var(--text);font-family:'Raleway',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
+body{background:var(--bg-page);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
 h1,h2,h3,h4{color:var(--text-strong);font-weight:600;letter-spacing:-.01em}
-.num,.code{font-family:'JetBrains Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.num,.code{font-variant-numeric:tabular-nums;letter-spacing:0}
 .hidden{display:none!important}
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{color:var(--input-text);font-weight:500;font-family:inherit}
@@ -158,7 +182,7 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 .crow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--border)}
 .crow:first-child{border-top:none}
 .crow .cnome{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:500}
-.tag{display:inline-block;font-size:10.5px;font-weight:600;background:var(--neutral);color:var(--text-3);padding:1px 7px;border-radius:6px;margin-left:6px;font-family:'JetBrains Mono',monospace}
+.tag{display:inline-block;font-size:10.5px;font-weight:600;background:var(--neutral);color:var(--text-3);padding:1px 7px;border-radius:6px;margin-left:6px;}
 .st{display:inline-block;font-size:11px;font-weight:600;padding:2px 9px;border-radius:9999px}
 .st.pend{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-border)}
 .st.ok{background:var(--ok-bg);color:var(--ok-fg);border:1px solid var(--ok-border)}
@@ -175,7 +199,7 @@ table.tbl tbody tr:hover,table.tbl tr:hover{background:var(--row-hover)}
 .empty{color:var(--text-4);font-size:13px;text-align:center;padding:22px}
 .seclbl{font-size:11.5px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}
 .bar .top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
-.bar .top .v{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--accent)}
+.bar .top .v{;font-weight:600;color:var(--accent)}
 .bar .line{height:9px;background:var(--track);border-radius:9999px;overflow:hidden}
 .bar .line span{display:block;height:100%;background:var(--accent);border-radius:9999px}
 
@@ -378,9 +402,17 @@ function pedirTexto(titulo, valorAtual, opts={}){
 }
 
 /* ---------- tema ---------- */
-function toggleTema(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-  document.documentElement.setAttribute('data-theme',cur); try{localStorage.setItem('tema',cur);}catch(e){} }
-(function(){ try{ const t=localStorage.getItem('tema'); if(t) document.documentElement.setAttribute('data-theme',t); }catch(e){} })();
+const TEMAS_CONSOLE=['light','dark','black'];   // ciclo Claro -> Escuro -> Preto
+const THEME_COLOR_CONSOLE={ light:'#F5F4F2', dark:'#39393B', black:'#000000' };
+function aplicarTemaConsole(t){
+  if(!TEMAS_CONSOLE.includes(t)) t='light';
+  document.documentElement.setAttribute('data-theme',t);
+  const m=document.querySelector('meta[name=theme-color]'); if(m) m.setAttribute('content', THEME_COLOR_CONSOLE[t]);
+}
+function toggleTema(){ const at=document.documentElement.getAttribute('data-theme')||'light';
+  const t=TEMAS_CONSOLE[(TEMAS_CONSOLE.indexOf(at)+1)%TEMAS_CONSOLE.length]||'light';
+  aplicarTemaConsole(t); try{localStorage.setItem('tema',t);}catch(e){} }
+(function(){ try{ const t=localStorage.getItem('tema'); if(t) aplicarTemaConsole(t); }catch(e){} })();
 
 /* ---------- boot ---------- */
 window.addEventListener('DOMContentLoaded', async ()=>{
