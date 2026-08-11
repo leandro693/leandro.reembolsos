@@ -282,6 +282,17 @@ main{max-width:600px;margin:0 auto;padding:16px 16px 96px}
 .fech-item .fech-ck input{width:18px;height:18px;cursor:pointer;accent-color:var(--accent)}
 .fech-bar{margin-top:12px}
 @media(max-width:979px){ .fech-bar{position:sticky;bottom:8px;z-index:40;box-shadow:0 6px 24px rgba(0,0,0,.18)} }
+/* Conciliação por IA (Parte B): proposta no modal. A IA só propõe; a pessoa confirma. */
+.conc-cab{font-size:13px;color:var(--text-2);margin-bottom:6px}
+.conc-intro{font-size:13px;margin-bottom:10px;color:var(--text-strong)}
+.conc-list{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto}
+.conc-opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border-strong);border-radius:10px;padding:10px;cursor:pointer}
+.conc-opt input{margin-top:3px;accent-color:var(--accent)}
+.conc-body{flex:1;min-width:0}
+.conc-it{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.conc-soma{margin-top:4px;font-size:12.5px;color:var(--text-2)}
+.conc-diff{margin-top:5px;font-size:12.5px;color:var(--accent);font-weight:600}
+.conc-nota{margin-top:10px;font-size:11.5px;color:var(--text-4)}
 .chk{width:17px;height:17px;cursor:pointer;accent-color:var(--accent)}
 
 /* Área de anexo: arraste e solte (PC) / botões (celular) */
@@ -949,8 +960,10 @@ body.nav-open .nav-backdrop{display:block}
         <div><h2 class="pagetitle">Fechamento</h2>
           <p class="pagesub">Marque como pagos os reembolsos que você já quitou. Selecione vários e dê baixa de uma vez, ou marque um por um.</p></div>
         <div class="fech-head-acts">
-          <!-- Parte B (futuro): só visual, sem função. -->
-          <span class="ia-soon" title="Em breve"><i data-lucide="sparkles" class="i-sm"></i> Conciliação por IA — em breve</span>
+          <!-- Parte B: conciliação por IA. A IA só LÊ (valor+destinatário); a baixa é ação
+               da pessoa, sempre confirmada (nunca automática). Só gestão (veTudo). -->
+          <input type="file" id="concFile" accept="image/*,application/pdf" class="hidden" onchange="conciliarPagamento(this)">
+          <button class="btn-compact" onclick="abrirConciliacao()"><i data-lucide="sparkles" class="i-sm"></i> Conciliar pagamento por IA</button>
           <button class="btn-compact" onclick="copiarFechamento()"><i data-lucide="copy" class="i-sm"></i> Copiar resumo</button>
         </div>
       </div>
@@ -1162,7 +1175,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '47';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '48';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -3054,6 +3067,119 @@ async function baixaIndividual(id){
   selFech.delete(String(id));
   await after(error, 'Reembolso pago');
 }
+/* ============================================================================
+   CONCILIAÇÃO POR IA (Parte B) — a IA só LÊ (valor+destinatário); o sistema PROPÕE
+   combinações de reembolsos em aberto que somam o valor; a pessoa DECIDE e confirma.
+   NUNCA há baixa automática (nem quando bate exato). Baixa reusa darBaixa (Parte A),
+   com o próprio comprovante de pagamento como comprovante do lote. Só gestão (veTudo).
+   ========================================================================== */
+function centavosDe(v){ return Math.round((Number(String(v).replace(',','.'))||0)*100); }
+/* Motor de casamento no FRONT, sobre a lista em aberto já carregada (RLS aplicada).
+   Aritmética em CENTAVOS inteiros (evita erro de float). Pré-filtra por destinatário
+   (prioriza o SOLICITANTE que recebe o reembolso; fornecedor como reforço) e busca
+   subconjuntos de ATÉ 4 itens: exatos primeiro; senão a combinação mais próxima. */
+function casarPagamento(valorAlvoNum, destinatario){
+  const alvo=centavosDe(valorAlvoNum);
+  const abertos=listaMarcar();                                   // em aberto, respeita filtro de mês
+  const dn=normNome(destinatario);
+  const tokens=dn?dn.split(' ').filter(t=>t.length>=3):[];
+  const casaPessoa=(l)=>{ if(!tokens.length) return false;
+    const alvosNome=[normNome(l.usuario), normNome(l.fornecedor)];
+    return tokens.some(t=>alvosNome.some(a=>a.includes(t))); };
+  const comPessoa=abertos.filter(casaPessoa);
+  let candidatos=comPessoa.length?comPessoa:abertos;             // prioriza a pessoa lida; senão, todos
+  const CAP=40; let limitado=false;                              // guarda de performance (subset-sum ≤4)
+  if(candidatos.length>CAP){ limitado=true; candidatos=candidatos.slice(0,CAP); } // já ordenados por vencimento
+  const itens=candidatos.map(l=>({ id:String(l.id), c:centavosDe(l.valor_total), l }));
+  const n=itens.length; const exatas=[]; let melhor=null;
+  const avaliar=(combo)=>{ const s=combo.reduce((a,x)=>a+x.c,0); const diff=s-alvo;
+    if(diff===0) exatas.push(combo);
+    if(!melhor || Math.abs(diff)<Math.abs(melhor.diff)) melhor={combo, soma:s, diff}; };
+  for(let i=0;i<n;i++){ avaliar([itens[i]]);
+    for(let j=i+1;j<n;j++){ avaliar([itens[i],itens[j]]);
+      for(let k=j+1;k<n;k++){ avaliar([itens[i],itens[j],itens[k]]);
+        for(let m=k+1;m<n;m++){ avaliar([itens[i],itens[j],itens[k],itens[m]]); } } } }
+  const vkey=combo=>combo.map(x=>x.l.vencimento||'').sort()[0]||''; // vencimento mais cedo do conjunto
+  exatas.sort((a,b)=> a.length-b.length || vkey(a).localeCompare(vkey(b))); // menos itens, mais cedo
+  return { alvo, exatas:exatas.slice(0,5), melhor, limitado, temPessoa:comPessoa.length>0 };
+}
+/* Abre o seletor de arquivo do comprovante de PAGAMENTO (gate de gestão). */
+function abrirConciliacao(){
+  if(!veTudo()){ toast('Sem acesso ao fechamento','erro'); return; }
+  const inp=el('concFile'); if(inp){ inp.value=''; inp.click(); }
+}
+/* Lê o comprovante de pagamento pela IA (Edge ler-pagamento), casa e PROPÕE. */
+async function conciliarPagamento(input){
+  if(!veTudo()){ toast('Sem acesso ao fechamento','erro'); return; }        // gate reforçado
+  const file=input&&input.files&&input.files[0]?input.files[0]:null;
+  if(input) input.value='';
+  if(!file) return;
+  carregando(true,'Lendo comprovante de pagamento...');
+  let data=null, error=null;
+  try{
+    const imageBase64=await fileToBase64(file);
+    ({ data, error } = await sb.functions.invoke('ler-pagamento', {
+      body:{ imageBase64, mimeType:file.type, empresa_id:empresaId, usuario_id:user.id, nomeArquivo:file.name } }));
+  }catch(e){ carregando(false); toast('Não consegui ler o comprovante agora. Selecione manualmente no Fechamento.','erro'); return; }
+  carregando(false);
+  // Caminhos de falha/segurança: NUNCA travam nem dão baixa — caem na seleção manual.
+  if(data && data.erro==='cota'){ toast(data.motivo||'Cota de IA esgotada. Selecione manualmente.','erro'); return; }
+  if(data && (data.erro==='quarentena'||data.quarentena)){ toast(data.motivo||'Comprovante em quarentena de segurança. Selecione manualmente.','erro'); return; }
+  if(error || !data || data.erro){ toast('Não consegui ler com a IA agora. Selecione manualmente no Fechamento.','erro'); return; }
+  if(data.legivel===false || !(Number(data.valor)>0)){ toast('Não consegui ler o valor deste comprovante. Selecione manualmente.','erro'); return; }
+  const valorNum=Number(data.valor); const destinatario=String(data.destinatario||'');
+  const res=casarPagamento(valorNum, destinatario);
+  const escolha=await propostaConciliacao(res, valorNum, destinatario, data.revisao);  // pessoa DECIDE
+  if(!escolha || !escolha.length) return;                                  // cancelou -> NADA é pago
+  carregando(true,'Dando baixa...');
+  const dp=el('fechData').value||isoToday();
+  const { error:eb } = await darBaixa(escolha, dp, file);                   // comprovante -> comprovante_pagamento
+  if(eb==='upload'){ carregando(false); toast('Não foi possível anexar o comprovante de pagamento','erro'); return; }
+  selFech.clear();
+  await after(eb, escolha.length+' reembolso(s) pago(s) por conciliação');
+}
+/* Monta a proposta no modal. Devolve os ids escolhidos (Promise) ou null se cancelar.
+   Botão de confirmar SEMPRE exigido — inclusive quando a combinação bate exato. */
+function propostaConciliacao(res, valorNum, destinatario, revisao){
+  const cab=`<div class="conc-cab">Comprovante: <b class="num">${money(valorNum)}</b>${destinatario?` · Destinatário lido: <b>${esc(destinatario)}</b>`:''}</div>`;
+  if(!res.exatas.length && !res.melhor){
+    return modal({ titulo:'Conciliação por IA', dismissValor:null,
+      corpoHtml: cab+`<div class="note warn">Não há reembolsos em aberto no filtro atual para conciliar. Ajuste o mês/filtro ou selecione manualmente.</div>`,
+      botoes:[{rotulo:'Fechar', tipo:'ghost', resolver:()=>null}] });
+  }
+  const opts = res.exatas.length ? res.exatas.map(c=>({combo:c, exato:true}))
+                                 : [{combo:res.melhor.combo, exato:false, diff:res.melhor.diff}];
+  let intro;
+  if(res.exatas.length===1) intro=`Encontramos uma combinação que soma exatamente <b class="num">${money(valorNum)}</b>. Confira e confirme.`;
+  else if(res.exatas.length>1) intro=`Encontramos ${res.exatas.length} combinações possíveis que somam <b class="num">${money(valorNum)}</b>. Escolha qual corresponde a este pagamento.`;
+  else intro=`Não encontramos combinação exata. Veja a mais próxima, com a diferença, e decida.`;
+  const linhaItem=(x)=>{ const xy=rotuloParcela(x.l); const tag=xy?` <span class="tag">${xy}</span>`:'';
+    return `<div class="conc-it"><span>${esc(x.l.categoria||'')}${tag} · ${esc(x.l.fornecedor||x.l.usuario||'')} · venc ${brDate(x.l.vencimento)}</span><span class="num">${money(x.l.valor_total)}</span></div>`; };
+  const optHtml=opts.map((o,i)=>{
+    const s=o.combo.reduce((a,x)=>a+x.c,0);
+    let extra='';
+    if(!o.exato){ const sinal=o.diff>0?'a mais no comprovante':'a menos no comprovante';
+      extra=`<div class="conc-diff">A pagar (combinação): <b class="num">${money(s/100)}</b> · Comprovante: <b class="num">${money(valorNum)}</b> · Diferença: <b class="num">${money(Math.abs(o.diff)/100)}</b> ${sinal}</div>`; }
+    return `<label class="conc-opt"><input type="radio" name="concOpt" value="${i}" ${i===0?'checked':''}>
+      <div class="conc-body">${o.combo.map(linhaItem).join('')}
+        <div class="conc-soma">Soma: <b class="num">${money(s/100)}</b>${o.exato?' · bate exato':''}</div>${extra}</div></label>`;
+  }).join('');
+  const avisoLim = res.limitado?`<div class="note warn" style="margin-top:8px">Muitos reembolsos no filtro — considerei os mais próximos do vencimento. Estreite o mês/pessoa para abranger todos.</div>`:'';
+  const rev = revisao?`<div class="note warn" style="margin-top:8px">Atenção: ${esc(revisao)}</div>`:'';
+  const nota=`<div class="conc-nota">Nada é pago até você confirmar. A baixa usa a Data do pagamento do Fechamento e anexa este comprovante ao lote.</div>`;
+  let sel = opts[0].combo.map(x=>x.id);
+  return modal({
+    titulo:'Conciliação por IA', dismissValor:null,
+    corpoHtml: cab+`<div class="conc-intro">${intro}</div><div class="conc-list">${optHtml}</div>`+avisoLim+rev+nota,
+    botoes:[
+      {rotulo:'Cancelar', tipo:'ghost', resolver:()=>null},
+      {rotulo:'Confirmar baixa', tipo:'primary', id:'concOk', resolver:()=>sel}
+    ],
+    aoMontar:(ov)=>{ ov.querySelectorAll('input[name="concOpt"]').forEach(r=>{
+      r.onchange=()=>{ const i=Number(r.value); if(opts[i]) sel=opts[i].combo.map(x=>x.id); }; }); }
+  });
+}
+
 /* Resumo do lote (por pessoa e categoria) para colar no WhatsApp/e-mail. */
 function copiarFechamento(){
   const arr=listaMarcar();
