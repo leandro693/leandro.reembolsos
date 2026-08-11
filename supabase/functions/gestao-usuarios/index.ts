@@ -35,27 +35,39 @@ function mascararEmail(e: string): string {
   return (u[0] || "*") + "***@" + d;
 }
 
-// REST (PostgREST) com service role.
+// REST (PostgREST) com service role. NUNCA lança: qualquer erro de rede/parse vira
+// { ok:false } — assim o chamador trata a falha (limpeza + erro claro) em vez de estourar
+// no catch geral ("erro ao processar") e deixar conta órfã.
 async function db(path: string, method = "GET", body?: unknown, prefer?: string) {
   const headers: Record<string, string> = {
     apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json",
   };
   if (prefer) headers["Prefer"] = prefer;
-  const r = await fetch(`${SUPA_URL}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  const txt = await r.text();
-  let data: unknown = null; try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
-  return { ok: r.ok, status: r.status, data };
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const txt = await r.text();
+    let data: unknown = null; try { data = txt ? JSON.parse(txt) : null; } catch { data = txt; }
+    return { ok: r.ok, status: r.status, data };
+  } catch (e) {
+    console.error("db() falhou:", path, e);
+    return { ok: false, status: 0, data: null };
+  }
 }
 
-// Auth admin (GoTrue) com service role.
+// Auth admin (GoTrue) com service role. Também NUNCA lança (mesma proteção do db()).
 async function authAdmin(path: string, method: string, body?: unknown) {
-  const r = await fetch(`${SUPA_URL}/auth/v1/${path}`, {
-    method, headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const txt = await r.text();
-  let data: Record<string, unknown> = {}; try { data = txt ? JSON.parse(txt) : {}; } catch { data = {}; }
-  return { ok: r.ok, status: r.status, data };
+  try {
+    const r = await fetch(`${SUPA_URL}/auth/v1/${path}`, {
+      method, headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const txt = await r.text();
+    let data: Record<string, unknown> = {}; try { data = txt ? JSON.parse(txt) : {}; } catch { data = {}; }
+    return { ok: r.ok, status: r.status, data };
+  } catch (e) {
+    console.error("authAdmin() falhou:", path, e);
+    return { ok: false, status: 0, data: {} as Record<string, unknown> };
+  }
 }
 
 // Identidade do chamador a partir do JWT (não confia no corpo/front).
@@ -143,8 +155,9 @@ Deno.serve(async (req) => {
         await authAdmin(`admin/users/${uid}`, "DELETE");   // sem órfã
         return json({ erro: "Falha ao cadastrar o usuário." }, 502);
       }
-      const vin = await db("empresa_usuarios?on_conflict=empresa_id,usuario_id", "POST",
-        { empresa_id, usuario_id: uid, papel, ativo: true }, "resolution=merge-duplicates");
+      // INSERT SIMPLES: um uid recém-criado nunca conflita em (empresa_id, usuario_id).
+      // (O upsert multi-coluna `on_conflict=empresa_id,usuario_id` via PostgREST falhava; v54.)
+      const vin = await db("empresa_usuarios", "POST", { empresa_id, usuario_id: uid, papel, ativo: true });
       if (!vin.ok) {
         await db(`usuarios?id=eq.${uid}`, "DELETE");        // desfaz o cadastro recém-criado
         await authAdmin(`admin/users/${uid}`, "DELETE");    // e a conta do Auth (sem órfã)
