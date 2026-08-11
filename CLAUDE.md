@@ -29,18 +29,20 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0011)
 
-**Versão publicada: `sw.js` v47 / `APP_VERSION` 47** — no ar e estável.
+**Versão publicada: `sw.js` v49 / `APP_VERSION` 49** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
-Últimas levas (todas 100% front, sem mudança de banco): balancete com tabela de informações +
-correção de orientação EXIF das fotos (v40), scroll do comprovante no desktop (v41), grid único
-de 2 colunas (Novo lançamento + Edição, alinhado/proporcional, sem docviewer legado) (v42),
-campos pareados no desktop + correção da proporção em zoom (v43), alinhamento do par Ler/Recortar,
-respiro dos rótulos e dropzone compacta (v44), respiro entre forma de pagamento e datas (v45),
-redesenho do Fechamento Parte A (seleção múltipla/individual, baixa em lote com data e comprovante
-opcional, core único `darBaixa` reusado por lote/individual/Lançamentos, gate de gestão, placeholder
-"Conciliação por IA — em breve") (v46), fix crítico do `</section>` faltante do v42 que aninhava
-Fechamento/Ajustes/Fornecedores/Administração dentro do `scEditar` (deixava as telas em branco) +
-guard de regressão que valida abertura/fechamento de `section` (v47).
+Últimas levas (front + 1 Edge Function nova, sem tocar schema): redesenho do Fechamento Parte A
+(seleção múltipla/individual, baixa em lote, core único `darBaixa`, gate de gestão) (v46), fix
+crítico do `</section>` faltante do v42 que aninhava Fechamento/Ajustes/Fornecedores/Administração
+dentro do `scEditar` + guard de regressão de `section` (v47), **Parte B — Conciliação por IA no
+Fechamento**: Edge Function nova **`ler-pagamento`** (lê valor+destinatário do comprovante de
+pagamento, schema estrito, anti-injeção), casamento + proposta + baixa confirmada via `darBaixa`,
+banco intocado (v48); casamento por **SOMA POR DATA DE VENCIMENTO** (aposentou o subset-sum de 4)
++ modal de conferência em **TABELA** (Vencimento·Categoria·Fornecedor·Pessoa·Valor) com recálculo
+ao vivo e variante `lg` do modal (920px, resetada por abertura) — validado no aparelho (v49).
+**Princípio da Parte B:** IA e casamento sempre PROPÕEM, a pessoa sempre DECIDE (nunca baixa
+automática); gate só gestão; comprovante de pagamento é dado não confiável (IA só lê, schema
+fechado, destinatário passa por detector de injeção + quarentena; baixa sempre confirmada).
 Detalhes e fila em `docs/STATUS-SAAS.md`.
 
 Todas versionadas em `supabase/migrations/` e **já aplicadas** no Supabase:
@@ -157,7 +159,7 @@ Workflows em `.github/workflows/`:
   → Para aplicar uma migration nova: Actions → “Run SQL Migration” → Run workflow →
   informar o caminho do arquivo.
 - **`deploy-supabase-function.yml`** — publica as Edge Functions
-  **`ler-comprovante`** e **`importar-erp`** (`supabase functions deploy`).
+  **`ler-comprovante`**, **`importar-erp`** e **`ler-pagamento`** (`supabase functions deploy`).
   Dispara por **push** nas branches `claude/app-opinion-u93e9u` e `main`, e por
   **workflow_dispatch**. Segredo: `SUPABASE_ACCESS_TOKEN`.
 - **`create-users.yml`** — cria os logins da equipe no Supabase Auth (já

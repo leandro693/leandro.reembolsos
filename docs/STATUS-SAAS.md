@@ -5,12 +5,32 @@
 
 ---
 
-## Estado atual — fim de 10/08/2026 (v47 publicado e estável)
+## Estado atual — 11/08/2026 (v49 publicado e estável)
 
-- **Versão no ar: `sw.js` v47 / `APP_VERSION` 47** — publicada e **estável** (site 200; run do Pages
-  `completed/success`; commit `205deb8`). Working tree limpo, branch em sincronia.
-- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo 100% front). Bump
-  conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+- **Versão no ar: `sw.js` v49 / `APP_VERSION` 49** — publicada e **estável** (site 200; run do Pages
+  `completed/success`; commit `9bb6642`). Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0011`** — **sem mudança de banco** nestas levas (tudo 100% front + 1 Edge
+  Function nova, sem tocar schema). Bump conjunto `sw.js` + `APP_VERSION` mantido (CLAUDE.md §11.3).
+
+### Feito em 11/08 — Parte B: Conciliação por IA no Fechamento (validada no aparelho)
+- **Parte B (v48)** — anexa **comprovante de PAGAMENTO** no Fechamento; **Edge Function nova `ler-pagamento`**
+  (separada da `ler-comprovante`) lê **valor + destinatário** com **schema estrito** `{legivel, valor,
+  destinatario}` e **blindagem anti-injeção**. O sistema **casa** os reembolsos em aberto, **propõe** a baixa
+  e a pessoa **confirma** — baixa reusa **`darBaixa`** (com o comprovante de pagamento como comprovante do
+  lote). **Banco intocado** (reusa `comprovante_pagamento`, `eventos_seguranca`, metering).
+- **Ajuste do casamento + apresentação (v49)** — o casamento passou a ser **SOMA POR DATA DE VENCIMENTO**
+  (agrupa os em aberto por `vencimento`, soma o grupo inteiro e compara com o valor lido). **Aposentou o
+  subset-sum limitado a 4**, que deixava reembolsos de fora (no caso real, 6–7 reembolsos do mesmo vencimento
+  davam **931,58** de diferença; **agora fecha exato**). A conferência virou **modal em TABELA grande**
+  (Vencimento·Categoria·Fornecedor·Pessoa·Valor) com **recálculo ao vivo** de Total/Diferença ao marcar/
+  desmarcar; variante **`lg` do modal (920px, resetada a cada abertura** para não vazar largura aos outros
+  modais). **Validado no aparelho** com caso real.
+- **PRINCÍPIO da Parte B (permanente):** a IA e o casamento **sempre PROPÕEM; a pessoa sempre DECIDE** —
+  **nunca** baixa automática (nem quando bate exato). **Gate só gestão** (`veTudo()`). **Segurança:** o
+  comprovante de pagamento é **dado não confiável**; a IA **só lê** (schema fechado valor+destinatário); o
+  **destinatário passa pelo detector de injeção + quarentena** (`eventos_seguranca`, painel admin já existe);
+  a **baixa é sempre confirmada**. Testes deterministas no harness; comportamento do modelo validado em
+  chamada real.
 
 ### Feito em 09-10/08
 - **Campos pareados no desktop (v43)** — no Novo lançamento/Edição, pares (Ler+Recortar, Fornecedor+CNPJ,
@@ -68,13 +88,9 @@
   form → **lançar em série**. Erro NÃO limpa; duplicata (hash/documento) barra antes do insert; parcelado ok.
 
 ### Fila (grandes — exigem quiz próprio), em ordem sugerida
-1. **Conciliação por IA no Fechamento (Parte B)** — **JÁ PLANEJADA E APROVADA** (desenho completo e prompt
-   no arquivo de plano). Fluxo: anexa comprovante de **pagamento**, a IA lê **valor + destinatário**, **casa
-   combinações de até 3-4 reembolsos** filtrando por **pessoa/período/fornecedor**; **sempre PROPÕE e o
-   usuário DECIDE, nunca automático**; **segurança anti-injeção obrigatória** (com teste de injeção); **reusa
-   `darBaixa`**; **gate de gestão**.
-2. **Produtos proibidos + desconto automático.**
-3. **Profissionalizar infra** (Supabase Pro + backup + **banco DEV**) — precisa do Leandro presente.
+> Conciliação por IA no Fechamento (Parte B) — **CONCLUÍDA e no ar (v48-v49)**, validada no aparelho.
+1. **Produtos proibidos + desconto automático.**
+2. **Profissionalizar infra** (Supabase Pro + backup + **banco DEV**) — precisa do Leandro presente.
 
 ### Pendências de UX do desktop (adiadas de propósito)
 - **Administração** com "muita coisa solta" → organizar em **submenus**.
