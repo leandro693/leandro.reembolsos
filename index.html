@@ -626,6 +626,16 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .st.off{background:var(--neutral);color:var(--text-4);border:1px solid var(--border-strong)}
 .u-acoes{white-space:nowrap;text-align:right}
 .u-acoes .ic-btn{margin-left:4px}
+/* Crédito/saldo: card de saldo do operador + lista de créditos no modal. */
+.saldo-card{background:var(--surface);border:1px solid var(--border-strong);border-top:3px solid var(--money-in);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.saldo-card.neg{border-top-color:var(--money-out)}
+.saldo-card .s-lbl{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em}
+.saldo-card .s-val{font-size:32px;font-weight:700;color:var(--money-in);margin-top:4px;font-variant-numeric:tabular-nums}
+.saldo-card.neg .s-val{color:var(--money-out)}
+.saldo-card .s-sub{font-size:12.5px;color:var(--text-3);margin-top:4px}
+.saldo-card .s-alerta{margin-top:12px;display:flex;align-items:center;gap:7px;background:var(--err-bg);color:var(--err-fg);border:1px solid var(--err-border);border-radius:9px;padding:9px 12px;font-size:12.5px}
+.cred-lista{display:flex;flex-direction:column;gap:4px;max-height:34vh;overflow:auto}
+.cred-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px solid var(--border);padding:7px 0}
 /* Contraste reforçado: grades vertical + horizontal (estilo Excel) + zebra cinza-clara */
 body[data-density="reforcado"] .tbl thead th,
 body[data-density="reforcado"] .tbl tbody td{border:1px solid var(--border-2)}
@@ -798,6 +808,8 @@ body.nav-open .nav-backdrop{display:block}
         <span class="filtros-lbl"><i data-lucide="user" class="i-sm"></i> Pessoa</span>
         <select id="dashPessoa" class="ctl-sm" onchange="setPessoa(this.value)"><option value="">Todas as pessoas</option></select>
       </div>
+      <!-- Card de SALDO (só operador em modo crédito; substitui os KPIs de "a receber"). -->
+      <div id="dashSaldo"></div>
       <div class="kpis" id="dashKpis"></div>
       <div id="dashCharts"></div>
       <!-- LEVA 1.1: resumo rápido dos últimos 5 lançamentos (clicáveis). -->
@@ -1247,7 +1259,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '56';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '57';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1274,6 +1286,9 @@ let categoriasDB = [];           // categorias da empresa (do banco)
 let setoresDB = [];              // setores da empresa
 let exigeAprovacao = false;      // empresa exige aprovação dos lançamentos
 let isOwner = false;             // dono do SaaS
+let meuModo = 'despesa';         // modo do usuário logado: 'despesa' (atual) | 'credito'
+let creditoUserIds = new Set();  // user_ids da empresa em modo crédito (decisão D: excluir do reembolso)
+let creditoDisponivel = false;   // true só depois de aplicar a 0014 (coluna modo_lancamento existe)
 
 /* ===== Categorias (keys iguais às da planilha antiga, sem emoji) ===== */
 const CATEGORIAS = [
@@ -1578,6 +1593,22 @@ async function carregarEmpresa(){
   await carregarCategoriasDB();
   await carregarSetoresDB();
   await carregarMotivos();
+  await carregarModoCredito();
+}
+/* Crédito/saldo: detecta se a 0014 foi aplicada (coluna modo_lancamento existe). Enquanto
+   NÃO existir, tudo fica em 'despesa' e creditoUserIds vazio -> app idêntico ao de hoje.
+   Carrega o meu modo e o set de user_ids em modo crédito da empresa (para a decisão D). */
+async function carregarModoCredito(){
+  meuModo='despesa'; creditoUserIds=new Set(); creditoDisponivel=false;
+  if(!empresaId) return;
+  const { data, error } = await sb.from('empresa_usuarios')
+    .select('usuario_id, modo_lancamento').eq('empresa_id', empresaId);
+  if(error || !data) return;                       // coluna ainda não existe (0014 não aplicada) -> despesa
+  creditoDisponivel=true;
+  data.forEach(r=>{ if(r.modo_lancamento==='credito'){
+    creditoUserIds.add(String(r.usuario_id));
+    if(String(r.usuario_id)===String(user.id)) meuModo='credito';
+  }});
 }
 async function carregarSetoresDB(){
   try{ const { data } = await sb.from('setores').select('id, nome, ativo').eq('empresa_id', empresaId).order('nome',{ascending:true}); setoresDB=data||[]; }
@@ -1680,10 +1711,31 @@ function renderInicio(){
     ? 'Visão geral de todos os reembolsos ('+rotuloPapel().toLowerCase()+').'
     : 'Visão geral dos seus reembolsos.';
   el('dashSub').innerHTML = (empresaNome?`<span class="empresa-chip">${esc(empresaNome)}</span> · `:'') + esc(base);
-  renderKpis();
+  // Operador em modo crédito: card de SALDO substitui os KPIs de "a receber". Demais: KPIs normais.
+  if(meuModo==='credito'){ el('dashKpis').innerHTML=''; renderSaldoCard(); }
+  else { el('dashSaldo').innerHTML=''; renderKpis(); }
   renderDashCharts();
   renderDashUltimos();   // LEVA 1.1: últimos 5 lançamentos (resumo rápido)
   // "Por pessoa" saiu do rodapé (v37): o seletor de pessoa do topo já recalcula tudo.
+  icons();
+}
+/* Card de saldo (modo crédito): saldo autoritativo via RPC saldo_operador; componentes
+   (crédito total / gasto) só para exibição. Negativo -> vermelho + alerta (não bloqueia). */
+async function renderSaldoCard(){
+  const box=el('dashSaldo'); if(!box) return;
+  let saldo=null;
+  try{ const { data, error } = await sb.rpc('saldo_operador', { p_empresa:empresaId, p_usuario:user.id });
+    if(!error && data!==null && data!==undefined) saldo=Number(data); }catch(e){}
+  if(saldo===null){ box.innerHTML=''; return; }   // RPC ausente (0014 não aplicada) -> não mostra
+  const gasto = soma(lista.filter(l=>String(l.user_id)===String(user.id) && !l.deleted_at && l.aprovacao!=='rejeitado'));
+  const credito = saldo + gasto;
+  const neg = saldo < 0;
+  box.innerHTML = `<div class="saldo-card${neg?' neg':''}">
+    <div class="s-lbl"><i data-lucide="wallet" class="i-sm"></i> Saldo disponível</div>
+    <div class="s-val num">${money(saldo)}</div>
+    <div class="s-sub">Crédito recebido ${money(credito)} · Já gasto ${money(gasto)}</div>
+    ${neg?`<div class="s-alerta"><i data-lucide="alert-triangle" class="i-sm"></i> Saldo negativo — você já gastou ${money(-saldo)} além do crédito.</div>`:''}
+  </div>`;
   icons();
 }
 /* LEVA 1.1: bloco simples com os 5 lançamentos mais recentes (fornecedor · NF · valor · data).
@@ -1706,10 +1758,16 @@ function renderDashUltimos(){
   });
 }
 function renderKpis(){
-  const abertos=emAberto(), at=atrasados(), pv=proxVencIso();
+  // Decisão D: exclui operadores em modo crédito do "A receber"/vencimentos (a empresa já
+  // adiantou o dinheiro). creditoUserIds VAZIO -> tudo abaixo é idêntico ao de hoje (no-op).
+  const temCred = creditoUserIds.size>0;
+  const semCred = arr => temCred ? arr.filter(l=>!creditoUserIds.has(String(l.user_id))) : arr;
+  const abertos=semCred(emAberto());
+  const at = temCred ? abertos.filter(l=>l.vencimento && l.vencimento<isoToday()) : atrasados();
+  const pv = temCred ? (abertos.map(l=>l.vencimento).filter(v=>v && v>=isoToday()).sort()[0]||'') : proxVencIso();
   const proxVal=soma(abertos.filter(l=>l.vencimento===pv));
   const mesAtual=isoToday().slice(0,7);
-  const recebidoMes=soma(baseLista().filter(l=>l.status==='pago' && String(l.data_pagamento||'').slice(0,7)===mesAtual));
+  const recebidoMes=soma(semCred(baseLista()).filter(l=>l.status==='pago' && String(l.data_pagamento||'').slice(0,7)===mesAtual));
   const kpis=[
     {lbl:'Próximo venc.',  ic:'calendar-clock', val:money(proxVal),       sub:brDate(pv),                  cor:'var(--accent)',    act:"irConsultas('proximo')"},
     {lbl:'A receber',      ic:'wallet',         val:money(soma(abertos)), sub:abertos.length+' em aberto', cor:'var(--info-fg)',   act:"irConsultas('aberto')"},
@@ -3135,7 +3193,9 @@ function setFiltroMarcar(t){
 /* Fechamento usa TODOS os lançamentos EM ABERTO (não escopado): é operação do financeiro.
    Parcela paga NÃO entra (status!=='pago'); cada parcela é um item independente. */
 function listaMarcar(){
-  let arr=lista.filter(l=>l.status!=='pago');
+  // Decisão D: operador em modo crédito NÃO entra no Fechamento (evita reembolsar quem já
+  // recebeu adiantamento). creditoUserIds vazio -> filtro no-op (Fechamento idêntico ao atual).
+  let arr=lista.filter(l=>l.status!=='pago' && !creditoUserIds.has(String(l.user_id)));
   if(marcarFiltro==='mes'){ const v=el('mMes').value; if(v){ const [a,m]=v.split('-'); const pref=`${a}-${m}`; arr=arr.filter(l=>String(l.vencimento||'').startsWith(pref)); } }
   return [...arr].sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
 }
@@ -3725,15 +3785,21 @@ async function renderAdminUsuarios(){
       .select('id, papel, usuario_id, ativo, criado_em, usuarios(nome, email)')
       .eq('empresa_id', empresaId).order('criado_em',{ascending:true});
     const arr=data||[];
-    usuariosCache = arr.map(v=>({ uid:v.usuario_id, nome:(v.usuarios&&v.usuarios.nome)||'', email:(v.usuarios&&v.usuarios.email)||'', papel:v.papel, ativo:v.ativo!==false }));
+    usuariosCache = arr.map(v=>({ uid:v.usuario_id, nome:(v.usuarios&&v.usuarios.nome)||'', email:(v.usuarios&&v.usuarios.email)||'', papel:v.papel, ativo:v.ativo!==false, modo:(creditoUserIds.has(String(v.usuario_id))?'credito':'despesa') }));
+    const colModo = creditoDisponivel;   // coluna/ações de crédito só depois da 0014
     const linhas = usuariosCache.map(u=>{
       const st = u.ativo ? `<span class="st ok">Ativo</span>` : `<span class="st off">Inativo</span>`;
       const criadoRow = arr.find(x=>x.usuario_id===u.uid);
       const criado = criadoRow&&criadoRow.criado_em ? brDate(criadoRow.criado_em) : '—';
+      const tdModo = colModo ? `<td><select class="ctl-sm" onchange="setModoUsuario('${u.uid}',this.value)">
+          <option value="despesa"${u.modo==='despesa'?' selected':''}>Despesa</option>
+          <option value="credito"${u.modo==='credito'?' selected':''}>Crédito</option></select></td>` : '';
+      const btnSaldo = colModo ? `<button class="ic-btn" title="Saldo & créditos" onclick="adminSaldoUsuario('${u.uid}')"><i data-lucide="wallet" class="i-sm"></i></button>` : '';
       return `<tr>
         <td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${PAPEIS_LABEL[u.papel]||esc(u.papel)}</td>
-        <td>${st}</td><td>${criado}</td>
+        <td>${st}</td><td>${criado}</td>${tdModo}
         <td class="u-acoes">
+          ${btnSaldo}
           <button class="ic-btn" title="Definir senha provisória" onclick="adminSenhaUsuario('${u.uid}')"><i data-lucide="key-round" class="i-sm"></i></button>
           <button class="ic-btn" title="Gerar link de acesso" onclick="adminLinkUsuario('${u.uid}')"><i data-lucide="link" class="i-sm"></i></button>
           <button class="ic-btn" title="Editar" onclick="adminEditarUsuario('${u.uid}')"><i data-lucide="pencil" class="i-sm"></i></button>
@@ -3742,10 +3808,76 @@ async function renderAdminUsuarios(){
     }).join('');
     box.innerHTML = `<div class="chart"><div class="ch-head"><h3><i data-lucide="users" class="i-sm"></i> Usuários</h3>
       <button class="btn-compact" onclick="adminNovoUsuario()"><i data-lucide="user-plus" class="i-sm"></i> Novo usuário</button></div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Criado em</th><th>Ações</th></tr></thead>
-      <tbody>${linhas||'<tr><td colspan="6">Nenhum usuário.</td></tr>'}</tbody></table></div></div>`;
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Criado em</th>${colModo?'<th>Modo</th>':''}<th>Ações</th></tr></thead>
+      <tbody>${linhas||`<tr><td colspan="${colModo?7:6}">Nenhum usuário.</td></tr>`}</tbody></table></div></div>`;
     icons();
   }catch(e){ box.innerHTML=''; }
+}
+/* ============================================================================
+   CRÉDITO/SALDO (Administração) — só gestão. Modo por operador + créditos avulsos.
+   Escrita via RPCs gated (set_modo_operador, lancar_credito, remover_credito); o gate de
+   papel está no SQL (operador é barrado no banco). RLS na tabela como 2ª camada.
+   ========================================================================== */
+async function setModoUsuario(uid, modo){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const { error } = await sb.rpc('set_modo_operador', { p_empresa:empresaId, p_usuario:uid, p_modo:modo });
+  if(error){ mostrarErro(error,'definir modo do usuário'); await renderAdminUsuarios(); return; }
+  // atualiza o set local (decisão D) sem recarregar tudo
+  if(modo==='credito') creditoUserIds.add(String(uid)); else creditoUserIds.delete(String(uid));
+  if(String(uid)===String(user.id)) meuModo=modo;
+  toast(modo==='credito'?'Operador em modo Crédito':'Operador em modo Despesa','ok');
+}
+async function adminSaldoUsuario(uid){ await abrirSaldoModal(uid); }
+/* Modal Saldo & créditos: saldo (RPC) + histórico + lançar + remover crédito. */
+async function abrirSaldoModal(uid){
+  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
+  const u = usuariosCache.find(x=>x.uid===uid) || { nome:'', email:'' };
+  let saldo=null, cred=[];
+  try{ const r=await sb.rpc('saldo_operador', { p_empresa:empresaId, p_usuario:uid }); if(!r.error && r.data!==null && r.data!==undefined) saldo=Number(r.data); }catch(e){}
+  try{ const r=await sb.from('creditos_operador').select('id, valor, data, observacao')
+        .eq('empresa_id', empresaId).eq('usuario_id', uid).is('deleted_at', null).order('data',{ascending:false});
+    cred=r.data||[]; }catch(e){}
+  const hist = cred.length ? cred.map(c=>`<div class="cred-row">
+      <span>${brDate(c.data)} · <b class="num">${money(c.valor)}</b>${c.observacao?` · ${esc(c.observacao)}`:''}</span>
+      <button class="ic-btn danger" title="Remover crédito" data-remcred="${c.id}"><i data-lucide="trash-2" class="i-sm"></i></button>
+    </div>`).join('') : `<div class="pagesub" style="padding:6px 0">Nenhum crédito lançado.</div>`;
+  const corpo = `
+    <div class="conc-cab">Saldo de <b>${esc(u.nome||u.email)}</b>: <b class="num">${saldo===null?'—':money(saldo)}</b></div>
+    <div class="seclbl" style="margin-top:6px">Novo crédito</div>
+    <div class="row2">
+      <div class="field"><label>Valor</label><input id="ncValor" class="cm-inp" type="number" inputmode="decimal" placeholder="0,00"></div>
+      <div class="field"><label>Data</label><input id="ncData" class="cm-inp" type="date"></div></div>
+    <div class="field"><label>Observação (opcional)</label><input id="ncObs" class="cm-inp" type="text" maxlength="120"></div>
+    <button type="button" class="btn-compact" id="ncLancar"><i data-lucide="plus" class="i-sm"></i> Lançar crédito</button>
+    <div class="cm-erro hidden" id="cmErro"></div>
+    <div class="seclbl" style="margin-top:12px">Créditos lançados</div>
+    <div class="cred-lista">${hist}</div>`;
+  await modal({ titulo:'Saldo & créditos', dismissValor:null, largura:'lg', corpoHtml: corpo,
+    botoes:[{rotulo:'Fechar', tipo:'primary', resolver:()=>true}],
+    aoMontar:(ov)=>{
+      const d=ov.querySelector('#ncData'); if(d) d.value=isoToday();
+      const b=ov.querySelector('#ncLancar');
+      if(b) b.onclick=async ()=>{
+        limpaErroModal(ov);
+        const valor=Number(String(ov.querySelector('#ncValor').value||'').replace(',','.'));
+        if(!(valor>0)){ erroModal(ov,'Informe um valor maior que zero.'); return; }
+        b.disabled=true;
+        const { error } = await sb.rpc('lancar_credito', { p_empresa:empresaId, p_usuario:uid,
+          p_valor:valor, p_data:(ov.querySelector('#ncData').value||isoToday()), p_obs:(ov.querySelector('#ncObs').value||'') });
+        b.disabled=false;
+        if(error){ erroModal(ov, /sem_permissao/.test(error.message||'')?'Sem permissão (só gestão lança crédito).':'Não foi possível lançar o crédito.'); return; }
+        toast('Crédito lançado','ok');
+        await abrirSaldoModal(uid);   // reabre com saldo/histórico atualizados
+      };
+      ov.querySelectorAll('button[data-remcred]').forEach(btn=>{ btn.onclick=async ()=>{
+        const cid=btn.getAttribute('data-remcred');
+        if(!await confirmar('Remover crédito','Remover este crédito? O saldo será recalculado.',{okLabel:'Remover',danger:true})) return;
+        const { error } = await sb.rpc('remover_credito', { p_id:cid });
+        if(error){ toast('Não foi possível remover o crédito','erro'); return; }
+        toast('Crédito removido','ok'); await abrirSaldoModal(uid);
+      };});
+      icons();
+    } });
 }
 /* Novo usuário: cria conta (Auth) + vínculo, com senha provisória (troca obrigatória). */
 /* Erro INLINE dentro do modal (Achado 4): mostra perto da ação e mantém o modal aberto. */
