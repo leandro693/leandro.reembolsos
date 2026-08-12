@@ -5,13 +5,42 @@
 
 ---
 
-## Estado atual — fim de 11/08/2026 (v56 publicado e estável)
+## Estado atual — 12/08/2026 (v57 publicado e estável)
 
-- **Versão no ar: `sw.js` v56 / `APP_VERSION` 56** — publicada e **estável** (site 200; Pages success;
-  commit `854d53b`). Working tree limpo, branch em sincronia.
-- **Migrations aplicadas: até `0012` (Parte 1)** — banco tocado só na **0012 Parte 1** (policy de Storage,
-  ritual seguido; registro do "antes" + rollback prontos). **0013 (Storage Parte 2) NÃO aplicada.**
-- **Edge Functions no ar (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, **`gestao-usuarios`**.
+- **Versão no ar: `sw.js` v57 / `APP_VERSION` 57** — publicada e **estável** (site 200; Pages success).
+  Working tree limpo, branch em sincronia.
+- **Migrations aplicadas: até `0014`** — a **0014 (crédito/saldo) foi APLICADA em produção** (ritual
+  completo: dumps + antes + rollback). **0013 (Storage Parte 2) segue NÃO aplicada.**
+- **Edge Functions no ar (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, `gestao-usuarios`.
+
+### Feito em 12/08 — Sistema de crédito/saldo NO AR e validado (v57, migration 0014)
+- **Crédito/saldo (conta corrente do operador)** — validado no aparelho. **Migration 0014 APLICADA:**
+  `empresa_usuarios.modo_lancamento` (default `'despesa'`), tabela `creditos_operador` (RLS: operador vê o
+  próprio, gestão a empresa inteira) e **4 RPCs** `security definer` com gate de papel no SQL:
+  `lancar_credito` (`lancado_por=auth.uid()`), `set_modo_operador`, `remover_credito` (soft-delete),
+  `saldo_operador`.
+- **Como funciona:** modo **por operador** (despesa = atual, padrão; crédito = novo); **crédito avulso**
+  lançado pela gestão; **saldo = créditos − despesas** (acumula, não zera no mês); **saldo negativo avisa
+  e deixa lançar**; **decisão D** — operador em modo crédito fica **fora do "A receber"/Fechamento** (a
+  empresa já adiantou; não paga duas vezes). **Só gestão** lança crédito e define o modo (RPC gated;
+  operador barrado no banco). **Card de saldo** no Dashboard do operador-crédito (substitui os KPIs de
+  "a receber"); coluna **Modo** + modal **Saldo & créditos** na Administração.
+- **Resiliência:** o front detecta se a 0014 foi aplicada (`creditoDisponivel`) → antes de aplicar, rodava
+  idêntico ao modo despesa (deploy do código separado da aplicação da migration). Ritual de produção:
+  dumps salvos (`dump-empresa_usuarios-2026-08-12.txt`, `schema-snapshot-2026-08-12.txt`), "antes"
+  reconfirmado, rollback pronto (`rollback-0014.sql`). Pós-aplicação: 5 linhas de `empresa_usuarios`
+  intactas, todas `modo_lancamento='despesa'`.
+
+### Feito em 11-12/08 — Gestão de usuários: bloco CONCLUÍDO e validado
+- **Fluxo de criar usuário novo VALIDADO** — `leandrolfsg` criado limpo (Auth + `usuarios` +
+  `empresa_usuarios` + senha provisória), **sem conta fantasma/órfã**. Com a raiz corrigida (v55
+  `papel`→`papel: perfil`) + a blindagem de adoção (v56), o **bloco de gestão de usuários está fechado**.
+
+### PENDENTE / PRIORIDADE — profissionalizar a INFRA do Reembolsos
+- **O projeto Reembolsos está em plano SEM backup automático** (diferente da Cobrança, que é **Pro**). A
+  0014 foi aplicada com **dump manual como rede de segurança**, justamente porque não há backup do plano.
+- **Antes de escalar para mais clientes:** subir o Reembolsos para **Supabase Pro** (backups automáticos +
+  PITR). É pré-requisito de segurança para produção com dados reais.
 
 ### Feito em 11/08 — Gestão de usuários completa (v52–v56) + Storage + toasts
 - **Gestão de usuários na Administração (v52):** Edge Function nova **`gestao-usuarios`** (service role, gate
@@ -40,17 +69,11 @@
   **check** bem visível, maior, com "pop" e um pouco mais de tempo; erro com fundo vermelho tênue. Nos dois
   fronts. (Toast mantido embaixo/centralizado — no topo colidiria com o header no mobile.)
 
-### Pendente de APLICAR (não aplicado)
+### Pendências menores (aplicar/fazer depois)
 - **Storage Parte 2 (`0013_storage_pagamentos_empresa.sql`)** — endurece a leitura da pasta `pagamentos/`
   (restringe a leitura do comprovante de lote à empresa). **Só aplicar depois** de testar a leitura de um
   comprovante de LOTE como gestor. SQL pronto, ritual pendente.
-
-### PRÓXIMO (12/08) — Sistema de crédito/saldo (conta corrente do operador)
-- **Plano aprovado em `docs/PLANO-CREDITO-SALDO.md`** (decisões A–E). Migration **0014**:
-  `empresa_usuarios.modo_lancamento` (default 'despesa') + tabela `creditos_operador` + **3 RPCs** security
-  definer (`lancar_credito` com `lancado_por=auth.uid()`, `set_modo_operador`, `saldo_operador`), com RLS.
-  Inclui **excluir operadores-crédito do "A receber"/Fechamento** (decisão D, crítico). **Ritual de produção
-  completo** antes de aplicar a 0014.
+- **UX:** submenus na Administração; Console de Gestão no rodapé do menu (só dono); organizar Ajustes.
 
 ### Feito em 11/08 — Identidade visual (Inter + tema Preto + divisória do menu)
 - **Fonte Inter self-hosted + números tabulares (v50)** — trocada a fonte do app para **Inter** (nítida em
@@ -143,9 +166,11 @@
   form → **lançar em série**. Erro NÃO limpa; duplicata (hash/documento) barra antes do insert; parcelado ok.
 
 ### Fila (grandes — exigem quiz próprio), em ordem sugerida
-> Conciliação por IA no Fechamento (Parte B) — **CONCLUÍDA e no ar (v48-v49)**, validada no aparelho.
-1. **Produtos proibidos + desconto automático.**
-2. **Profissionalizar infra** (Supabase Pro + backup + **banco DEV**) — precisa do Leandro presente.
+> Concluídos e no ar: Conciliação por IA (v48-49), Gestão de usuários (v52-56), Crédito/saldo (v57).
+1. **PRIORIDADE — Profissionalizar infra do Reembolsos** (Supabase **Pro** + backups automáticos + **PITR**
+   + banco DEV) — o projeto está em plano **SEM backup automático**; pré-requisito antes de escalar clientes.
+   Precisa do Leandro presente.
+2. **Produtos proibidos + desconto automático.**
 
 ### Pendências de UX do desktop (adiadas de propósito)
 - **Administração** com "muita coisa solta" → organizar em **submenus**.

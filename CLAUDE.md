@@ -27,10 +27,19 @@ Dois front-ends, mesmo backend e mesmo login:
 Documento de referência mais amplo: `docs/ARQUITETURA.md`, `docs/STATUS-SAAS.md`
 e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
-## 2. Estado atual (migrations aplicadas 0000 → 0012 Parte 1)
+## 2. Estado atual (migrations aplicadas 0000 → 0014)
 
-**Versão publicada: `sw.js` v56 / `APP_VERSION` 56** — no ar e estável.
+**Versão publicada: `sw.js` v57 / `APP_VERSION` 57** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
+**Crédito/saldo NO AR (v57, migration 0014 APLICADA):** `empresa_usuarios.modo_lancamento` (default
+`'despesa'`) + tabela `creditos_operador` + 4 RPCs security definer (`lancar_credito` com
+`lancado_por=auth.uid()`, `set_modo_operador`, `remover_credito`, `saldo_operador`) + RLS. Modo por
+operador (despesa/crédito); crédito avulso pela gestão; saldo = créditos − despesas (acumula); negativo
+avisa e deixa lançar; **decisão D** (operador-crédito fora do "A receber"/Fechamento — não paga 2x); só
+gestão lança/define modo (operador barrado no banco). Front resiliente (`creditoDisponivel`). Bloco de
+**gestão de usuários CONCLUÍDO e validado** (criar limpo, sem órfã). **INFRA — PRIORIDADE:** o Reembolsos
+está em plano **SEM backup automático** (a 0014 foi aplicada com dump manual); subir para **Supabase Pro**
+(backups + PITR) antes de escalar clientes. **Pendente de aplicar:** Storage Parte 2 (`0013`).
 **Edge Functions (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, `gestao-usuarios`.
 Gestão de usuários (v52-v56): **`gestao-usuarios`** faz criar/editar/ativar-desativar/senha provisória/
 gerar link, com **força de troca no 1º acesso** e gate no backend (dono/gestor); saga de bugs corrigida até
@@ -38,8 +47,7 @@ a **RAIZ** (`papel` → `papel: perfil`, era ReferenceError mascarado por catch 
 `depurar-edge-function`) + **adoção de órfã** (e-mail já existe sem vínculo → adota) — *adoção pendente de
 validação real*. **Storage 0012 Parte 1 APLICADA** (gestor/financeiro/dono leem comprovantes da empresa
 inteira; corrigiu o ERR-1500; rollback em `supabase/auditoria/rollback-0012-parte1.sql`). Toasts de sucesso
-destacados (verde/check/maior) nos dois fronts (v56). **Pendente de aplicar:** Storage Parte 2 (`0013`).
-**Próximo:** sistema de crédito/saldo — plano em `docs/PLANO-CREDITO-SALDO.md`, migration **0014** (ritual).
+destacados (verde/check/maior) nos dois fronts (v56).
 Identidade visual (v50-v51): **fonte Inter self-hosted** (`fonts/inter-latin.woff2`+`-ext`, no `SHELL` do
 `sw.js` → offline; sem CDN; JetBrains Mono removida) com **números tabulares** nos contextos numéricos;
 **3º tema "Preto"** (fundo `#000`, texto branco, laranja `#DB8438` mantido, superfícies quase-pretas) —
