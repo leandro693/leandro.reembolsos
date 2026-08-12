@@ -636,6 +636,13 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .saldo-card .s-alerta{margin-top:12px;display:flex;align-items:center;gap:7px;background:var(--err-bg);color:var(--err-fg);border:1px solid var(--err-border);border-radius:9px;padding:9px 12px;font-size:12.5px}
 .cred-lista{display:flex;flex-direction:column;gap:4px;max-height:34vh;overflow:auto}
 .cred-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px solid var(--border);padding:7px 0}
+/* Administração em abas: chips roláveis (mobile) + painéis (mostra/esconde). */
+.adm-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.adm-tabs::-webkit-scrollbar{display:none}
+.adm-tab{flex:0 0 auto;padding:8px 15px;border:1px solid var(--border-strong);border-radius:9999px;background:var(--surface);color:var(--text-2);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.15s}
+.adm-tab:hover{color:var(--text-strong);border-color:var(--accent)}
+.adm-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.adm-pane.hidden{display:none}
 /* Contraste reforçado: grades vertical + horizontal (estilo Excel) + zebra cinza-clara */
 body[data-density="reforcado"] .tbl thead th,
 body[data-density="reforcado"] .tbl tbody td{border:1px solid var(--border-2)}
@@ -1159,17 +1166,30 @@ body.nav-open .nav-backdrop{display:block}
         <i data-lucide="monitor" class="i-md" style="color:var(--accent)"></i>
         <span style="flex:1"><b style="color:var(--text-strong)">Console de Gestão</b><br><span class="pagesub" style="margin:0">A gestão fica melhor no computador. Abra o console para trabalhar com mais espaço.</span></span>
         <i data-lucide="chevron-right" class="i-sm"></i></a>
-      <div id="adminEmpresa"></div>
-      <div id="adminConsumo" class="mt12"></div>
-      <div id="adminAprovacao" class="mt12"></div>
-      <div id="adminUsuarios" class="mt12"></div>
-      <div id="adminIntegracao" class="mt12"></div>
-      <div id="adminCategorias" class="mt12"></div>
-      <div id="adminSetores" class="mt12"></div>
-      <div id="adminMotivos" class="mt12"></div>
-      <div id="adminPoliticas" class="mt12"></div>
-      <div id="adminAlertas" class="mt12"></div>
-      <div id="adminSeguranca" class="mt12"></div>
+      <!-- Abas da Administração (só reorganização visual; cada seção mantém sua lógica).
+           Chips roláveis no mobile. A aba "Empresa" só aparece para o dono. -->
+      <div class="adm-tabs" id="admTabs">
+        <button type="button" class="adm-tab" data-aba="usuarios" onclick="mostrarAbaAdmin('usuarios')">Usuários</button>
+        <button type="button" class="adm-tab" data-aba="cadastros" onclick="mostrarAbaAdmin('cadastros')">Cadastros</button>
+        <button type="button" class="adm-tab" data-aba="controles" onclick="mostrarAbaAdmin('controles')">Controles</button>
+        <button type="button" class="adm-tab" data-aba="integracao" onclick="mostrarAbaAdmin('integracao')">Integração</button>
+        <button type="button" class="adm-tab" data-aba="plano" onclick="mostrarAbaAdmin('plano')">Plano &amp; IA</button>
+        <button type="button" class="adm-tab" data-aba="empresa" id="admTabEmpresa" onclick="mostrarAbaAdmin('empresa')" style="display:none">Empresa</button>
+      </div>
+      <div class="adm-pane" id="adm-usuarios"><div id="adminUsuarios"></div></div>
+      <div class="adm-pane hidden" id="adm-cadastros">
+        <div id="adminCategorias"></div>
+        <div id="adminSetores" class="mt12"></div>
+        <div id="adminMotivos" class="mt12"></div></div>
+      <div class="adm-pane hidden" id="adm-controles">
+        <div id="adminAprovacao"></div>
+        <div id="adminPoliticas" class="mt12"></div>
+        <div id="adminAlertas" class="mt12"></div></div>
+      <div class="adm-pane hidden" id="adm-integracao"><div id="adminIntegracao"></div></div>
+      <div class="adm-pane hidden" id="adm-plano">
+        <div id="adminConsumo"></div>
+        <div id="adminSeguranca" class="mt12"></div></div>
+      <div class="adm-pane hidden" id="adm-empresa"><div id="adminEmpresa"></div></div>
       <button class="btn btn-ghost mt12" onclick="voltar()">Voltar</button>
     </section>
 
@@ -1259,7 +1279,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '57';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '58';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -3494,7 +3514,25 @@ async function renderAdmin(){
   await renderAdminPoliticas();
   renderAdminAprovacao();
   renderAdminEmpresaOwner();
+  restaurarAbaAdmin();   // mostra a última aba (ou a 1ª); só reorganização visual
   icons();
+}
+/* Abas da Administração — PURA UI (mostra/esconde os painéis). A lógica de cada seção
+   (renderAdmin e os render*) não muda: os #admin* continuam com os mesmos ids dentro dos painéis. */
+const ADM_ABAS = ['usuarios','cadastros','controles','integracao','plano','empresa'];
+function mostrarAbaAdmin(id){
+  if(!ADM_ABAS.includes(id)) id='usuarios';
+  ADM_ABAS.forEach(a=>{ el('adm-'+a)?.classList.toggle('hidden', a!==id); });
+  document.querySelectorAll('#admTabs .adm-tab').forEach(b=>b.classList.toggle('on', b.getAttribute('data-aba')===id));
+  try{ localStorage.setItem('mrd_admin_tab', id); }catch(e){}
+}
+/* Restaura a última aba (localStorage); "empresa" só p/ dono; cai na 1ª (usuários) por padrão. */
+function restaurarAbaAdmin(){
+  const te=el('admTabEmpresa'); if(te) te.style.display = isOwner ? '' : 'none';   // aba Empresa só dono
+  let id='usuarios';
+  try{ id=localStorage.getItem('mrd_admin_tab')||'usuarios'; }catch(e){}
+  if(id==='empresa' && !isOwner) id='usuarios';
+  mostrarAbaAdmin(id);
 }
 /* --- Aprovação: liga/desliga a exigência e lista pendentes --- */
 function renderAdminAprovacao(){
