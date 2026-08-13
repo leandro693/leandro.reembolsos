@@ -636,6 +636,20 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .saldo-card .s-alerta{margin-top:12px;display:flex;align-items:center;gap:7px;background:var(--err-bg);color:var(--err-fg);border:1px solid var(--err-border);border-radius:9px;padding:9px 12px;font-size:12.5px}
 .cred-lista{display:flex;flex-direction:column;gap:4px;max-height:34vh;overflow:auto}
 .cred-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;border-bottom:1px solid var(--border);padding:7px 0}
+/* Tela Saldos: grade de cartões dos operadores em modo crédito. */
+.saldos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.saldo-op{padding:16px}
+.saldo-op .so-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.saldo-op .so-nome{font-weight:600;color:var(--text-strong);font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saldo-op .so-saldo{font-size:20px;font-weight:700;white-space:nowrap}
+.saldo-op .so-saldo.pos{color:var(--money-in)}
+.saldo-op .so-saldo.neg{color:var(--money-out)}
+.saldo-op .so-metrics{display:flex;gap:16px;margin-bottom:14px}
+.saldo-op .so-metrics>span{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--text-2)}
+.saldo-op .so-metrics>span b{font-size:14px;color:var(--text-strong)}
+.saldo-op .so-acts{display:flex;gap:8px;flex-wrap:wrap}
+.saldo-op .so-acts .btn-compact{flex:1;min-width:120px;justify-content:center}
+.btn-compact.ghost{background:transparent}
 /* Administração em abas: chips roláveis (mobile) + painéis (mostra/esconde). */
 .adm-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .adm-tabs::-webkit-scrollbar{display:none}
@@ -784,6 +798,7 @@ body.nav-open .nav-backdrop{display:block}
       <button class="sb-dup" data-nav="scConsultas" onclick="irConsultas()" title="Lançamentos"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
       <button data-nav="scFornecedores" id="navFornecedores" onclick="irFornecedores()" title="Fornecedores" style="display:none"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
       <button data-nav="scMarcar" id="navFechamento" onclick="irMarcar()" title="Fechamento do mês" style="display:none"><i data-lucide="calendar-check" class="i-md"></i><span>Fechamento</span></button>
+      <button data-nav="scSaldos" id="navSaldos" onclick="irSaldos()" title="Saldos" style="display:none"><i data-lucide="wallet" class="i-md"></i><span>Saldos</span></button>
       <button data-nav="scAdmin" id="navAdmin" onclick="irAdmin()" title="Administração" style="display:none"><i data-lucide="shield" class="i-md"></i><span>Administração</span></button>
       <a class="sb-navlink" id="navConsole" href="./console.html" title="Console de Gestão" style="display:none"><i data-lucide="monitor" class="i-md"></i><span>Console de Gestão</span></a>
       <button class="sb-dup" data-nav="scAjustes" onclick="irAjustes()" title="Ajustes"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
@@ -1076,6 +1091,18 @@ body.nav-open .nav-backdrop{display:block}
       </div>
     </section>
 
+    <!-- SALDOS (créditos dos operadores) — gestão/financeiro. 100% front, reusa as RPCs
+         (saldo_operador, lancar_credito, remover_credito) e o modal existente (abrirSaldoModal).
+         Definir modo continua na aba Usuários da Administração. -->
+    <section id="scSaldos" class="screen hidden">
+      <div class="page-head">
+        <div><h2 class="pagetitle">Saldos</h2>
+          <p class="pagesub">Créditos dos operadores em conta corrente. Lance crédito e acompanhe o saldo de cada um.</p></div>
+        <button class="btn-compact" onclick="renderSaldos()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
+      </div>
+      <div id="saldosLista"><div class="empty">Carregando...</div></div>
+    </section>
+
     <!-- AJUSTES -->
     <section id="scAjustes" class="screen hidden">
       <h2 class="pagetitle">Ajustes</h2>
@@ -1279,7 +1306,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '58';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '59';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1385,7 +1412,7 @@ function toggleTemaLogin(){ toggleTema(); }
 /* ============================================================================
    NAVEGAÇÃO
    ========================================================================== */
-const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scAjustes','scFornecedores','scAdmin'];
+const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scSaldos','scAjustes','scFornecedores','scAdmin'];
 const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
   // Voltar: empilha a tela que estava ativa (só em navegação "para frente";
@@ -1471,7 +1498,7 @@ function irInicio(){ tela('scInicio'); renderInicio(); }
 /* Item (c): restaurar a tela ao ATUALIZAR/RECARREGAR (sessionStorage).
    Telas com contexto transitório (editar/baixa) caem para a lista (scConsultas);
    as demais válidas restauram direto; o resto cai no Dashboard. */
-const TELAS_RESTAURAVEIS=['scInicio','scConsultas','scForm','scFornecedores','scAjustes','scAdmin'];
+const TELAS_RESTAURAVEIS=['scInicio','scConsultas','scForm','scFornecedores','scAjustes','scAdmin','scSaldos'];
 function renderTelaAtual(id){
   switch(id){
     case 'scConsultas': irConsultas(); break;
@@ -1479,6 +1506,7 @@ function renderTelaAtual(id){
     case 'scFornecedores': irFornecedores(); break;
     case 'scAjustes': irAjustes(); break;
     case 'scAdmin': irAdmin(); break;
+    case 'scSaldos': irSaldos(); break;
     default: irInicio();
   }
 }
@@ -1487,6 +1515,7 @@ function restaurarTela(){
   try{ alvo = sessionStorage.getItem('tela_atual') || 'scInicio'; }catch(e){}
   if(alvo==='scEditar' || alvo==='scMarcar') alvo='scConsultas';        // contexto não persiste -> lista
   if(alvo==='scAdmin' && !(isOwner || empresaPapel==='gestor')) alvo='scInicio';  // sem acesso -> Dashboard
+  if(alvo==='scSaldos' && !veTudo()) alvo='scInicio';                             // Saldos: só gestão/financeiro
   if(!TELAS_RESTAURAVEIS.includes(alvo)) alvo='scInicio';
   renderTelaAtual(alvo);
 }
@@ -1501,13 +1530,15 @@ function aplicarNavPapel(){
   // qualquer item de gestão no futuro, a gaveta e o botão de menu reaparecem sozinhos.
   const podeFornecedores = veTudo();   // financeiro/gestor/dono (operador não gerencia fornecedor)
   const podeFechamento   = veTudo();
+  const podeSaldos       = veTudo();   // gestão/financeiro lançam crédito e veem saldos
   const podeAdmin        = ehGestor();
   const podeConsole      = ehGestor();
   set('navFornecedores', podeFornecedores);
   set('navFechamento',   podeFechamento);
+  set('navSaldos',       podeSaldos);
   set('navAdmin',        podeAdmin);
   set('navConsole',      podeConsole);
-  const temGestao = podeFornecedores || podeFechamento || podeAdmin || podeConsole;
+  const temGestao = podeFornecedores || podeFechamento || podeSaldos || podeAdmin || podeConsole;
   set('btnMenu', temGestao);   // sem gestão (operador puro) -> sem botão de menu -> sem gaveta
   if(!temGestao) toggleGaveta(false);   // garante que a gaveta não fique aberta
   try{ if(localStorage.getItem('sbColapsado')==='1') document.body.classList.add('sb-collapsed'); }catch(e){}
@@ -3832,12 +3863,11 @@ async function renderAdminUsuarios(){
       const tdModo = colModo ? `<td><select class="ctl-sm" onchange="setModoUsuario('${u.uid}',this.value)">
           <option value="despesa"${u.modo==='despesa'?' selected':''}>Despesa</option>
           <option value="credito"${u.modo==='credito'?' selected':''}>Crédito</option></select></td>` : '';
-      const btnSaldo = colModo ? `<button class="ic-btn" title="Saldo & créditos" onclick="adminSaldoUsuario('${u.uid}')"><i data-lucide="wallet" class="i-sm"></i></button>` : '';
+      // O lançamento de crédito/carteira saiu daqui: virou a tela "Saldos" (menu). Aqui fica só o "Definir modo".
       return `<tr>
         <td>${esc(u.nome)}</td><td>${esc(u.email)}</td><td>${PAPEIS_LABEL[u.papel]||esc(u.papel)}</td>
         <td>${st}</td><td>${criado}</td>${tdModo}
         <td class="u-acoes">
-          ${btnSaldo}
           <button class="ic-btn" title="Definir senha provisória" onclick="adminSenhaUsuario('${u.uid}')"><i data-lucide="key-round" class="i-sm"></i></button>
           <button class="ic-btn" title="Gerar link de acesso" onclick="adminLinkUsuario('${u.uid}')"><i data-lucide="link" class="i-sm"></i></button>
           <button class="ic-btn" title="Editar" onclick="adminEditarUsuario('${u.uid}')"><i data-lucide="pencil" class="i-sm"></i></button>
@@ -3865,11 +3895,13 @@ async function setModoUsuario(uid, modo){
   if(String(uid)===String(user.id)) meuModo=modo;
   toast(modo==='credito'?'Operador em modo Crédito':'Operador em modo Despesa','ok');
 }
-async function adminSaldoUsuario(uid){ await abrirSaldoModal(uid); }
-/* Modal Saldo & créditos: saldo (RPC) + histórico + lançar + remover crédito. */
+/* Modal Saldo & créditos: saldo (RPC) + histórico + lançar + remover crédito.
+   Gate veTudo() — gestão E financeiro lançam crédito (as RPCs já autorizam gestor/financeiro/dono;
+   o operador é barrado no banco). Chamado pela tela Saldos (saldosAbrir). O nome vem do
+   usuariosCache (Administração) OU do saldosCache (tela Saldos), pois o financeiro não roda a Administração. */
 async function abrirSaldoModal(uid){
-  if(!ehGestor()){ toast('Sem acesso','erro'); return; }
-  const u = usuariosCache.find(x=>x.uid===uid) || { nome:'', email:'' };
+  if(!veTudo()){ toast('Sem acesso','erro'); return; }
+  const u = usuariosCache.find(x=>x.uid===uid) || saldosCache.find(x=>x.uid===uid) || { nome:'', email:'' };
   let saldo=null, cred=[];
   try{ const r=await sb.rpc('saldo_operador', { p_empresa:empresaId, p_usuario:uid }); if(!r.error && r.data!==null && r.data!==undefined) saldo=Number(r.data); }catch(e){}
   try{ const r=await sb.from('creditos_operador').select('id, valor, data, observacao')
@@ -3903,7 +3935,7 @@ async function abrirSaldoModal(uid){
         const { error } = await sb.rpc('lancar_credito', { p_empresa:empresaId, p_usuario:uid,
           p_valor:valor, p_data:(ov.querySelector('#ncData').value||isoToday()), p_obs:(ov.querySelector('#ncObs').value||'') });
         b.disabled=false;
-        if(error){ erroModal(ov, /sem_permissao/.test(error.message||'')?'Sem permissão (só gestão lança crédito).':'Não foi possível lançar o crédito.'); return; }
+        if(error){ erroModal(ov, /sem_permissao/.test(error.message||'')?'Sem permissão para lançar crédito.':'Não foi possível lançar o crédito.'); return; }
         toast('Crédito lançado','ok');
         await abrirSaldoModal(uid);   // reabre com saldo/histórico atualizados
       };
@@ -3917,6 +3949,72 @@ async function abrirSaldoModal(uid){
       icons();
     } });
 }
+/* ============================================================================
+   TELA SALDOS — gestão/financeiro. Lista os operadores em modo crédito como cartões
+   (saldo atual, crédito recebido, total gasto) e reusa o modal (abrirSaldoModal) para
+   lançar/ver histórico. 100% front: reusa as RPCs (saldo_operador, lancar_credito,
+   remover_credito) e consulta creditos_operador (RLS libera gestão/financeiro). Banco intocado.
+   ========================================================================== */
+let saldosCache = [];   // {uid,nome,email} dos operadores-crédito; alimenta o nome do modal p/ o financeiro
+function irSaldos(){
+  if(!veTudo()){ toast('Sem acesso aos saldos','erro'); return; }
+  tela('scSaldos','scInicio');
+  renderSaldos();
+}
+async function renderSaldos(){
+  const box=el('saldosLista'); if(!box) return;
+  if(!veTudo()){ box.innerHTML=''; return; }
+  if(!creditoDisponivel){ box.innerHTML=`<div class="empty" style="padding:22px">Recurso de crédito indisponível nesta versão.</div>`; return; }
+  box.innerHTML=`<div class="empty" style="padding:22px">Carregando...</div>`;
+  // 1) operadores em modo crédito
+  let ops=[];
+  try{
+    const { data } = await sb.from('empresa_usuarios')
+      .select('usuario_id, modo_lancamento, criado_em, usuarios(nome,email)')
+      .eq('empresa_id', empresaId).order('criado_em',{ascending:true});
+    ops=(data||[]).filter(r=>r.modo_lancamento==='credito')
+      .map(r=>({ uid:String(r.usuario_id), nome:(r.usuarios&&r.usuarios.nome)||'', email:(r.usuarios&&r.usuarios.email)||'' }));
+  }catch(e){ ops=[]; }
+  saldosCache = ops.slice();
+  if(!ops.length){
+    box.innerHTML=`<div class="empty" style="padding:26px;text-align:center">
+      <i data-lucide="wallet" class="i-md" style="opacity:.5"></i>
+      <p style="margin:10px 0 2px">Nenhum operador em modo crédito.</p>
+      <p class="pagesub">Defina o modo em Administração &rarr; Usuários.</p></div>`;
+    icons(); return;
+  }
+  // 2) crédito recebido por operador (uma consulta; RLS libera gestão/financeiro)
+  const credByUid={};
+  try{
+    const { data } = await sb.from('creditos_operador').select('usuario_id, valor')
+      .eq('empresa_id', empresaId).is('deleted_at', null);
+    (data||[]).forEach(c=>{ const k=String(c.usuario_id); credByUid[k]=(credByUid[k]||0)+Number(c.valor||0); });
+  }catch(e){}
+  // 3) saldo por operador (RPC autoritativa); gasto = crédito - saldo (bate com a RPC)
+  const cards=await Promise.all(ops.map(async o=>{
+    let saldo=null;
+    try{ const r=await sb.rpc('saldo_operador',{p_empresa:empresaId,p_usuario:o.uid}); if(!r.error && r.data!==null && r.data!==undefined) saldo=Number(r.data); }catch(e){}
+    const credito = credByUid[o.uid]||0;
+    const gasto = saldo===null ? null : (credito - saldo);
+    const neg = saldo!==null && saldo<0;
+    return `<div class="chart saldo-op${neg?' neg':''}">
+      <div class="so-head">
+        <span class="so-nome">${esc(o.nome||o.email)}</span>
+        <span class="so-saldo num ${neg?'neg':'pos'}">${saldo===null?'—':money(saldo)}</span>
+      </div>
+      <div class="so-metrics">
+        <span>Crédito recebido<b class="num">${money(credito)}</b></span>
+        <span>Total gasto<b class="num">${gasto===null?'—':money(gasto)}</b></span>
+      </div>
+      <div class="so-acts">
+        <button class="btn-compact" onclick="saldosAbrir('${o.uid}')"><i data-lucide="plus" class="i-sm"></i> Lançar crédito</button>
+        <button class="btn-compact ghost" onclick="saldosAbrir('${o.uid}')"><i data-lucide="history" class="i-sm"></i> Ver histórico</button>
+      </div></div>`;
+  }));
+  box.innerHTML=`<div class="saldos-grid">${cards.join('')}</div>`; icons();
+}
+/* Abre o modal reusado (lançar/histórico) e, ao fechar, recarrega os cartões. */
+async function saldosAbrir(uid){ await abrirSaldoModal(uid); await renderSaldos(); }
 /* Novo usuário: cria conta (Auth) + vínculo, com senha provisória (troca obrigatória). */
 /* Erro INLINE dentro do modal (Achado 4): mostra perto da ação e mantém o modal aberto. */
 function erroModal(ov, msg){ const b=ov.querySelector('#cmErro'); if(b){ b.textContent=msg; b.classList.remove('hidden'); } return { fechar:false }; }
