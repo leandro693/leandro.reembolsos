@@ -797,14 +797,13 @@ body.nav-open .nav-backdrop{display:block}
       <button class="sb-dup" data-nav="scForm" onclick="irForm('foto')" title="Novo lançamento"><i data-lucide="plus" class="i-md"></i><span>Novo lançamento</span></button>
       <button class="sb-dup" data-nav="scConsultas" onclick="irConsultas()" title="Lançamentos"><i data-lucide="list" class="i-md"></i><span>Lançamentos</span></button>
       <button data-nav="scFornecedores" id="navFornecedores" onclick="irFornecedores()" title="Fornecedores" style="display:none"><i data-lucide="building-2" class="i-md"></i><span>Fornecedores</span></button>
-      <button data-nav="scMarcar" id="navFechamento" onclick="irMarcar()" title="Fechamento do mês" style="display:none"><i data-lucide="calendar-check" class="i-md"></i><span>Fechamento</span></button>
-      <button data-nav="scSaldos" id="navSaldos" onclick="irSaldos()" title="Saldos" style="display:none"><i data-lucide="wallet" class="i-md"></i><span>Saldos</span></button>
+      <button data-nav="scFinanceiro" id="navFinanceiro" onclick="irFinanceiro()" title="Financeiro" style="display:none"><i data-lucide="landmark" class="i-md"></i><span>Financeiro</span></button>
       <button data-nav="scAdmin" id="navAdmin" onclick="irAdmin()" title="Administração" style="display:none"><i data-lucide="shield" class="i-md"></i><span>Administração</span></button>
-      <a class="sb-navlink" id="navConsole" href="./console.html" title="Console de Gestão" style="display:none"><i data-lucide="monitor" class="i-md"></i><span>Console de Gestão</span></a>
       <button class="sb-dup" data-nav="scAjustes" onclick="irAjustes()" title="Ajustes"><i data-lucide="settings" class="i-md"></i><span>Ajustes</span></button>
     </nav>
     <div class="sb-foot">
-      <!-- Bloco enxugar: tema removido daqui; fica só dentro de Ajustes (um lugar). -->
+      <!-- Console/Sistema de Gestão: lugar ÚNICO, só o DONO do SaaS (isOwner). Liberado no aplicarNavPapel. -->
+      <a class="sb-navlink" id="navConsole" href="./console.html" title="Sistema de Gestão" style="display:none"><i data-lucide="monitor" class="i-md"></i><span>Sistema de Gestão</span></a>
       <div class="sb-user"><span class="av" id="uAvSb">?</span><div><div class="nm" id="uNomeSb">-</div><div class="pp" id="uPapelSb"></div></div></div>
     </div>
   </aside>
@@ -1056,51 +1055,62 @@ body.nav-open .nav-backdrop{display:block}
       </div><!-- /form-grid -->
     </section>
 
-    <!-- MARCAR VÁRIOS -->
-    <section id="scMarcar" class="screen hidden">
+    <!-- FINANCEIRO — módulo com abas Fechamento | Saldos (padrão v58). O conteúdo de
+         scMarcar e scSaldos migrou para os painéis SEM tocar a lógica (darBaixa, conciliação
+         por IA, renderSaldos, RPCs, modal). Gate veTudo (gestão/financeiro). Espaço reservado
+         para futuros (ex.: Relatórios) — basta somar uma aba/painel quando houver conteúdo. -->
+    <section id="scFinanceiro" class="screen hidden">
       <div class="page-head">
-        <div><h2 class="pagetitle">Fechamento</h2>
-          <p class="pagesub">Marque como pagos os reembolsos que você já quitou. Selecione vários e dê baixa de uma vez, ou marque um por um.</p></div>
-        <div class="fech-head-acts">
-          <!-- Parte B: conciliação por IA. A IA só LÊ (valor+destinatário); a baixa é ação
-               da pessoa, sempre confirmada (nunca automática). Só gestão (veTudo). -->
-          <input type="file" id="concFile" accept="image/*,application/pdf" class="hidden" onchange="conciliarPagamento(this)">
-          <button class="btn-compact" onclick="abrirConciliacao()"><i data-lucide="sparkles" class="i-sm"></i> Conciliar pagamento por IA</button>
-          <button class="btn-compact" onclick="copiarFechamento()"><i data-lucide="copy" class="i-sm"></i> Copiar resumo</button>
-        </div>
+        <div><h2 class="pagetitle">Financeiro</h2>
+          <p class="pagesub">Fechamento do mês e saldos de crédito dos operadores.</p></div>
       </div>
-      <div class="row2">
-        <div class="field"><label>Filtro</label>
-          <div class="seg">
-            <button type="button" id="mfMes" class="on" onclick="setFiltroMarcar('mes')">Por mês</button>
-            <button type="button" id="mfTodos" onclick="setFiltroMarcar('todos')">Ver todos</button>
+      <div class="adm-tabs" id="finTabs">
+        <button type="button" class="adm-tab" data-aba="fechamento" onclick="mostrarAbaFin('fechamento')">Fechamento</button>
+        <button type="button" class="adm-tab" data-aba="saldos" onclick="mostrarAbaFin('saldos')">Saldos</button>
+      </div>
+
+      <!-- Aba FECHAMENTO (ex-scMarcar) -->
+      <div class="adm-pane" id="fin-fechamento">
+        <div class="page-head">
+          <div><p class="pagesub">Marque como pagos os reembolsos que você já quitou. Selecione vários e dê baixa de uma vez, ou marque um por um.</p></div>
+          <div class="fech-head-acts">
+            <!-- Parte B: conciliação por IA. A IA só LÊ (valor+destinatário); a baixa é ação
+                 da pessoa, sempre confirmada (nunca automática). Só gestão (veTudo). -->
+            <input type="file" id="concFile" accept="image/*,application/pdf" class="hidden" onchange="conciliarPagamento(this)">
+            <button class="btn-compact" onclick="abrirConciliacao()"><i data-lucide="sparkles" class="i-sm"></i> Conciliar pagamento por IA</button>
+            <button class="btn-compact" onclick="copiarFechamento()"><i data-lucide="copy" class="i-sm"></i> Copiar resumo</button>
           </div>
         </div>
-        <div class="field"><label>Mês (vencimento)</label><input type="month" id="mMes" onchange="renderMarcar()"></div>
+        <div class="row2">
+          <div class="field"><label>Filtro</label>
+            <div class="seg">
+              <button type="button" id="mfMes" class="on" onclick="setFiltroMarcar('mes')">Por mês</button>
+              <button type="button" id="mfTodos" onclick="setFiltroMarcar('todos')">Ver todos</button>
+            </div>
+          </div>
+          <div class="field"><label>Mês (vencimento)</label><input type="month" id="mMes" onchange="renderMarcar()"></div>
+        </div>
+        <label class="chk-line" id="fechTodosWrap" style="display:none"><input type="checkbox" id="fechTodos" onchange="toggleFechTodos(this.checked)"> Selecionar todos</label>
+        <div id="marcarLista" class="mt12"><div class="empty">Carregando...</div></div>
+        <!-- Barra de ação: aparece só quando há seleção; sticky no rodapé no celular. -->
+        <div class="marcar-bar fech-bar hidden" id="fechBar">
+          <span id="fechInfo"></span>
+          <label class="mb-date">Data do pagamento <input type="date" id="fechData"></label>
+          <input type="file" id="fechFile" accept="image/*,application/pdf" class="hidden" onchange="fechFileSel(this)">
+          <button type="button" class="btn-compact" id="fechFileBtn" onclick="el('fechFile').click()"><i data-lucide="paperclip" class="i-sm"></i> <span id="fechFileLbl">Comprovante do lote (opcional)</span></button>
+          <button class="btn-compact ok" onclick="darBaixaFech()"><i data-lucide="check" class="i-sm"></i> Dar baixa nos selecionados</button>
+        </div>
       </div>
-      <label class="chk-line" id="fechTodosWrap" style="display:none"><input type="checkbox" id="fechTodos" onchange="toggleFechTodos(this.checked)"> Selecionar todos</label>
-      <div id="marcarLista" class="mt12"><div class="empty">Carregando...</div></div>
-      <button class="btn btn-ghost mt10" onclick="voltar()">Voltar</button>
-      <!-- Barra de ação: aparece só quando há seleção; sticky no rodapé no celular. -->
-      <div class="marcar-bar fech-bar hidden" id="fechBar">
-        <span id="fechInfo"></span>
-        <label class="mb-date">Data do pagamento <input type="date" id="fechData"></label>
-        <input type="file" id="fechFile" accept="image/*,application/pdf" class="hidden" onchange="fechFileSel(this)">
-        <button type="button" class="btn-compact" id="fechFileBtn" onclick="el('fechFile').click()"><i data-lucide="paperclip" class="i-sm"></i> <span id="fechFileLbl">Comprovante do lote (opcional)</span></button>
-        <button class="btn-compact ok" onclick="darBaixaFech()"><i data-lucide="check" class="i-sm"></i> Dar baixa nos selecionados</button>
-      </div>
-    </section>
 
-    <!-- SALDOS (créditos dos operadores) — gestão/financeiro. 100% front, reusa as RPCs
-         (saldo_operador, lancar_credito, remover_credito) e o modal existente (abrirSaldoModal).
-         Definir modo continua na aba Usuários da Administração. -->
-    <section id="scSaldos" class="screen hidden">
-      <div class="page-head">
-        <div><h2 class="pagetitle">Saldos</h2>
-          <p class="pagesub">Créditos dos operadores em conta corrente. Lance crédito e acompanhe o saldo de cada um.</p></div>
-        <button class="btn-compact" onclick="renderSaldos()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
+      <!-- Aba SALDOS (ex-scSaldos) — reusa RPCs (saldo_operador, lancar_credito, remover_credito)
+           e o modal (abrirSaldoModal). Definir modo continua na aba Usuários da Administração. -->
+      <div class="adm-pane hidden" id="fin-saldos">
+        <div class="page-head">
+          <div><p class="pagesub">Créditos dos operadores em conta corrente. Lance crédito e acompanhe o saldo de cada um.</p></div>
+          <button class="btn-compact" onclick="renderSaldos()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
+        </div>
+        <div id="saldosLista"><div class="empty">Carregando...</div></div>
       </div>
-      <div id="saldosLista"><div class="empty">Carregando...</div></div>
     </section>
 
     <!-- AJUSTES -->
@@ -1189,10 +1199,7 @@ body.nav-open .nav-backdrop{display:block}
         <div><h2 class="pagetitle">Administração</h2><p class="pagesub" id="adminSub">-</p></div>
         <button class="btn-compact" onclick="renderAdmin()"><i data-lucide="refresh-cw" class="i-sm"></i> Atualizar</button>
       </div>
-      <a class="chart" href="./console.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;margin-bottom:12px">
-        <i data-lucide="monitor" class="i-md" style="color:var(--accent)"></i>
-        <span style="flex:1"><b style="color:var(--text-strong)">Console de Gestão</b><br><span class="pagesub" style="margin:0">A gestão fica melhor no computador. Abra o console para trabalhar com mais espaço.</span></span>
-        <i data-lucide="chevron-right" class="i-sm"></i></a>
+      <!-- Console de Gestão saiu daqui (v60): virou item ÚNICO no rodapé do menu, só para o dono. -->
       <!-- Abas da Administração (só reorganização visual; cada seção mantém sua lógica).
            Chips roláveis no mobile. A aba "Empresa" só aparece para o dono. -->
       <div class="adm-tabs" id="admTabs">
@@ -1306,7 +1313,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '59';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '60';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
@@ -1412,7 +1419,7 @@ function toggleTemaLogin(){ toggleTema(); }
 /* ============================================================================
    NAVEGAÇÃO
    ========================================================================== */
-const SCREENS=['scInicio','scForm','scConsultas','scEditar','scMarcar','scSaldos','scAjustes','scFornecedores','scAdmin'];
+const SCREENS=['scInicio','scForm','scConsultas','scEditar','scFinanceiro','scAjustes','scFornecedores','scAdmin'];
 const PRINCIPAIS=['scInicio','scConsultas','scAjustes','scFornecedores'];
 function tela(id, origem){
   // Voltar: empilha a tela que estava ativa (só em navegação "para frente";
@@ -1498,7 +1505,7 @@ function irInicio(){ tela('scInicio'); renderInicio(); }
 /* Item (c): restaurar a tela ao ATUALIZAR/RECARREGAR (sessionStorage).
    Telas com contexto transitório (editar/baixa) caem para a lista (scConsultas);
    as demais válidas restauram direto; o resto cai no Dashboard. */
-const TELAS_RESTAURAVEIS=['scInicio','scConsultas','scForm','scFornecedores','scAjustes','scAdmin','scSaldos'];
+const TELAS_RESTAURAVEIS=['scInicio','scConsultas','scForm','scFornecedores','scAjustes','scAdmin','scFinanceiro'];
 function renderTelaAtual(id){
   switch(id){
     case 'scConsultas': irConsultas(); break;
@@ -1506,16 +1513,19 @@ function renderTelaAtual(id){
     case 'scFornecedores': irFornecedores(); break;
     case 'scAjustes': irAjustes(); break;
     case 'scAdmin': irAdmin(); break;
-    case 'scSaldos': irSaldos(); break;
+    case 'scFinanceiro': irFinanceiro(); break;
     default: irInicio();
   }
 }
 function restaurarTela(){
   let alvo='scInicio';
   try{ alvo = sessionStorage.getItem('tela_atual') || 'scInicio'; }catch(e){}
-  if(alvo==='scEditar' || alvo==='scMarcar') alvo='scConsultas';        // contexto não persiste -> lista
+  if(alvo==='scEditar') alvo='scConsultas';                            // contexto não persiste -> lista
+  // Migração v60: quem tinha Fechamento/Saldos salvo cai no Financeiro na aba certa.
+  if(alvo==='scMarcar'){ alvo='scFinanceiro'; try{ localStorage.setItem('mrd_fin_tab','fechamento'); }catch(e){} }
+  if(alvo==='scSaldos'){ alvo='scFinanceiro'; try{ localStorage.setItem('mrd_fin_tab','saldos'); }catch(e){} }
   if(alvo==='scAdmin' && !(isOwner || empresaPapel==='gestor')) alvo='scInicio';  // sem acesso -> Dashboard
-  if(alvo==='scSaldos' && !veTudo()) alvo='scInicio';                             // Saldos: só gestão/financeiro
+  if(alvo==='scFinanceiro' && !veTudo()) alvo='scInicio';                          // Financeiro: só gestão/financeiro
   if(!TELAS_RESTAURAVEIS.includes(alvo)) alvo='scInicio';
   renderTelaAtual(alvo);
 }
@@ -1529,16 +1539,15 @@ function aplicarNavPapel(){
   // temGestao é a soma (>=1 item), NÃO papel hardcoded — se um operador ganhar
   // qualquer item de gestão no futuro, a gaveta e o botão de menu reaparecem sozinhos.
   const podeFornecedores = veTudo();   // financeiro/gestor/dono (operador não gerencia fornecedor)
-  const podeFechamento   = veTudo();
-  const podeSaldos       = veTudo();   // gestão/financeiro lançam crédito e veem saldos
+  const podeFinanceiro   = veTudo();   // módulo Financeiro (abas Fechamento|Saldos) — gestão/financeiro
   const podeAdmin        = ehGestor();
-  const podeConsole      = ehGestor();
+  const podeConsole      = isOwner;    // Console/Sistema de Gestão: ferramenta do DONO do SaaS (só isOwner)
   set('navFornecedores', podeFornecedores);
-  set('navFechamento',   podeFechamento);
-  set('navSaldos',       podeSaldos);
+  set('navFinanceiro',   podeFinanceiro);
   set('navAdmin',        podeAdmin);
   set('navConsole',      podeConsole);
-  const temGestao = podeFornecedores || podeFechamento || podeSaldos || podeAdmin || podeConsole;
+  // Console é rodapé do dono, fora do gate da gaveta (o dono já tem Administração -> gaveta aparece).
+  const temGestao = podeFornecedores || podeFinanceiro || podeAdmin;
   set('btnMenu', temGestao);   // sem gestão (operador puro) -> sem botão de menu -> sem gaveta
   if(!temGestao) toggleGaveta(false);   // garante que a gaveta não fique aberta
   try{ if(localStorage.getItem('sbColapsado')==='1') document.body.classList.add('sb-collapsed'); }catch(e){}
@@ -2883,7 +2892,7 @@ async function after(error, msgOk){
   toast(msgOk,'ok');
   if(telaAtual==='scInicio') renderInicio();
   else if(telaAtual==='scConsultas') renderConsulta();
-  else if(telaAtual==='scMarcar') renderMarcar();
+  else if(telaAtual==='scFinanceiro') renderMarcar();   // após baixa: recarrega a lista do Fechamento (painel ativo)
 }
 
 let edicaoAtual=null;
@@ -3223,14 +3232,42 @@ function fallbackCopiar(txt){
 let marcarFiltro='mes';
 let selFech=new Set();   // reembolsos selecionados no Fechamento
 let fechFile=null;       // comprovante do LOTE (opcional, só gestão)
-function irMarcar(){
-  if(!veTudo()){ toast('Sem acesso ao fechamento','erro'); return; }
-  tela('scMarcar','scConsultas');
+/* ============================================================================
+   FINANCEIRO (v60) — uma tela, duas abas: Fechamento | Saldos (padrão de abas do v58).
+   Prepara os DOIS painéis ao abrir (como a Administração renderiza tudo e as abas só
+   alternam). Gate veTudo. NADA da lógica muda: darBaixa, conciliação IA, renderSaldos,
+   RPCs e o modal seguem idênticos — só mudaram de container.
+   ========================================================================== */
+const FIN_ABAS = ['fechamento','saldos'];
+function mostrarAbaFin(id){
+  if(!FIN_ABAS.includes(id)) id='fechamento';
+  FIN_ABAS.forEach(a=>{ el('fin-'+a)?.classList.toggle('hidden', a!==id); });
+  document.querySelectorAll('#finTabs .adm-tab').forEach(b=>b.classList.toggle('on', b.getAttribute('data-aba')===id));
+  try{ localStorage.setItem('mrd_fin_tab', id); }catch(e){}
+}
+/* Restaura a última aba do Financeiro (localStorage); cai em "fechamento" por padrão. */
+function restaurarAbaFin(){
+  let id='fechamento';
+  try{ id=localStorage.getItem('mrd_fin_tab')||'fechamento'; }catch(e){}
+  mostrarAbaFin(id);
+}
+function irFinanceiro(){
+  if(!veTudo()){ toast('Sem acesso ao Financeiro','erro'); return; }
+  tela('scFinanceiro','scConsultas');
+  prepararFechamento();
+  renderSaldos();
+  restaurarAbaFin();
+}
+/* Prepara a aba Fechamento (ex-corpo do irMarcar): data de hoje, mês atual, limpa seleção/anexo. */
+function prepararFechamento(){
   el('fechData').value=isoToday();
   const h=new Date(),z=n=>String(n).padStart(2,'0'); el('mMes').value=`${h.getFullYear()}-${z(h.getMonth()+1)}`;
   selFech.clear(); fechFileLimpar();
   setFiltroMarcar('mes');
 }
+/* Atalhos de compatibilidade: abrem o Financeiro já na aba certa. Mantêm todos os
+   chamadores internos (retorno do Dar baixa, conciliação, menu antigo) caindo no lugar. */
+function irMarcar(){ irFinanceiro(); mostrarAbaFin('fechamento'); }
 function fechFileSel(input){
   fechFile = input.files && input.files[0] ? input.files[0] : null;
   el('fechFileLbl').textContent = fechFile ? (fechFile.name.length>22?fechFile.name.slice(0,20)+'…':fechFile.name) : 'Comprovante do lote (opcional)';
@@ -3956,11 +3993,8 @@ async function abrirSaldoModal(uid){
    remover_credito) e consulta creditos_operador (RLS libera gestão/financeiro). Banco intocado.
    ========================================================================== */
 let saldosCache = [];   // {uid,nome,email} dos operadores-crédito; alimenta o nome do modal p/ o financeiro
-function irSaldos(){
-  if(!veTudo()){ toast('Sem acesso aos saldos','erro'); return; }
-  tela('scSaldos','scInicio');
-  renderSaldos();
-}
+/* Atalho de compatibilidade: abre o Financeiro na aba Saldos (v60). */
+function irSaldos(){ irFinanceiro(); mostrarAbaFin('saldos'); }
 async function renderSaldos(){
   const box=el('saldosLista'); if(!box) return;
   if(!veTudo()){ box.innerHTML=''; return; }
