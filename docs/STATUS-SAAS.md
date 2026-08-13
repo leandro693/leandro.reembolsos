@@ -5,13 +5,38 @@
 
 ---
 
-## Estado atual — 12/08/2026 (v57 publicado e estável)
+## Estado atual — 12/08/2026 (v60 publicado e estável)
 
-- **Versão no ar: `sw.js` v57 / `APP_VERSION` 57** — publicada e **estável** (site 200; Pages success).
+- **Versão no ar: `sw.js` v60 / `APP_VERSION` 60** — publicada e **estável** (site 200; Pages success).
   Working tree limpo, branch em sincronia.
 - **Migrations aplicadas: até `0014`** — a **0014 (crédito/saldo) foi APLICADA em produção** (ritual
-  completo: dumps + antes + rollback). **0013 (Storage Parte 2) segue NÃO aplicada.**
+  completo: dumps + antes + rollback). **0013 (Storage Parte 2) segue NÃO aplicada.** Nada de schema
+  mudou desde a 0014: v58→v60 são **100% front** (banco intocado).
 - **Edge Functions no ar (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, `gestao-usuarios`.
+
+### Feito em 12/08 — Reorganização da navegação/UX da gestão (v58→v60, só front)
+- **v58 — Administração em 6 abas:** `Usuários · Cadastros · Controles · Integração · Plano & IA ·
+  Empresa (só dono)`, no padrão de abas (`ADM_ABAS`/`mostrarAbaAdmin`/`restaurarAbaAdmin`, lembra a última
+  em `mrd_admin_tab`, chips roláveis no mobile). Só reorganização visual; cada seção manteve sua lógica.
+- **v59 — Tela Saldos no menu:** cartões dos operadores em modo crédito (saldo via `saldo_operador`,
+  crédito recebido, gasto = crédito − saldo; negativo em vermelho). O **financeiro** passou a lançar
+  crédito direto (modal reusado com gate `veTudo`). A **carteira saiu da aba Usuários** (só "Definir modo"
+  ficou lá). Reusa as RPCs existentes; banco intocado.
+- **v60 — Módulo Financeiro + Console no rodapé + navegação reorganizada:**
+  - **Financeiro (`scFinanceiro`)** com abas **Fechamento | Saldos** (mesmo padrão do v58:
+    `FIN_ABAS`/`mostrarAbaFin`/`restaurarAbaFin`, `mrd_fin_tab`). O conteúdo de scMarcar/scSaldos virou os
+    painéis `fin-fechamento`/`fin-saldos` **sem tocar a lógica** (darBaixa, conciliação por IA, renderSaldos,
+    RPCs, modal). `irFinanceiro` (gate `veTudo`) prepara os dois painéis; `irMarcar`/`irSaldos` viraram
+    **atalhos** que abrem a aba certa.
+  - **Console de Gestão** virou **"Sistema de Gestão"** em lugar ÚNICO no **rodapé do menu** (`sb-foot`),
+    com gate mudado de `ehGestor` para **`isOwner`** (gestor não-dono não vê mais). Removido da sidebar-nav
+    e do card da Administração (fim da duplicação).
+  - **Manter-tela:** `scFinanceiro` restaurável no refresh + **migração** de valores legados salvos
+    (`scMarcar`→Financeiro/Fechamento, `scSaldos`→Financeiro/Saldos).
+- **PENDENTE (próximo, de-para já aprovado) — v61: Ajustes reorganizado em CARTÕES** (`Conta ·
+  Preferências · Pagamento` + **versão em destaque**). Independente da navegação (só reagrupa markup),
+  valida sozinho. É a **última pendência** da reorganização de navegação/UX (fatiado do v60 a pedido do
+  Leandro, para isolar risco: navegação quebrada é pior que tela quebrada).
 
 ### Feito em 12/08 — Sistema de crédito/saldo NO AR e validado (v57, migration 0014)
 - **Crédito/saldo (conta corrente do operador)** — validado no aparelho. **Migration 0014 APLICADA:**
