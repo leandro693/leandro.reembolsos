@@ -29,9 +29,9 @@ e `docs/Reembolsos-Maradel-Detalhamento-Tecnico.docx`.
 
 ## 2. Estado atual (migrations aplicadas 0000 → 0014)
 
-**Versão publicada: `sw.js` v60 / `APP_VERSION` 60** — no ar e estável.
+**Versão publicada: `sw.js` v61 / `APP_VERSION` 61** — no ar e estável.
 Bump conjunto `sw.js` + `APP_VERSION` a cada release (ver §11.3).
-**Reorganização de navegação/UX (v58→v60, 100% front, banco intocado):** **v58** Administração em 6 abas
+**Reorganização de navegação/UX (v58→v61, 100% front, banco intocado) — COMPLETA:** **v58** Administração em 6 abas
 (`Usuários·Cadastros·Controles·Integração·Plano & IA·Empresa`-só-dono; padrão `mostrarAbaAdmin`/`mrd_admin_tab`).
 **v59** tela **Saldos** no menu (cartões dos operadores-crédito; financeiro lança crédito direto no modal reusado;
 carteira saiu da aba Usuários, ficou só "Definir modo"). **v60** módulo **Financeiro** (`scFinanceiro`) com abas
@@ -39,9 +39,10 @@ carteira saiu da aba Usuários, ficou só "Definir modo"). **v60** módulo **Fin
 scMarcar/scSaldos virou os painéis `fin-fechamento`/`fin-saldos` SEM tocar a lógica — darBaixa, conciliação IA,
 renderSaldos, RPCs, modal; `irMarcar`/`irSaldos` viraram atalhos) + **Console de Gestão** ("Sistema de Gestão")
 movido para o **rodapé** do menu, gate mudado `ehGestor`→**`isOwner`** (só dono), sem duplicação; manter-tela do
-`scFinanceiro` + migração de valores legados (scMarcar/scSaldos→scFinanceiro). **PENDENTE v61 (de-para aprovado):**
-Ajustes reorganizado em cartões (`Conta·Preferências·Pagamento` + versão em destaque) — última pendência da
-reorganização de navegação/UX.
+`scFinanceiro` + migração de valores legados (scMarcar/scSaldos→scFinanceiro). **v61** **Ajustes em CARTÕES**
+(`Conta`=senha+sair · `Preferências`=tema+contraste+visualização só-gestão · `Pagamento`=PIX · `Sobre`=versão
+em destaque `aj-versao-row`); mesmas funções/ids, `prepararAjustes` inalterado. Com o v61 a reorganização
+de navegação/UX está **completa** (lista de feedback de UX zerada).
 **Crédito/saldo NO AR (v57, migration 0014 APLICADA):** `empresa_usuarios.modo_lancamento` (default
 `'despesa'`) + tabela `creditos_operador` + 4 RPCs security definer (`lancar_credito` com
 `lancado_por=auth.uid()`, `set_modo_operador`, `remover_credito`, `saldo_operador`) + RLS. Modo por

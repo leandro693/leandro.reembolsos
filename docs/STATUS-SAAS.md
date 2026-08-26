@@ -5,16 +5,29 @@
 
 ---
 
-## Estado atual — 12/08/2026 (v60 publicado e estável)
+## Estado atual — 13/08/2026 (v61 publicado e estável)
 
-- **Versão no ar: `sw.js` v60 / `APP_VERSION` 60** — publicada e **estável** (site 200; Pages success).
+- **Versão no ar: `sw.js` v61 / `APP_VERSION` 61** — publicada e **estável** (site 200; Pages success).
   Working tree limpo, branch em sincronia.
 - **Migrations aplicadas: até `0014`** — a **0014 (crédito/saldo) foi APLICADA em produção** (ritual
   completo: dumps + antes + rollback). **0013 (Storage Parte 2) segue NÃO aplicada.** Nada de schema
-  mudou desde a 0014: v58→v60 são **100% front** (banco intocado).
+  mudou desde a 0014: v58→v61 são **100% front** (banco intocado).
 - **Edge Functions no ar (4):** `ler-comprovante`, `importar-erp`, `ler-pagamento`, `gestao-usuarios`.
 
-### Feito em 12/08 — Reorganização da navegação/UX da gestão (v58→v60, só front)
+### Infra/processo resolvido em 13/08
+- **Harness de testes agora VERSIONADO em `tests/`** (`node tests/<arquivo>.test.mjs`, sem segredo) —
+  nunca mais no scratchpad efêmero. O `modal.test.mjs` antigo (430 asserts) vivia só no temp e **se perdeu**
+  entre sessões — **irrecuperável** (nunca esteve no git). Recomeça acumulando no repo: semente
+  `tests/ajustes.test.mjs` (23 asserts); um arquivo por área conforme for mexida. CLAUDE.md §4 atualizado.
+- **`SUPABASE_ACCESS_TOKEN` renovado** — o antigo **expirou** (deu 401 no workflow; token de acesso pessoal
+  do Supabase vale ~1 ano → renovar antes de **ago/2027**). Não era problema de banco.
+- **Banco validado saudável pós pausa/reativação** (pausa por inatividade): consulta read-only OK (HTTP 201)
+  — **0014 intacta** (modo_lancamento, creditos_operador, 4 RPCs) e **dados intactos** (3 empresas, 6 usuários,
+  7 vínculos, 105 lançamentos, 1 crédito; modo: 6 despesa/1 crédito).
+
+### Feito em 12-13/08 — Reorganização da navegação/UX da gestão (v58→v61, só front) — COMPLETA
+- **Lista de feedback de UX ZERADA.** A reorganização inteira (abas, Saldos, Financeiro, Console, Ajustes)
+  está no ar. Resumo por versão abaixo.
 - **v58 — Administração em 6 abas:** `Usuários · Cadastros · Controles · Integração · Plano & IA ·
   Empresa (só dono)`, no padrão de abas (`ADM_ABAS`/`mostrarAbaAdmin`/`restaurarAbaAdmin`, lembra a última
   em `mrd_admin_tab`, chips roláveis no mobile). Só reorganização visual; cada seção manteve sua lógica.
@@ -33,10 +46,11 @@
     e do card da Administração (fim da duplicação).
   - **Manter-tela:** `scFinanceiro` restaurável no refresh + **migração** de valores legados salvos
     (`scMarcar`→Financeiro/Fechamento, `scSaldos`→Financeiro/Saldos).
-- **PENDENTE (próximo, de-para já aprovado) — v61: Ajustes reorganizado em CARTÕES** (`Conta ·
-  Preferências · Pagamento` + **versão em destaque**). Independente da navegação (só reagrupa markup),
-  valida sozinho. É a **última pendência** da reorganização de navegação/UX (fatiado do v60 a pedido do
-  Leandro, para isolar risco: navegação quebrada é pior que tela quebrada).
+- **v61 — Ajustes reorganizado em CARTÕES (FEITO, no ar):** `Conta` (trocar senha + sair) · `Preferências`
+  (tema + contraste + Visualização/escopo só-gestão) · `Pagamento` (PIX) + cartão `Sobre` com a **versão em
+  destaque** (`aj-versao-row`, saiu do rodapé cinza 11px). Só reorganização visual: mesmas funções e ids;
+  `prepararAjustes` inalterado. Fatiado do v60 a pedido do Leandro (isolar risco). **Foi a última pendência
+  da reorganização — navegação/UX agora COMPLETA.**
 
 ### Feito em 12/08 — Sistema de crédito/saldo NO AR e validado (v57, migration 0014)
 - **Crédito/saldo (conta corrente do operador)** — validado no aparelho. **Migration 0014 APLICADA:**
@@ -190,18 +204,23 @@
   lançar **permanece no Novo lançamento** no sucesso (troca `irInicio()` por `irForm('novo')`) + limpa o
   form → **lançar em série**. Erro NÃO limpa; duplicata (hash/documento) barra antes do insert; parcelado ok.
 
-### Fila (grandes — exigem quiz próprio), em ordem sugerida
-> Concluídos e no ar: Conciliação por IA (v48-49), Gestão de usuários (v52-56), Crédito/saldo (v57).
+### Fila restante, em ordem
+> Concluídos e no ar: Conciliação por IA (v48-49), Gestão de usuários (v52-56), Crédito/saldo (v57),
+> **Reorganização de navegação/UX (v58-v61) — COMPLETA**.
 1. **PRIORIDADE — Profissionalizar infra do Reembolsos** (Supabase **Pro** + backups automáticos + **PITR**
    + banco DEV) — o projeto está em plano **SEM backup automático**; pré-requisito antes de escalar clientes.
-   Precisa do Leandro presente.
-2. **Produtos proibidos + desconto automático.**
+   O **token de acesso expirou em 13/08** (deu 401 no workflow, renovado) — mais um sinal de que a infra
+   precisa de atenção antes de escalar. Precisa do Leandro presente.
+2. **Produtos proibidos + desconto automático** (exige quiz próprio).
+3. **Storage Parte 2 (`0013`)** — endurecer a leitura de `pagamentos/`; só depois de testar leitura de
+   comprovante de lote como gestor.
+4. **Validação real da adoção de órfã (v56)** — pendente (ver seção acima).
 
-### Pendências de UX do desktop (adiadas de propósito)
-- **Administração** com "muita coisa solta" → organizar em **submenus**.
-- **Console de Gestão** sai de perto da Administração e vai para o **rodapé do menu**, em lugar próprio, só
-  para o dono (estilo "Sistema de Gestão").
-- Organizar o módulo **Ajustes**.
+### Pendências de UX do desktop — CONCLUÍDAS (v58-v61)
+- ✅ **Administração** organizada em **6 abas** (v58).
+- ✅ **Console de Gestão** movido para o **rodapé do menu**, só dono ("Sistema de Gestão") (v60).
+- ✅ Módulo **Ajustes** reorganizado em **cartões** (v61).
+- ✅ Extras da reorganização: tela **Saldos** (v59) e módulo **Financeiro** com abas Fechamento|Saldos (v60).
 
 ### Ponto aberto (mantido)
 - As **59 linhas** em `lancamentos` com `deleted_at` preenchido — confirmar, **logado como a empresa**, se os
