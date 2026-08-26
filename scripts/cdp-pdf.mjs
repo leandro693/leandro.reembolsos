@@ -36,7 +36,7 @@ async function main(){
   await sleep(600); // fontes/ícones
 
   const mkBox=(txt)=>`<div style="font-size:8px;width:100%;padding:0 12mm;color:#5c5c5f;display:flex;justify-content:space-between;font-family:Segoe UI,Arial,sans-serif;">${txt}</div>`;
-  const header=mkBox(`<span style="color:#DB8438;font-weight:700;letter-spacing:.5px;">MARADEL · Reembolsos</span><span>Handoff Técnico · v61</span>`);
+  const header=mkBox(`<span style="color:#DB8438;font-weight:700;letter-spacing:.5px;">MARADEL · Reembolsos</span><span>Handoff Técnico · v62</span>`);
   const footer=mkBox(`<span>Confidencial — Reembolsos Maradel</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>`);
 
   const { data } = await send('Page.printToPDF',{

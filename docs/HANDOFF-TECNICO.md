@@ -2,7 +2,7 @@
 
 **SaaS multiempresa de reembolso de despesas corporativas, com leitura de comprovantes por IA.**
 
-Versão do produto: **v61** · Estado: **em produção, com usuários e dados reais** · Documento gerado em 13/08/2026.
+Versão do produto: **v62** · Estado: **em produção, com usuários e dados reais** · Documento gerado em 13/08/2026 (revisado no v62).
 
 Este documento é **autossuficiente**: foi escrito para um desenvolvedor profissional que vai assumir o projeto **sem acesso ao autor original nem ao histórico de decisões** — apenas ao código-fonte e a este texto. Ele descreve o que o produto é, como está construído, o modelo de dados real, a segurança, o que falta para virar um produto vendável e a dívida técnica conhecida. Onde há incerteza, o texto marca **"(confirmar)"** em vez de afirmar.
 
@@ -63,7 +63,7 @@ Este documento é **autossuficiente**: foi escrito para um desenvolvedor profiss
 - **Dono do SaaS (`is_owner`)** — a Maradel. Cria empresas, define planos/cotas, acompanha consumo, enxerga todas as empresas.
 - **Empresa contratante** — o cliente. Papéis internos: **gestor** (admin), **financeiro**, **operador**.
 
-**Estado atual (v61).** Em produção com dados reais. Funciona ponta a ponta: cadastro de empresas/usuários, lançamento por foto+IA e manual, parcelamento, consultas/filtros, fechamento com baixa em lote, conciliação de pagamento por IA, sistema de crédito/saldo (conta corrente do operador), aprovação multinível, políticas de limite (alertam), auditoria e quarentena de segurança, integração Omie (aguarda validação com credenciais reais). Ver "estado do banco" na Seção 3 e o `docs/STATUS-SAAS.md`.
+**Estado atual (v62).** Em produção com dados reais. Funciona ponta a ponta: cadastro de empresas/usuários, lançamento por foto+IA e manual, parcelamento, consultas/filtros, fechamento com baixa em lote, conciliação de pagamento por IA, sistema de crédito/saldo (conta corrente do operador), aprovação multinível, políticas de limite (alertam), auditoria e quarentena de segurança, integração Omie (aguarda validação com credenciais reais). Ver "estado do banco" na Seção 3 e o `docs/STATUS-SAAS.md`.
 
 ---
 
@@ -511,16 +511,10 @@ Aplicada em toda função que lê conteúdo externo (`ler-comprovante`, `ler-pag
 - **Chave do front é a anon/publishable** (`sb_publishable_...`), pública por design; sozinha não dá acesso a nada além do que a RLS permite.
 
 ### 7.4 Feito vs. a endurecer
-- **Feito:** anti-injeção + schema + validações + quarentena; RLS por empresa; leitura de comprovantes por empresa (`comp_select`/`pode_ver_comprovante`, 0012); gate por JWT na gestão de usuários; segredos no servidor.
-- **A endurecer (pendências reais):**
+- **Feito:** anti-injeção + schema + validações + quarentena; RLS por empresa; leitura de comprovantes por empresa (`comp_select`/`pode_ver_comprovante`, 0012); gate por JWT na gestão de usuários; segredos no servidor; **gate por JWT nas leitoras de IA/ERP (corrigido no v62 — abaixo)**.
+- **Gate das Edge Functions de IA/ERP — vetor ALTO, FECHADO no v62.** `ler-comprovante`, `ler-pagamento` e `importar-erp` passaram a **derivar a identidade do JWT** (`getCaller` via `/auth/v1/user`, o mesmo padrão da `gestao-usuarios`), **validar o `empresa_id` do corpo por pertencimento** (leitura de IA = membro ativo ou dono; `importar-erp` = gestor ou dono, senão `403 sem_permissao`) e **forçar `usuario_id = caller.id`** (nunca do corpo). *Histórico:* antes do v62, como a chave publishable é pública (embutida no front) e o gateway a aceitava, qualquer visitante do código-fonte podia invocá-las com `empresa_id` arbitrário e **queimar custo/cota do Gemini** e poluir `uso_ia`/`consumo_mensal`/`eventos_seguranca` de outra empresa (não havia vazamento de dados — a RLS protege as leituras). **Verificação pós-deploy (v62):** um `POST` com a **chave publishable, sem sessão**, retorna agora **`401 nao_autenticado`** nas três (antes retornava `400`/executava); o fluxo legítimo (operador logado lançando e lendo comprovante por foto) foi confirmado no app. Banco intocado; testes em `tests/edge-seguranca.test.mjs`.
+- **A endurecer (pendência real):**
   1. **Storage Parte 2 (0013 NÃO aplicada):** hoje `pagamentos/*` pode ser lido por **qualquer autenticado que conheça o path**. Aplicar a 0013 (`pode_ver_pagamento`) após testar leitura de comprovante de lote como gestor.
-  2. **Gate das leitoras de IA/ERP — vetor ALTO (apurado em 13/08/2026).** `ler-comprovante`, `ler-pagamento` e `importar-erp` **não checam o chamador no código** e recebem `empresa_id`/`usuario_id` **do corpo**, sem cruzar com o JWT. Estado real do `verify_jwt` (testado contra a produção):
-     - **`verify_jwt` está LIGADO** (default do Supabase; não há `config.toml`): uma requisição **sem `Authorization` recebe `401 UNAUTHORIZED_NO_AUTH_HEADER`**. Ou seja, **não** é o caso "aberto a qualquer um sem credencial".
-     - **Porém a chave publishable/anon é pública** (está embutida no front, `index.html`/`console.html`) e o gateway a aceita: com ela no header, as três funções **executam** (retornam a validação própria, ex.: `400 "imagem ausente"`). Como não há checagem de chamador nem de pertencimento, **qualquer pessoa que leia o código-fonte do front pode invocá-las** passando um `empresa_id` arbitrário.
-     - **Impacto:** abuso de **custo real do Gemini** e **exaustão da cota de IA** de qualquer empresa; poluição de `uso_ia`/`consumo_mensal`/`eventos_seguranca` com `empresa_id` alheio; disparo de sincronização no `importar-erp` de empresas com integração ativa. **Não** há vazamento de dados do banco (a RLS segue protegendo as leituras) e **credenciais nunca são devolvidas**.
-     - **`gestao-usuarios` NÃO é afetada:** ela valida o **JWT real** do chamador (`/auth/v1/user`) e rejeitou a chave pública com `nao_autenticado`.
-     - **Correção:** derivar `empresa_id`/`usuario_id` **do JWT** dentro das funções e adicionar checagem de pertencimento/papel (o mesmo padrão de `gestao-usuarios`); considerar mover as leitoras para exigir sessão de usuário real (não apenas a chave pública). Ver Seção 8.1.
-  3. **Storage `pagamentos/` (item 1) + o gate acima** são os dois vetores abertos priorizados na Seção 8.1.
 
 ---
 
@@ -533,7 +527,6 @@ Aplicada em toda função que lê conteúdo externo (`ler-comprovante`, `ler-pag
 | **LGPD** | Base legal, política de privacidade, retenção/eliminação, contrato de operador, direitos do titular. Guarda dados fiscais/pessoais de terceiros. |
 | **Cobrança/assinatura** | `planos.preco_mensal` existe mas não há billing. Sem isso não há receita recorrente. |
 | **Onboarding self-service de empresas** | Hoje o dono cria empresa por RPC/console. Para vender em escala, precisa cadastro/ativação self-service. |
-| **Gate das Edge Functions de IA/ERP (`empresa_id` do corpo + chave pública aceita) — ALTO** | `verify_jwt` está ON, mas a **chave publishable é pública** e o gateway a aceita; `ler-comprovante`/`ler-pagamento`/`importar-erp` não checam o chamador e confiam no `empresa_id` do corpo → qualquer visitante do front pode **queimar custo do Gemini e cota de IA de qualquer empresa** e poluir metering/eventos. Apurado em 13/08 (ver Seção 7.4). Corrigir: derivar `empresa_id`/`usuario_id` do JWT + checar pertencimento/papel. |
 | **Endurecer Storage `pagamentos/` (0013 não aplicada)** | `pagamentos/*` legível por qualquer autenticado que conheça o path; aplicar `pode_ver_pagamento` (0013) após testar leitura de lote como gestor. |
 | **Painel do dono do SaaS** | Métricas de consumo/faturamento/saúde por empresa; hoje é básico. |
 
@@ -613,7 +606,7 @@ Aplicada em toda função que lê conteúdo externo (`ler-comprovante`, `ler-pag
 
 **Edge Functions (Deno):** `ler-comprovante` (IA de despesa), `ler-pagamento` (IA de pagamento, Parte B), `gestao-usuarios` (CRUD de usuários com gate por JWT), `importar-erp` (Omie). Todas com CORS `*`; segredos só no servidor.
 
-**Constantes/estado do front:** `APP_VERSION='61'`; cache `reembolsos-maradel-v61-saas`; `SUPABASE_URL`/`SUPABASE_ANON_KEY` hardcoded; gates `veTudo()`/`ehGestor()`/`isOwner`; `SCREENS`, `TELAS_RESTAURAVEIS`; crédito `meuModo`/`creditoUserIds`/`creditoDisponivel`.
+**Constantes/estado do front:** `APP_VERSION='62'`; cache `reembolsos-maradel-v62-saas`; `SUPABASE_URL`/`SUPABASE_ANON_KEY` hardcoded; gates `veTudo()`/`ehGestor()`/`isOwner`; `SCREENS`, `TELAS_RESTAURAVEIS`; crédito `meuModo`/`creditoUserIds`/`creditoDisponivel`.
 
 ## Apêndice D — Checklist de "primeiro dia"
 
@@ -622,7 +615,7 @@ Aplicada em toda função que lê conteúdo externo (`ler-comprovante`, `ler-pag
 3. Rodar `node tests/ajustes.test.mjs` e `node supabase/functions/ler-comprovante/seguranca.test.mjs`.
 4. Ler as migrations `0001`, `0012`, `0013`, `0014` (as mais densas).
 5. Ler as 4 Edge Functions (começar por `gestao-usuarios` e `ler-comprovante`).
-6. Confirmar no painel do Supabase: plano (backup?), secrets. O `verify_jwt` das funções **já foi apurado: ON** (mas com a ressalva da chave pública — ver Seções 7.4/8.1).
+6. Confirmar no painel do Supabase: plano (backup?), secrets. O `verify_jwt` das funções está **ON**; o gate por chamador/pertencimento nas leitoras de IA/ERP foi **adicionado no v62** (ver Seção 7.4).
 7. **Antes de tocar o banco:** planejar Pro + PITR + DEV; nunca rodar SQL destrutivo sem dump + OK.
 8. Entender que a produção sai da branch `claude/app-opinion-u93e9u`.
 9. Solicitar os acessos do **Apêndice E** à Maradel.
