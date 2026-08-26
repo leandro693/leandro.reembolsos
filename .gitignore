@@ -1,0 +1,4 @@
+# Segredos: nunca commitar arquivos de ambiente (chaves/credenciais).
+# Os segredos do projeto vivem em GitHub Secrets e no painel do Supabase, não no repo.
+.env
+.env.*

@@ -1,0 +1,58 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrega — Reembolsos Maradel</title><style>
+:root{ --accent:#DB8438; --accent-2:#B96C28; --ink:#39393B; --ink-2:#5c5c5f; --line:#e4e0da; --bg:#ffffff; --soft:#faf7f2; --code:#f4f1ec; }
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+body{font-family:"Segoe UI",Inter,Roboto,Arial,sans-serif; color:var(--ink); background:var(--bg); line-height:1.55; font-size:11.5pt; margin:0; padding:0 22mm;}
+h1,h2,h3,h4{color:var(--ink); line-height:1.25; font-weight:700;}
+h1{font-size:26pt; margin:0 0 4pt; color:var(--accent);}
+h2{font-size:17pt; margin:26pt 0 8pt; padding-bottom:5pt; border-bottom:2.5px solid var(--accent); }
+h3{font-size:13pt; margin:16pt 0 5pt; color:var(--accent-2);}
+h4{font-size:11.5pt; margin:12pt 0 3pt; color:var(--ink);}
+p{margin:6pt 0;}
+a{color:var(--accent-2); text-decoration:none;}
+code{font-family:"Cascadia Code","Consolas",monospace; background:var(--code); padding:1px 5px; border-radius:4px; font-size:9.5pt; color:#7a3d0b;}
+pre{background:var(--ink); color:#f5f2ec; padding:12px 14px; border-radius:8px; overflow-x:auto; font-size:9pt; line-height:1.45; break-inside:avoid;}
+pre code{background:none; color:inherit; padding:0;}
+ul,ol{margin:6pt 0 6pt 0; padding-left:20pt;}
+li{margin:2.5pt 0;}
+blockquote{margin:8pt 0; padding:7pt 12pt; background:var(--soft); border-left:4px solid var(--accent); color:var(--ink-2); border-radius:0 6px 6px 0;}
+table{border-collapse:collapse; width:100%; margin:9pt 0; font-size:9.5pt; break-inside:avoid;}
+th{background:var(--accent); color:#fff; text-align:left; padding:6px 9px; font-weight:600;}
+td{border:1px solid var(--line); padding:5px 9px; vertical-align:top;}
+tr:nth-child(even) td{background:var(--soft);}
+hr{border:none; border-top:1px solid var(--line); margin:16pt 0;}
+strong{color:var(--ink);}
+/* Cabeçalho/rodapé com título e paginação são injetados pelo Chrome (CDP) na impressão. */
+@media screen{ body{max-width:900px; margin:0 auto; padding:28px;} }
+@page{ size:A4; margin:20mm 0 18mm; }
+.capa{break-after:page; padding-top:32mm;}
+.capa .sub{color:var(--ink-2); font-size:13pt; margin-top:2pt;}
+.capa .badge{display:inline-block; margin-top:14pt; background:var(--accent); color:#fff; padding:4px 12px; border-radius:20px; font-size:10pt; font-weight:600;}
+.capa .meta{margin-top:20pt; font-size:10pt; color:var(--ink-2);}
+
+/* Modo compacto (docs curtos como ENTREGA): mais denso p/ caber em 1-2 páginas. */
+body{font-size:10pt; padding:0 16mm;}
+h1{font-size:20pt;} h2{font-size:13.5pt; margin:12pt 0 5pt;} h3{font-size:11.5pt; margin:9pt 0 3pt;}
+p{margin:4pt 0;} li{margin:1.5pt 0;} ul,ol{margin:4pt 0;}
+</style></head><body>
+<h1 id="entrega-reembolsos-maradel">Entrega — Reembolsos Maradel</h1>
+<p><strong>Leia primeiro.</strong> Este é o mapa da transição; o <strong>território</strong> (detalhe técnico completo) está em <code>docs/HANDOFF-TECNICO.md</code> (e <code>.pdf</code>). Versão em produção: <strong>v62</strong>.</p>
+<h2 id="contexto">Contexto</h2>
+<p>Reembolsos Maradel é um <strong>SaaS multiempresa (PWA)</strong> de <strong>gestão de reembolso de despesas corporativas</strong> com <strong>leitura de comprovantes por IA</strong>: o colaborador fotografa a nota/cupom/comprovante, a IA lê e pré-preenche o lançamento, e a gestão controla a pagar/receber, vencimentos, aprovações e o fechamento (baixa em lote com comprovante). Já está <strong>em produção, com usuários e dados reais</strong> (empresa-mãe: Maradel Assessoria e Consultoria Contábil). Front vanilla (HTML/CSS/JS, sem framework) no GitHub Pages; backend Supabase (Postgres + Auth + Edge Functions + Storage); IA Google Gemini.</p>
+<h2 id="o-que-está-feito-funciona-hoje">O que está feito (funciona hoje)</h2>
+<ul><li><strong>Núcleo:</strong> lançar despesa (manual e por <strong>foto + IA</strong>), parcelamento, consultas/filtros, exportação, baixa e estorno, auditoria automática.</li><li><strong>IA de comprovante:</strong> leitura por Gemini com blindagem anti-injeção (Seção 7 do handoff).</li><li><strong>Conciliação por IA no Fechamento:</strong> lê o comprovante de pagamento e <strong>propõe</strong> o casamento (a pessoa decide; nunca baixa automática).</li><li><strong>Gestão de usuários:</strong> criar/editar/ativar/senha provisória/link, com gate por JWT no backend.</li><li><strong>Crédito/saldo (conta corrente do operador):</strong> modo por operador, crédito avulso, saldo = créditos − despesas.</li><li><strong>Navegação/UX:</strong> Administração em abas, módulo Financeiro (Fechamento | Saldos), Console de Gestão (só dono), Ajustes em cartões, PWA offline pela casca.</li><li><strong>Segurança:</strong> RLS por empresa; anti-injeção de prompt + quarentena; <strong>gate por JWT nas Edge Functions de IA/ERP</strong> (empresa validada por pertencimento — corrigido no v62); segredos só no servidor.</li></ul>
+<h2 id="o-que-falta-para-vender-prioridades">O que falta para vender (prioridades)</h2>
+<ol><li><strong>Infra profissional — nº 1:</strong> Supabase <strong>Pro + backup automático + PITR + banco DEV</strong> (hoje <strong>sem backup</strong> e sem ambiente de desenvolvimento). Handoff §3, §8.1, §10.</li><li><strong>Storage Parte 2 (migration <code>0013</code>):</strong> endurecer a leitura de <code>pagamentos/</code>. Handoff §7.4.</li><li><strong>LGPD:</strong> base legal, política de privacidade, retenção, contrato de operador. Handoff §8.1.</li><li><strong>Cobrança/assinatura:</strong> billing (os planos existem no banco, sem cobrança). Handoff §8.1.</li><li><strong>Onboarding self-service de empresas</strong> (+ painel do dono do SaaS). Handoff §8.1.</li></ol>
+<h2 id="como-começar-primeiros-passos-do-dev">Como começar (primeiros passos do dev)</h2>
+<ol><li>Ler <code>docs/HANDOFF-TECNICO.md</code> — <strong>Seções 1 a 4</strong> (produto, arquitetura, banco, perfis) e o <strong>Apêndice D</strong> (checklist de primeiro dia).</li><li>Servir a pasta estática e abrir <code>index.html</code> (não abrir por <code>file://</code> — quebra o service worker).</li><li>Rodar os testes (sem segredo): <code>node tests/ajustes.test.mjs</code>, <code>node tests/edge-seguranca.test.mjs</code>, <code>node supabase/functions/ler-comprovante/seguranca.test.mjs</code>.</li><li>Solicitar os <strong>acessos</strong> (abaixo / Apêndice E do handoff).</li></ol>
+<h2 id="acessos-o-dev-recebe-por-convitecanal-seguro-nada-disso-vem-no-zip">Acessos (o dev recebe por convite/canal seguro — nada disso vem no zip)</h2>
+<ul><li><strong>Supabase</strong> (projeto <code>fwoupyqojfxpipvidvsx</code>) — convite como membro/admin.</li><li><strong>GitHub</strong> (<code>leandro693/leandro.reembolsos</code>) — acesso de escrita.</li><li><strong>GitHub Secrets</strong> já configurados (<code>SUPABASE_ACCESS_TOKEN</code> — expira ~1 ano; <code>TEAM_INITIAL_PASSWORD</code>) — combinar quem repassa/rotaciona.</li><li><strong><code>GEMINI_API_KEY</code></strong> (secret da função no painel Supabase).</li><li><strong>Credenciais Omie</strong> (<code>app_key</code>/<code>app_secret</code>) — só ao validar o ERP.</li><li><strong>Usuário real de cada papel</strong> (operador/financeiro/gestor) + <strong>login de dono</strong> para testar.</li></ul>
+<blockquote>Detalhe completo dos acessos no <strong>Apêndice E</strong> do handoff. As credenciais <strong>não</strong> estão no repositório (auditoria de segredos aprovada).</blockquote>
+<h2 id="estado-técnico-resumo">Estado técnico (resumo)</h2>
+<ul><li><strong>Versão no ar:</strong> v62 (<code>sw.js</code> cache <code>v62</code> + <code>APP_VERSION</code> 62).</li><li><strong>Branch publicada:</strong> <strong><code>claude/app-opinion-u93e9u</code></strong> (é a que o GitHub Pages e os workflows publicam — <strong>não</strong> é a <code>main</code>; planejar a promoção para <code>main</code>).</li><li><strong>Migrations aplicadas:</strong> até <code>0014</code> (a <code>0013</code> de Storage está pendente de propósito).</li><li><strong>Infra:</strong> <strong>sem backup automático hoje</strong> (plano free) — ver prioridade nº 1.</li><li><strong>Deploy:</strong> push publica front (Pages) e Edge Functions; <strong>migrations só por workflow manual</strong>.</li></ul>
+<h2 id="contato-handoff">Contato / handoff</h2>
+<p><strong>Transição por documentação.</strong> O código, o <code>HANDOFF-TECNICO</code> e este documento cobrem o necessário para assumir o projeto de forma autônoma. Não há suporte contínuo previsto; dúvidas <strong>pontuais de bloqueio</strong> podem ser encaminhadas à Maradel pelo canal combinado.</p>
+
+</body></html>

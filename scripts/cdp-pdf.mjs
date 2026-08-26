@@ -1,14 +1,19 @@
-// Gera docs/HANDOFF-TECNICO.pdf via Chrome DevTools Protocol (Page.printToPDF),
-// com header/footer (título + paginação) na identidade Maradel. Node 24 (WebSocket nativo).
+// Gera docs/<NOME>.pdf via Chrome DevTools Protocol (Page.printToPDF), com header/footer
+// (título + paginação) na identidade Maradel. Node 24 (WebSocket nativo).
+// Uso: node cdp-pdf.mjs [NOME] [TÍTULO-HEADER]
+//   NOME          = basename em docs/ (default HANDOFF-TECNICO)
+//   TÍTULO-HEADER = texto à direita do cabeçalho (default "Handoff Técnico · v62")
 import { spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');   // scripts/ -> raiz do repo
+const NAME = process.argv[2] || 'HANDOFF-TECNICO';
+const HTITLE = process.argv[3] || 'Handoff Técnico · v62';
 // Caminho do Chrome: env CHROME_PATH tem prioridade; fallback para o padrão do Windows.
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const URL = pathToFileURL(join(ROOT, 'docs/HANDOFF-TECNICO.html')).href;
-const OUT = join(ROOT, 'docs/HANDOFF-TECNICO.pdf');
+const URL = pathToFileURL(join(ROOT, `docs/${NAME}.html`)).href;
+const OUT = join(ROOT, `docs/${NAME}.pdf`);
 const PORT=9333;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -36,7 +41,7 @@ async function main(){
   await sleep(600); // fontes/ícones
 
   const mkBox=(txt)=>`<div style="font-size:8px;width:100%;padding:0 12mm;color:#5c5c5f;display:flex;justify-content:space-between;font-family:Segoe UI,Arial,sans-serif;">${txt}</div>`;
-  const header=mkBox(`<span style="color:#DB8438;font-weight:700;letter-spacing:.5px;">MARADEL · Reembolsos</span><span>Handoff Técnico · v62</span>`);
+  const header=mkBox(`<span style="color:#DB8438;font-weight:700;letter-spacing:.5px;">MARADEL · Reembolsos</span><span>${HTITLE}</span>`);
   const footer=mkBox(`<span>Confidencial — Reembolsos Maradel</span><span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span>`);
 
   const { data } = await send('Page.printToPDF',{
@@ -45,7 +50,7 @@ async function main(){
   });
   writeFileSync(OUT, Buffer.from(data,'base64'));
   const kb=Math.round(Buffer.from(data,'base64').length/1024);
-  console.log(`PDF OK (CDP): docs/HANDOFF-TECNICO.pdf (${kb} KB)`);
+  console.log(`PDF OK (CDP): docs/${NAME}.pdf (${kb} KB)`);
   ws.close();
 }
 main().then(()=>{ chrome.kill(); process.exit(0); }).catch(e=>{ console.error('FALHA:', e.message); chrome.kill(); process.exit(1); });

@@ -1,12 +1,18 @@
-// Gera docs/HANDOFF-TECNICO.html a partir de docs/HANDOFF-TECNICO.md.
+// Gera docs/<NOME>.html a partir de docs/<NOME>.md. Identidade Maradel + CSS de impressão.
 // Conversor GFM (subset): headings, parágrafos, bold, inline code, code fences,
-// listas (ul/ol), tabelas, blockquote, hr, links. Identidade Maradel + CSS de impressão.
-// Uso: node build-handoff.mjs
+// listas (ul/ol), tabelas, blockquote, hr, links.
+// Uso: node build-handoff.mjs [NOME] [TÍTULO] [--compact]
+//   NOME   = basename do doc em docs/ (default HANDOFF-TECNICO)
+//   TÍTULO = <title> do HTML (default "Handoff Técnico — Reembolsos Maradel")
+//   --compact = sem quebra de página forçada por seção (para docs curtos, ex.: ENTREGA)
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');   // scripts/ -> raiz do repo
-const md = readFileSync(join(ROOT, 'docs/HANDOFF-TECNICO.md'), 'utf8');
+const NAME = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'HANDOFF-TECNICO';
+const TITLE = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : 'Handoff Técnico — Reembolsos Maradel';
+const COMPACT = process.argv.includes('--compact');
+const md = readFileSync(join(ROOT, `docs/${NAME}.md`), 'utf8');
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 // inline: `code` (primeiro, protege), **bold**, [txt](url)
@@ -63,7 +69,7 @@ html{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
 body{font-family:"Segoe UI",Inter,Roboto,Arial,sans-serif; color:var(--ink); background:var(--bg); line-height:1.55; font-size:11.5pt; margin:0; padding:0 22mm;}
 h1,h2,h3,h4{color:var(--ink); line-height:1.25; font-weight:700;}
 h1{font-size:26pt; margin:0 0 4pt; color:var(--accent);}
-h2{font-size:17pt; margin:26pt 0 8pt; padding-bottom:5pt; border-bottom:2.5px solid var(--accent); break-before:page;}
+h2{font-size:17pt; margin:26pt 0 8pt; padding-bottom:5pt; border-bottom:2.5px solid var(--accent); ${COMPACT?'':'break-before:page;'}}
 h3{font-size:13pt; margin:16pt 0 5pt; color:var(--accent-2);}
 h4{font-size:11.5pt; margin:12pt 0 3pt; color:var(--ink);}
 p{margin:6pt 0;}
@@ -87,12 +93,17 @@ strong{color:var(--ink);}
 .capa .sub{color:var(--ink-2); font-size:13pt; margin-top:2pt;}
 .capa .badge{display:inline-block; margin-top:14pt; background:var(--accent); color:#fff; padding:4px 12px; border-radius:20px; font-size:10pt; font-weight:600;}
 .capa .meta{margin-top:20pt; font-size:10pt; color:var(--ink-2);}
-`;
-const titulo='Handoff Técnico — Reembolsos Maradel';
+${COMPACT ? `
+/* Modo compacto (docs curtos como ENTREGA): mais denso p/ caber em 1-2 páginas. */
+body{font-size:10pt; padding:0 16mm;}
+h1{font-size:20pt;} h2{font-size:13.5pt; margin:12pt 0 5pt;} h3{font-size:11.5pt; margin:9pt 0 3pt;}
+p{margin:4pt 0;} li{margin:1.5pt 0;} ul,ol{margin:4pt 0;}
+` : ''}`;
+const titulo=TITLE;
 const out=`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${titulo}</title><style>${CSS}</style></head><body>
 ${html}
 </body></html>`;
-writeFileSync(join(ROOT, 'docs/HANDOFF-TECNICO.html'), out, 'utf8');
-console.log('HTML gerado: docs/HANDOFF-TECNICO.html ('+Math.round(out.length/1024)+' KB)');
+writeFileSync(join(ROOT, `docs/${NAME}.html`), out, 'utf8');
+console.log(`HTML gerado: docs/${NAME}.html (${Math.round(out.length/1024)} KB)`);
