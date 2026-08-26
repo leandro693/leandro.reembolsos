@@ -73,8 +73,8 @@ const aj = grab(src, /<section id="scAjustes"[\s\S]*?<\/section>/);
   ok('8 seções de tela (Ajustes continua UMA section)', idsScreen.length===8 && idsScreen.includes('scAjustes'));
   const appV=(src.match(/const APP_VERSION\s*=\s*'(\d+)'/)||[])[1];
   const swV=(sw.match(/reembolsos-maradel-v(\d+)-saas/)||[])[1];
-  ok('APP_VERSION = 61', appV==='61');
-  ok('sw.js = v61', swV==='61');
+  ok('APP_VERSION = 62', appV==='62');
+  ok('sw.js = v62', swV==='62');
   ok('APP_VERSION == cache do SW', appV===swV);
 
   console.log(f===0 ? '\n=== TODOS OS TESTES OK ===' : `\n=== ${f} FALHA(S) ===`);

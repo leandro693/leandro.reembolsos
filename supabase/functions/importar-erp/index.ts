@@ -1,5 +1,7 @@
 // ============================================================================
 // Edge Function: importar-erp  (SaaS — integração com sistemas de gestão)
+// v62 (2026-08-13) — SEGURANÇA: identidade derivada do JWT do chamador (getCaller);
+//   empresa_id validado por pertencimento (exige GESTOR ativo ou dono). Não confia no corpo.
 // Busca as categorias no ERP do cliente (Omie hoje; estrutura pronta para
 // outros ERPs) e as importa para a empresa. As credenciais do ERP ficam
 // no servidor (tabela integracoes_erp, lida com service role); o app nunca
@@ -15,6 +17,7 @@
 
 const SUPA_URL    = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON_KEY    = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -42,6 +45,39 @@ async function restSend(method: string, path: string, body: unknown, prefer = ""
     body: JSON.stringify(body),
   });
   return r.ok;
+}
+
+// ---- GATE por JWT (v62): replica o padrão da Edge Function gestao-usuarios -----
+async function getCaller(token: string) {
+  if (!token) return null;
+  try {
+    const r = await fetch(`${SUPA_URL}/auth/v1/user`, {
+      headers: { apikey: ANON_KEY || SERVICE_KEY, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return null;
+    return await r.json().catch(() => null);
+  } catch { return null; }
+}
+async function restCaller(path: string) {
+  if (!SUPA_URL || !SERVICE_KEY) return null;
+  try {
+    const r = await fetch(`${SUPA_URL}/rest/v1/${path}`, {
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+    });
+    if (!r.ok) return null;
+    return await r.json().catch(() => null);
+  } catch { return null; }
+}
+async function autorizarEmpresa(callerId: string, empresaId: string, exigeGestor = false):
+  Promise<{ ok: boolean; status?: number; erro?: string }> {
+  if (!empresaId) return { ok: false, status: 400, erro: "empresa_ausente" };
+  const ow = await restCaller(`usuarios?id=eq.${callerId}&select=is_owner`);
+  if (Array.isArray(ow) && ow[0]?.is_owner === true) return { ok: true };
+  const vr = await restCaller(`empresa_usuarios?empresa_id=eq.${empresaId}&usuario_id=eq.${callerId}&select=papel,ativo`);
+  const v = Array.isArray(vr) ? vr[0] : null;
+  if (!v || v.ativo === false) return { ok: false, status: 403, erro: "sem_permissao" };
+  if (exigeGestor && v.papel !== "gestor") return { ok: false, status: 403, erro: "sem_permissao" };
+  return { ok: true };
 }
 
 // normaliza nome para casar categorias (sem acento, minúsculo, sem espaços extra)
@@ -98,6 +134,14 @@ Deno.serve(async (req) => {
   const provedor  = String(body.provedor ?? "omie").toLowerCase();
   if (!empresaId) return json({ erro: "Empresa não informada" }, 400);
   if (provedor !== "omie") return json({ erro: "ERP ainda não suportado" }, 400);
+
+  // GATE (v62): identidade do JWT; empresa exige GESTOR ativo ou dono (alinha com a RLS de integracoes_erp).
+  const auth = req.headers.get("Authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const caller = await getCaller(token);
+  if (!caller || !caller.id) return json({ erro: "nao_autenticado" }, 401);
+  const gate = await autorizarEmpresa(caller.id, empresaId, true);   // importar ERP: só gestor ou dono
+  if (!gate.ok) return json({ erro: gate.erro }, gate.status || 403);
 
   // 1) Credenciais da integração (só o servidor lê o segredo).
   const cfgArr = await restGet(
