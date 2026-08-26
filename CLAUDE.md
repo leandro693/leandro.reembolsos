@@ -138,9 +138,12 @@ antifraude, migração do modelo de parcelas, criar login de gestor pelo app.
   `brDate()`, `esc()`, `el()`, `icons()`, `toast()`, `carregando()`.
 - **Ícones** Lucide (`data-lucide=...`); após injetar HTML novo, chame `icons()`
   (`lucide.createIcons()`), senão o ícone fica em branco.
-- **Testes** (harness Playwright no scratchpad, fora do repo): `stub.js` mocka o
-  Supabase; `test.mjs` cobre o app; `console.test.mjs` cobre o console;
-  `seguranca.test.mjs` cobre injeção/CNPJ. Rodar com `node` do Playwright.
+- **Testes** — **harness VERSIONADO em `tests/`** (nunca mais no scratchpad: um harness
+  cumulativo já se perdeu por viver só no temp). São checagens por regex/estrutura sobre
+  `index.html`/`sw.js`, sem segredo: `node tests/<arquivo>.test.mjs`. Semente: `tests/ajustes.test.mjs`
+  (Ajustes em cartões, v61); adicionar um arquivo por área conforme for mexida (Fechamento, Saldos,
+  crédito, abas, gestão de usuários, IA…). Além disso, `supabase/functions/ler-comprovante/seguranca.test.mjs`
+  cobre injeção/CNPJ da IA. Ao criar/alterar UI, adicione/rode o teste da área tocada.
 - Ao mexer na UI, **suba o cache do `sw.js`**.
 
 ## 5. Convenções de migrations

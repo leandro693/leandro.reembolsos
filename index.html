@@ -650,6 +650,9 @@ nav.bottom button.fab>span:last-child{color:var(--accent)}
 .saldo-op .so-acts{display:flex;gap:8px;flex-wrap:wrap}
 .saldo-op .so-acts .btn-compact{flex:1;min-width:120px;justify-content:center}
 .btn-compact.ghost{background:transparent}
+/* Ajustes (v61): linha da versão em destaque no cartão "Sobre". */
+.aj-versao-row{display:flex;align-items:center;justify-content:space-between;padding:2px 0}
+.aj-versao-row b{font-size:15px;color:var(--text-strong)}
 /* Administração em abas: chips roláveis (mobile) + painéis (mostra/esconde). */
 .adm-tabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .adm-tabs::-webkit-scrollbar{display:none}
@@ -1114,72 +1117,92 @@ body.nav-open .nav-backdrop{display:block}
     </section>
 
     <!-- AJUSTES -->
+    <!-- AJUSTES (v61): reorganizado em CARTÕES (Conta · Preferências · Pagamento) + versão em destaque.
+         Só reorganização visual: mesmas funções e mesmos ids; prepararAjustes inalterado. -->
     <section id="scAjustes" class="screen hidden">
-      <h2 class="pagetitle">Ajustes</h2>
-      <p class="pagesub" id="ajustesUser">-</p>
-
-      <div class="seclbl">Aparência</div>
-      <div class="optgrid">
-        <div class="optcard" id="tcLight" onclick="setTema('light')">
-          <i data-lucide="check-circle-2" class="i-sm ck"></i>
-          <i data-lucide="sun" class="i-md"></i><div class="t">Claro</div><div class="s">Fundo off-white</div>
-        </div>
-        <div class="optcard" id="tcDark" onclick="setTema('dark')">
-          <i data-lucide="check-circle-2" class="i-sm ck"></i>
-          <i data-lucide="moon" class="i-md"></i><div class="t">Escuro</div><div class="s">Fundo grafite</div>
-        </div>
-        <div class="optcard" id="tcBlack" onclick="setTema('black')">
-          <i data-lucide="check-circle-2" class="i-sm ck"></i>
-          <i data-lucide="circle" class="i-md"></i><div class="t">Preto</div><div class="s">Fundo preto puro</div>
-        </div>
-      </div>
-      <div class="optgrid mt10">
-        <div class="optcard" id="dcNormal" onclick="setDensidade('normal')">
-          <i data-lucide="check-circle-2" class="i-sm ck"></i>
-          <div class="t">Contraste normal</div><div class="s">Listas limpas</div>
-        </div>
-        <div class="optcard" id="dcReforcado" onclick="setDensidade('reforcado')">
-          <i data-lucide="check-circle-2" class="i-sm ck"></i>
-          <div class="t">Reforçado</div><div class="s">Mais separação</div>
-        </div>
+      <div class="page-head">
+        <div><h2 class="pagetitle">Ajustes</h2>
+          <p class="pagesub" id="ajustesUser">-</p></div>
       </div>
 
-      <div class="divider hidden" id="secVisualDiv"></div>
-      <div id="secVisual" class="hidden">
-        <div class="seclbl">Visualização</div>
-        <p class="pagesub" style="margin-top:-4px">Escolha ver todos os reembolsos ou focar só nos seus.</p>
-        <div class="seg">
-          <button type="button" id="cfgEscMeus" onclick="setEscopo('meus')">Só os meus</button>
-          <button type="button" id="cfgEscTodos" onclick="setEscopo('todos')">De todos</button>
+      <!-- Cartão CONTA: segurança (trocar senha) + sair -->
+      <div class="chart">
+        <div class="ch-head"><h3><i data-lucide="user" class="i-sm"></i> Conta</h3></div>
+        <div class="seclbl">Segurança</div>
+        <p class="pagesub" style="margin-top:-4px">Troque sua senha de acesso quando quiser.</p>
+        <div class="row2">
+          <div class="field"><label>Nova senha</label>
+            <input type="password" id="cfgSenha1" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
+          <div class="field"><label>Repetir senha</label>
+            <input type="password" id="cfgSenha2" placeholder="repita" autocomplete="new-password"></div>
         </div>
-        <p class="pagesub" style="margin-top:10px;color:var(--text-4)">Fechamento do mês, Administração e Console de Gestão agora ficam no menu lateral.</p>
+        <label class="chk-line"><input type="checkbox" id="cfgSenhaVer" onchange="verSenha(this.checked)"> Mostrar senha</label>
+        <button class="btn btn-primary mt10" onclick="alterarSenha()"><i data-lucide="key-round" class="i-md"></i> Alterar senha</button>
+        <div class="divider"></div>
+        <button class="btn btn-danger" onclick="sair()"><i data-lucide="log-out" class="i-md"></i> Sair da conta</button>
       </div>
 
-      <div class="divider"></div>
-      <div class="seclbl">Dados de pagamento (PIX)</div>
-      <p class="pagesub" style="margin-top:-4px">Usados no rodapé do PDF enviado ao financeiro.</p>
-      <div class="field"><label>Tipo de chave</label>
-        <select id="cfgPixTipo"><option>CPF</option><option>CNPJ</option><option>E-mail</option><option>Telefone</option><option>Aleatória</option></select></div>
-      <div class="field"><label>Chave PIX</label><input type="text" id="cfgPixChave" placeholder="Sua chave"></div>
-      <div class="field"><label>Nome do favorecido</label><input type="text" id="cfgPixNome" placeholder="Nome completo"></div>
-      <div class="field"><label>Banco</label><input type="text" id="cfgPixBanco" placeholder="Ex.: Nubank, Itaú"></div>
-      <button class="btn btn-primary" onclick="salvarPix()"><i data-lucide="save" class="i-md"></i> Salvar dados</button>
-
-      <div class="divider"></div>
-      <div class="seclbl">Segurança</div>
-      <p class="pagesub" style="margin-top:-4px">Troque sua senha de acesso quando quiser.</p>
-      <div class="row2">
-        <div class="field"><label>Nova senha</label>
-          <input type="password" id="cfgSenha1" placeholder="mínimo 6 caracteres" autocomplete="new-password"></div>
-        <div class="field"><label>Repetir senha</label>
-          <input type="password" id="cfgSenha2" placeholder="repita" autocomplete="new-password"></div>
+      <!-- Cartão PREFERÊNCIAS: aparência (tema + contraste) + visualização (escopo, só-gestão) -->
+      <div class="chart">
+        <div class="ch-head"><h3><i data-lucide="palette" class="i-sm"></i> Preferências</h3></div>
+        <div class="seclbl">Aparência</div>
+        <div class="optgrid">
+          <div class="optcard" id="tcLight" onclick="setTema('light')">
+            <i data-lucide="check-circle-2" class="i-sm ck"></i>
+            <i data-lucide="sun" class="i-md"></i><div class="t">Claro</div><div class="s">Fundo off-white</div>
+          </div>
+          <div class="optcard" id="tcDark" onclick="setTema('dark')">
+            <i data-lucide="check-circle-2" class="i-sm ck"></i>
+            <i data-lucide="moon" class="i-md"></i><div class="t">Escuro</div><div class="s">Fundo grafite</div>
+          </div>
+          <div class="optcard" id="tcBlack" onclick="setTema('black')">
+            <i data-lucide="check-circle-2" class="i-sm ck"></i>
+            <i data-lucide="circle" class="i-md"></i><div class="t">Preto</div><div class="s">Fundo preto puro</div>
+          </div>
+        </div>
+        <div class="optgrid mt10">
+          <div class="optcard" id="dcNormal" onclick="setDensidade('normal')">
+            <i data-lucide="check-circle-2" class="i-sm ck"></i>
+            <div class="t">Contraste normal</div><div class="s">Listas limpas</div>
+          </div>
+          <div class="optcard" id="dcReforcado" onclick="setDensidade('reforcado')">
+            <i data-lucide="check-circle-2" class="i-sm ck"></i>
+            <div class="t">Reforçado</div><div class="s">Mais separação</div>
+          </div>
+        </div>
+        <div class="divider hidden" id="secVisualDiv"></div>
+        <div id="secVisual" class="hidden">
+          <div class="seclbl">Visualização</div>
+          <p class="pagesub" style="margin-top:-4px">Escolha ver todos os reembolsos ou focar só nos seus.</p>
+          <div class="seg">
+            <button type="button" id="cfgEscMeus" onclick="setEscopo('meus')">Só os meus</button>
+            <button type="button" id="cfgEscTodos" onclick="setEscopo('todos')">De todos</button>
+          </div>
+        </div>
       </div>
-      <label class="chk-line"><input type="checkbox" id="cfgSenhaVer" onchange="verSenha(this.checked)"> Mostrar senha</label>
-      <button class="btn btn-primary mt10" onclick="alterarSenha()"><i data-lucide="key-round" class="i-md"></i> Alterar senha</button>
 
-      <div class="divider"></div>
-      <button class="btn btn-danger" onclick="sair()"><i data-lucide="log-out" class="i-md"></i> Sair da conta</button>
-      <div class="foot" style="text-align:center;color:var(--text-4);font-size:11px;margin-top:16px">Maradel Assessoria e Consultoria Contábil<br><span id="ajVersao">Versão -</span></div>
+      <!-- Cartão PAGAMENTO: dados PIX -->
+      <div class="chart">
+        <div class="ch-head"><h3><i data-lucide="banknote" class="i-sm"></i> Pagamento</h3></div>
+        <div class="seclbl">Dados de pagamento (PIX)</div>
+        <p class="pagesub" style="margin-top:-4px">Usados no rodapé do PDF enviado ao financeiro.</p>
+        <div class="field"><label>Tipo de chave</label>
+          <select id="cfgPixTipo"><option>CPF</option><option>CNPJ</option><option>E-mail</option><option>Telefone</option><option>Aleatória</option></select></div>
+        <div class="field"><label>Chave PIX</label><input type="text" id="cfgPixChave" placeholder="Sua chave"></div>
+        <div class="field"><label>Nome do favorecido</label><input type="text" id="cfgPixNome" placeholder="Nome completo"></div>
+        <div class="field"><label>Banco</label><input type="text" id="cfgPixBanco" placeholder="Ex.: Nubank, Itaú"></div>
+        <button class="btn btn-primary" onclick="salvarPix()"><i data-lucide="save" class="i-md"></i> Salvar dados</button>
+      </div>
+
+      <!-- Cartão SOBRE: versão em destaque (ajVersao já traz o texto "Versão N" via mostrarVersao) -->
+      <div class="chart">
+        <div class="ch-head"><h3><i data-lucide="info" class="i-sm"></i> Sobre</h3></div>
+        <div class="aj-versao-row">
+          <span class="pagesub" style="margin:0">Aplicativo</span>
+          <b id="ajVersao" class="num">Versão -</b>
+        </div>
+        <p class="pagesub" style="margin-top:8px">Maradel Assessoria e Consultoria Contábil</p>
+      </div>
     </section>
 
     <!-- FORNECEDORES -->
@@ -1313,7 +1336,7 @@ body.nav-open .nav-backdrop{display:block}
    ========================================================================== */
 const SUPABASE_URL      = 'https://fwoupyqojfxpipvidvsx.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rnAxVaxV_SJAH8wmoRUu6Q_5fhe7IQU';
-const APP_VERSION       = '60';   // versão do app (bump JUNTO com o cache do sw.js)
+const APP_VERSION       = '61';   // versão do app (bump JUNTO com o cache do sw.js)
 const VALOR_KM = 1.00; // R$ por km rodado
 
 /* ===== Estado ===== */
